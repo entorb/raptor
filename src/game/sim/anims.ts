@@ -124,29 +124,30 @@ export function startEAnim(w: World, en: Ship, h: number, x: number, y: number):
 export function animsThink(w: World): void {
   for (let i = 0; i < w.anims.length; i++) {
     const cur = w.anims[i] as AnimObj
-    const lib = cur.lib
-    if (cur.curframe >= lib.numframes) {
-      w.anims.splice(i--, 1)
-      continue
-    }
-    if (lib.playerflag) {
-      cur.dx = w.player_cx + cur.x
-      cur.dy = w.player_cy + cur.y
-    } else if (cur.en) {
-      if (cur.en.removed) cur.edone = true
-      if (!cur.edone) {
-        cur.dx = cur.en.move.x + cur.x
-        cur.dy = cur.en.move.y + cur.y
-      }
-    } else {
-      cur.dx = cur.x
-      cur.dy = cur.y
-    }
-    // DOS applies the direction twice (switch + adir table)
-    if (lib.adir === 2) cur.y++
-    else if (lib.adir === 1) cur.y--
-    cur.y += ADIR[lib.adir] as number
-    if (lib.layer === "ground" && w.tiles.scroll_flag) cur.y++
-    cur.curframe++
+    if (cur.curframe >= cur.lib.numframes) w.anims.splice(i--, 1)
+    else stepAnim(w, cur)
   }
+}
+
+function stepAnim(w: World, cur: AnimObj): void {
+  const lib = cur.lib
+  if (lib.playerflag) {
+    cur.dx = w.player_cx + cur.x
+    cur.dy = w.player_cy + cur.y
+  } else if (cur.en) {
+    if (cur.en.removed) cur.edone = true
+    if (!cur.edone) {
+      cur.dx = cur.en.move.x + cur.x
+      cur.dy = cur.en.move.y + cur.y
+    }
+  } else {
+    cur.dx = cur.x
+    cur.dy = cur.y
+  }
+  // DOS applies the direction twice (switch + adir table)
+  if (lib.adir === 2) cur.y++
+  else if (lib.adir === 1) cur.y--
+  cur.y += ADIR[lib.adir] as number
+  if (lib.layer === "ground" && w.tiles.scroll_flag) cur.y++
+  cur.curframe++
 }

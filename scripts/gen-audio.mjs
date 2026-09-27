@@ -469,6 +469,97 @@ const RHYTHMS = [
   ],
 ]
 
+/** Lead motif: rhythm + scale-degree contour (re-fitted to each chord when played). */
+function makeMotif(r) {
+  const rh = RHYTHMS[Math.floor(r() * RHYTHMS.length)]
+  let d = Math.floor(r() * 3) * 2
+  return rh.map(([s, l], k) => {
+    if (k) d += [-2, -1, -1, 1, 1, 2, 3, -3][Math.floor(r() * 8)]
+    d = Math.max(-2, Math.min(9, d))
+    return [s, l, d]
+  })
+}
+
+function padPart(c, ch, bar, left) {
+  const len = Math.min(2, left) * 16
+  for (const n of ch) c.add("pad", bar, 0, len, c.spec.root + 12 + n, 0.7)
+}
+
+function bassPart(c, ch, bar) {
+  const { spec } = c
+  BASS[spec.bass].forEach((s, k, a) => {
+    const len = (a[k + 1] ?? 16) - s
+    const oct = spec.bass === "eighth" && k % 4 === 3 ? 12 : 0
+    c.add(
+      "bass",
+      bar,
+      s,
+      Math.max(1, len - 0.3),
+      spec.root - 12 + ch[0] + oct,
+      s % 4 === 0 ? 1 : 0.8,
+    )
+  })
+}
+
+function arpPart(c, ch, bar) {
+  const { spec, r } = c
+  const pool = [...ch.map((n) => n + 24), ...ch.map((n) => n + 36)]
+  for (let s = 0; s < 16; s++) {
+    let n
+    if (spec.arp === "random") n = pool[Math.floor(r() * pool.length)]
+    else if (spec.arp === "updown") n = pool[[0, 1, 2, 3, 4, 5, 4, 3, 2, 1][(bar * 16 + s) % 10]]
+    else n = pool[s % pool.length]
+    c.add("pluck", bar, s, 1, spec.root + n - 12, s % 4 === 0 ? 0.9 : 0.6)
+  }
+}
+
+/** Lead phrase (8 bars: A A B A) over the next `left` (max 2) bars. */
+function leadPart(c, cd, bar, left) {
+  const { spec, mode } = c
+  const m = c.motifs[Math.floor((bar % 8) / 2) === 2 ? 1 : 0]
+  for (const [s, l, d] of m) {
+    const b2 = bar + Math.floor(s / 16)
+    if (b2 >= bar + Math.min(2, left)) continue
+    // snap strong steps to a chord tone of that bar
+    const cdb = c.chordAt(b2)
+    let dd = cd + d
+    if (s % 8 === 0) {
+      const opts = [cdb, cdb + 2, cdb + 4, cdb + 7, cdb + 9]
+      dd = opts.reduce((best, o) => (Math.abs(o - dd) < Math.abs(best - dd) ? o : best), opts[0])
+    }
+    c.add(
+      spec.leadInst,
+      b2,
+      s % 16,
+      l,
+      spec.root + 12 * spec.leadOct + degree(mode, dd),
+      s % 8 === 0 ? 1 : 0.85,
+    )
+  }
+}
+
+function drumsPart(c, bar, fill) {
+  const p = DRUMS[c.spec.drums]
+  for (const s of p.kick) c.add("kick", bar, s, 1, 0, 1)
+  for (const s of p.snare) if (!(fill && s >= 12)) c.add("snare", bar, s, 1, 0, 0.9)
+  if (fill) for (let s = 12; s < 16; s++) c.add("snare", bar, s, 1, 0, 0.4 + (s - 12) * 0.15)
+  for (const s of p.hat)
+    c.add("hat", bar, s, p.open && s % 4 === 2 ? 2 : 1, 0, s % 4 === 2 ? 0.8 : 0.5)
+}
+
+/** Bar `b` (of `bars`) of section `si`; `has(part)` tells which parts the section plays. */
+function composeBar(c, has, si, bars, b, bar) {
+  const { spec } = c
+  const cd = c.chordAt(bar)
+  const ch = [0, 2, 4].map((k) => degree(c.mode, cd + k))
+  if (has("pad") && b % 2 === 0) padPart(c, ch, bar, bars - b)
+  if (has("bass")) bassPart(c, ch, bar)
+  if (has("arp") && spec.arp) arpPart(c, ch, bar)
+  if ((has("lead") || has(spec.leadInst)) && b % 2 === 0) leadPart(c, cd, bar, bars - b)
+  if (has("drums")) drumsPart(c, bar, b === bars - 1 && si < spec.sections.length - 1)
+  else if (has("hats")) for (const s of [2, 6, 10, 14]) c.add("hat", bar, s, 1, 0, 0.5)
+}
+
 /**
  * Compose one song into note events.
  * spec: { seed, bpm, root (MIDI), mode, prog (degree per bar), sections: [[bars, "parts"]],
@@ -476,133 +567,84 @@ const RHYTHMS = [
  */
 function compose(spec) {
   const r = rng(spec.seed)
-  const mode = MODES[spec.mode]
   const step = 60 / spec.bpm / 4
   const ev = []
-  const add = (inst, bar, st, len, midi, vel) =>
-    ev.push({ inst, t: (bar * 16 + st) * step, dur: len * step, midi, vel })
-  const chordAt = (bar) => spec.prog[bar % spec.prog.length]
-  const tones = (d) => [0, 2, 4].map((k) => degree(mode, d + k))
-
-  // two lead motifs (A, B): rhythm + scale-degree contour, re-fitted to each chord
-  const motif = () => {
-    const rh = RHYTHMS[Math.floor(r() * RHYTHMS.length)]
-    let d = Math.floor(r() * 3) * 2
-    return rh.map(([s, l], k) => {
-      if (k) d += [-2, -1, -1, 1, 1, 2, 3, -3][Math.floor(r() * 8)]
-      d = Math.max(-2, Math.min(9, d))
-      return [s, l, d]
-    })
+  const c = {
+    spec,
+    r,
+    mode: MODES[spec.mode],
+    add: (inst, bar, st, len, midi, vel) =>
+      ev.push({ inst, t: (bar * 16 + st) * step, dur: len * step, midi, vel }),
+    chordAt: (bar) => spec.prog[bar % spec.prog.length],
+    motifs: [makeMotif(r), makeMotif(r)],
   }
-  const motifs = [motif(), motif()]
-
   let bar = 0
   spec.sections.forEach(([bars, parts], si) => {
     const has = (p) => parts.split(" ").includes(p)
-    if (si > 0 && has("drums")) add("crash", bar, 0, 16, 0, 0.8)
-    for (let b = 0; b < bars; b++, bar++) {
-      const cd = chordAt(bar)
-      const ch = tones(cd)
-      const root = spec.root
-      if (has("pad") && b % 2 === 0) {
-        const len = Math.min(2, bars - b) * 16
-        for (const n of ch) add("pad", bar, 0, len, root + 12 + n, 0.7)
-      }
-      if (has("bass"))
-        BASS[spec.bass].forEach((s, k, a) => {
-          const len = (a[k + 1] ?? 16) - s
-          const oct = spec.bass === "eighth" && k % 4 === 3 ? 12 : 0
-          add(
-            "bass",
-            bar,
-            s,
-            Math.max(1, len - 0.3),
-            root - 12 + ch[0] + oct,
-            s % 4 === 0 ? 1 : 0.8,
-          )
-        })
-      if (has("arp") && spec.arp) {
-        const pool = [...ch.map((n) => n + 24), ...ch.map((n) => n + 36)]
-        for (let s = 0; s < 16; s++) {
-          let n
-          if (spec.arp === "random") n = pool[Math.floor(r() * pool.length)]
-          else if (spec.arp === "updown")
-            n = pool[[0, 1, 2, 3, 4, 5, 4, 3, 2, 1][(bar * 16 + s) % 10]]
-          else n = pool[s % pool.length]
-          add("pluck", bar, s, 1, root + n - 12, s % 4 === 0 ? 0.9 : 0.6)
-        }
-      }
-      if ((has("lead") || has(spec.leadInst)) && b % 2 === 0) {
-        // phrase of 8 bars: A A B A
-        const m = motifs[Math.floor((bar % 8) / 2) === 2 ? 1 : 0]
-        for (const [s, l, d] of m) {
-          const b2 = bar + Math.floor(s / 16)
-          if (b2 >= bar + Math.min(2, bars - b)) continue
-          // snap strong steps to a chord tone of that bar
-          const cdb = chordAt(b2)
-          let dd = cd + d
-          if (s % 8 === 0) {
-            const opts = [cdb, cdb + 2, cdb + 4, cdb + 7, cdb + 9]
-            dd = opts.reduce((best, o) => (Math.abs(o - dd) < Math.abs(best - dd) ? o : best))
-          }
-          add(
-            spec.leadInst,
-            b2,
-            s % 16,
-            l,
-            root + 12 * spec.leadOct + degree(mode, dd),
-            s % 8 === 0 ? 1 : 0.85,
-          )
-        }
-      }
-      if (has("drums")) {
-        const p = DRUMS[spec.drums]
-        const fill = b === bars - 1 && si < spec.sections.length - 1
-        for (const s of p.kick) add("kick", bar, s, 1, 0, 1)
-        for (const s of p.snare) if (!(fill && s >= 12)) add("snare", bar, s, 1, 0, 0.9)
-        if (fill) for (let s = 12; s < 16; s++) add("snare", bar, s, 1, 0, 0.4 + (s - 12) * 0.15)
-        for (const s of p.hat)
-          add("hat", bar, s, p.open && s % 4 === 2 ? 2 : 1, 0, s % 4 === 2 ? 0.8 : 0.5)
-      } else if (has("hats")) for (const s of [2, 6, 10, 14]) add("hat", bar, s, 1, 0, 0.5)
-    }
+    if (si > 0 && has("drums")) c.add("crash", bar, 0, 16, 0, 0.8)
+    for (let b = 0; b < bars; b++, bar++) composeBar(c, has, si, bars, b, bar)
   })
   return { ev, length: bar * 16 * step, step }
 }
 
-/** Render events to a stereo loop (tails wrap to the start) or a one-shot. */
-function mixSong({ ev, length, step }, loop) {
-  const tail = 3
-  const n = secs(length + tail)
-  const L = new Float32Array(n)
-  const R = new Float32Array(n)
-  const revS = new Float32Array(n)
-  const dlyS = new Float32Array(n)
-  const duckBusL = new Float32Array(n)
-  const duckBusR = new Float32Array(n)
+/** Sidechain envelope: every kick pulls the ducked bus down and lets it swell back. */
+function duckEnvelope(ev, n) {
   const duck = new Float32Array(n).fill(1)
-  let seed = 100
   for (const e of ev) {
     if (e.inst !== "kick") continue
     const at = secs(e.t)
     for (let i = 0; i < secs(0.25) && at + i < n; i++)
       duck[at + i] = Math.min(duck[at + i], 1 - Math.exp(-i / SR / 0.06))
   }
-  for (const e of ev) {
-    const bus = BUS[e.inst]
-    const f = mtof(e.midi)
-    const at = secs(e.t)
-    const voices = bus.wide ? [-0.7, 0.7] : [bus.pan]
-    for (const pan of voices) {
-      const buf = INST[e.inst](bus.wide ? f * (1 + pan * 0.002) : f, e.dur, e.vel, seed++)
-      const g = (bus.gain / voices.length) * 1.4
-      const gl = g * Math.cos(((pan + 1) * Math.PI) / 4)
-      const gr = g * Math.sin(((pan + 1) * Math.PI) / 4)
-      mixInto(bus.duck ? duckBusL : L, buf, at, gl)
-      mixInto(bus.duck ? duckBusR : R, buf, at, gr)
-      if (bus.rev) mixInto(revS, buf, at, bus.rev * g)
-      if (bus.dly) mixInto(dlyS, buf, at, bus.dly * g)
-    }
+  return duck
+}
+
+/** Fold the reverb tail (samples past `len`) back onto the start so the loop is seamless. */
+function wrapTail(L, R, len) {
+  const outL = L.slice(0, len)
+  const outR = R.slice(0, len)
+  for (let i = len; i < L.length; i++) {
+    outL[i - len] += L[i]
+    outR[i - len] += R[i]
   }
+  return [outL, outR]
+}
+
+/** Render one note event into the dry, ducked, reverb and delay buses (`seed` varies per voice). */
+function mixEvent(e, seed, bus) {
+  const cfg = BUS[e.inst]
+  const f = mtof(e.midi)
+  const at = secs(e.t)
+  const voices = cfg.wide ? [-0.7, 0.7] : [cfg.pan]
+  for (const pan of voices) {
+    const buf = INST[e.inst](cfg.wide ? f * (1 + pan * 0.002) : f, e.dur, e.vel, seed++)
+    const g = (cfg.gain / voices.length) * 1.4
+    const gl = g * Math.cos(((pan + 1) * Math.PI) / 4)
+    const gr = g * Math.sin(((pan + 1) * Math.PI) / 4)
+    mixInto(cfg.duck ? bus.duckL : bus.L, buf, at, gl)
+    mixInto(cfg.duck ? bus.duckR : bus.R, buf, at, gr)
+    if (cfg.rev) mixInto(bus.rev, buf, at, cfg.rev * g)
+    if (cfg.dly) mixInto(bus.dly, buf, at, cfg.dly * g)
+  }
+  return seed
+}
+
+/** Render events to a stereo loop (tails wrap to the start) or a one-shot. */
+function mixSong({ ev, length, step }, loop) {
+  const tail = 3
+  const n = secs(length + tail)
+  const buses = {
+    L: new Float32Array(n),
+    R: new Float32Array(n),
+    rev: new Float32Array(n),
+    dly: new Float32Array(n),
+    duckL: new Float32Array(n),
+    duckR: new Float32Array(n),
+  }
+  const { L, R, rev: revS, dly: dlyS, duckL: duckBusL, duckR: duckBusR } = buses
+  const duck = duckEnvelope(ev, n)
+  let seed = 100
+  for (const e of ev) seed = mixEvent(e, seed, buses)
   for (let i = 0; i < n; i++) {
     const d = 1 - 0.4 * (1 - duck[i])
     L[i] += duckBusL[i] * d
@@ -614,17 +656,7 @@ function mixSong({ ev, length, step }, loop) {
     L[i] += rl[i] + dl[i] * 0.6
     R[i] += rr[i] + dr[i] * 0.6
   }
-  let outL = L
-  let outR = R
-  if (loop) {
-    const len = secs(length)
-    outL = L.slice(0, len)
-    outR = R.slice(0, len)
-    for (let i = len; i < n; i++) {
-      outL[i - len] += L[i]
-      outR[i - len] += R[i]
-    }
-  }
+  const [outL, outR] = loop ? wrapTail(L, R, secs(length)) : [L, R]
   // gentle master saturation: peaks at 1.0 into tanh, then about -1.5 dBFS
   normalize([outL, outR], 1)
   for (const b of [outL, outR]) softClip(b, 1.2)

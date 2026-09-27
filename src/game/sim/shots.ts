@@ -286,18 +286,83 @@ function get(w: World, lib: ShotLib, x: number, y: number): Shot | null {
   return s
 }
 
-function removeShot(w: World, s: Shot): void {
-  const i = w.shots.indexOf(s)
-  if (i >= 0) w.shots.splice(i, 1)
+function shootForwardGuns(w: World, lib: ShotLib, cx: number, cy: number, pic: number): boolean {
+  const gun = O_GUN1[pic] ?? 0
+  w.sfx("GUN")
+  w.g_flash = 7
+  const a = get(w, lib, cx + gun, cy) as Shot
+  a.curframe = w.rng.random(lib.numframes)
+  w.startAnim(Anim.PLAYER_SHOOT, gun, 0)
+  const b = get(w, lib, cx - gun - 1, cy)
+  if (!b) return false
+  b.curframe = w.rng.random(lib.numframes)
+  w.startAnim(Anim.PLAYER_SHOOT, -gun - 1, 0)
+  return true
+}
+
+function shootDumbMissile(w: World, lib: ShotLib, cx: number, cy: number): boolean {
+  const r = w.rng
+  w.sfx("MISSLE")
+  const a = get(w, lib, cx, cy) as Shot
+  a.move.x2 = a.x + r.random(16) + 10
+  a.move.y2 = a.y + 5
+  initMobj(a.move)
+  const b = get(w, lib, cx, cy)
+  if (!b) return false
+  b.move.x2 = b.x - r.random(16) - 10
+  b.move.y2 = b.y + 5
+  initMobj(b.move)
+  return true
+}
+
+// DOS SHOTS_PlayerShoot S_MINI_GUN case never returns FALSE (no target just drops the shot).
+function shootMiniGun(w: World, lib: ShotLib, cx: number, cy: number): void {
+  const r = w.rng
+  const enemy = enemyGetRandom(w)
+  if (!enemy) return
+  w.sfx("GUN")
+  const a = get(w, lib, cx, cy) as Shot
+  a.curframe = r.random(lib.numframes)
+  a.move.x2 = enemy.x + r.random(enemy.width) - 1
+  a.move.y2 = enemy.y + enemy.hly + r.random(enemy.height) - 1
+  initMobj(a.move)
+}
+
+function shootTurret(w: World, lib: ShotLib, cx: number, cy: number): boolean {
+  const r = w.rng
+  const enemy = enemyGetRandomAir(w)
+  if (!enemy) {
+    w.sfx("NOSHOOT")
+    return true
+  }
+  w.sfx("TURRET")
+  const a = get(w, lib, cx, cy) as Shot
+  enemy.hits -= lib.hits
+  a.move.x = enemy.move.x + r.random(enemy.width) - 1
+  a.move.y = enemy.move.y + r.random(enemy.height) - 1
+  a.move.x2 = cx
+  a.move.y2 = cy
+  initMobj(a.move)
+  w.startAnim(Anim.LASER_BLAST, a.move.x, a.move.y)
+  return true
+}
+
+function shootForwardLaser(w: World, lib: ShotLib, cx: number, cy: number, pic: number): boolean {
+  const gun = O_GUN3[pic] ?? 0
+  w.sfx("LASER")
+  const a = get(w, lib, cx + gun, cy) as Shot
+  a.move.y2 = -24
+  const b = get(w, lib, cx - gun, cy)
+  if (!b) return false
+  b.move.y2 = -24
+  return true
 }
 
 /** SHOTS_PlayerShoot */
 export function playerShoot(w: World, type: ObjType): boolean {
   const lib = w.shotLib[type]
-  if (!lib) return false
-  if (lib.cur_shoot) return false
+  if (!lib || lib.cur_shoot) return false
   lib.cur_shoot = lib.shoot_rate
-  const r = w.rng
   const pic = w.playerpic
   const cx = w.player_cx
   const cy = w.player_cy
@@ -305,22 +370,12 @@ export function playerShoot(w: World, type: ObjType): boolean {
   if (w.shots.length >= MAX_SHOTS) return false
 
   switch (type) {
-    case Obj.FORWARD_GUNS: {
-      w.sfx("GUN")
-      w.g_flash = 7
-      const a = get(w, lib, cx + (O_GUN1[pic] ?? 0), cy) as Shot
-      a.curframe = r.random(lib.numframes)
-      w.startAnim(Anim.PLAYER_SHOOT, O_GUN1[pic] ?? 0, 0)
-      const b = get(w, lib, cx - (O_GUN1[pic] ?? 0) - 1, cy)
-      if (!b) return false
-      b.curframe = r.random(lib.numframes)
-      w.startAnim(Anim.PLAYER_SHOOT, -(O_GUN1[pic] ?? 0) - 1, 0)
-      break
-    }
+    case Obj.FORWARD_GUNS:
+      return shootForwardGuns(w, lib, cx, cy, pic)
     case Obj.PLASMA_GUNS: {
       w.sfx("GUN")
       const a = get(w, lib, cx, cy) as Shot
-      a.curframe = r.random(lib.numframes)
+      a.curframe = w.rng.random(lib.numframes)
       break
     }
     case Obj.MICRO_MISSLE:
@@ -329,47 +384,13 @@ export function playerShoot(w: World, type: ObjType): boolean {
       get(w, lib, cx + (O_GUN3[pic] ?? 0), cy)
       if (!get(w, lib, cx - (O_GUN3[pic] ?? 0), cy)) return false
       break
-    case Obj.DUMB_MISSLE: {
-      w.sfx("MISSLE")
-      const a = get(w, lib, cx, cy) as Shot
-      a.move.x2 = a.x + r.random(16) + 10
-      a.move.y2 = a.y + 5
-      initMobj(a.move)
-      const b = get(w, lib, cx, cy)
-      if (!b) return false
-      b.move.x2 = b.x - r.random(16) - 10
-      b.move.y2 = b.y + 5
-      initMobj(b.move)
+    case Obj.DUMB_MISSLE:
+      return shootDumbMissile(w, lib, cx, cy)
+    case Obj.MINI_GUN:
+      shootMiniGun(w, lib, cx, cy)
       break
-    }
-    case Obj.MINI_GUN: {
-      const enemy = enemyGetRandom(w)
-      if (!enemy) break
-      w.sfx("GUN")
-      const a = get(w, lib, cx, cy) as Shot
-      a.curframe = r.random(lib.numframes)
-      a.move.x2 = enemy.x + r.random(enemy.width) - 1
-      a.move.y2 = enemy.y + enemy.hly + r.random(enemy.height) - 1
-      initMobj(a.move)
-      break
-    }
-    case Obj.TURRET: {
-      const enemy = enemyGetRandomAir(w)
-      if (!enemy) {
-        w.sfx("NOSHOOT")
-        break
-      }
-      w.sfx("TURRET")
-      const a = get(w, lib, cx, cy) as Shot
-      enemy.hits -= lib.hits
-      a.move.x = enemy.move.x + r.random(enemy.width) - 1
-      a.move.y = enemy.move.y + r.random(enemy.height) - 1
-      a.move.x2 = cx
-      a.move.y2 = cy
-      initMobj(a.move)
-      w.startAnim(Anim.LASER_BLAST, a.move.x, a.move.y)
-      break
-    }
+    case Obj.TURRET:
+      return shootTurret(w, lib, cx, cy)
     case Obj.MISSLE_PODS:
       w.sfx("GUN")
       get(w, lib, cx + (O_GUN2[pic] ?? 0), cy)
@@ -403,15 +424,8 @@ export function playerShoot(w: World, type: ObjType): boolean {
       w.sfx("PULSE")
       get(w, lib, cx, cy)
       break
-    case Obj.FORWARD_LASER: {
-      w.sfx("LASER")
-      const a = get(w, lib, cx + (O_GUN3[pic] ?? 0), cy) as Shot
-      a.move.y2 = -24
-      const b = get(w, lib, cx - (O_GUN3[pic] ?? 0), cy)
-      if (!b) return false
-      b.move.y2 = -24
-      break
-    }
+    case Obj.FORWARD_LASER:
+      return shootForwardLaser(w, lib, cx, cy, pic)
     case Obj.DEATH_RAY: {
       w.sfx("LASER")
       const a = get(w, lib, cx, cy - 24) as Shot
@@ -428,148 +442,175 @@ function spark(w: World, x: number, y: number): void {
   w.startAnim(w.rng.random(2) ? Anim.BLUE_SPARK : Anim.ORANGE_SPARK, x, y)
 }
 
+/** Beam shots stop at the first enemy they damage (`enemy.hits !== -1`). */
+function beamTarget(w: World, shot: Shot, lib: ShotLib): void {
+  for (const enemy of w.enemies.ships) {
+    if (shot.x > enemy.x && shot.x < enemy.x2 && enemy.y < w.player_cy && enemy.y > -30) {
+      enemy.hits -= lib.hits
+      if (enemy.hits !== -1) {
+        shot.move.y2 = enemy.y + enemy.hly
+        return
+      }
+    }
+  }
+}
+
+/** SHOTS_Think: position from the mobj. */
+function placeShot(w: World, shot: Shot, lib: ShotLib): void {
+  switch (lib.beam) {
+    case "shoot":
+      shot.x = shot.move.x - lib.hlx
+      shot.y = lib.move_flag ? shot.move.y - lib.hly : shot.move.y
+      if (lib.smoke) w.startAnim(Anim.SMALL_SMOKE_DOWN, shot.x + lib.hlx, shot.y + (lib.hly << 1))
+      break
+    case "line":
+      shot.x = shot.move.x
+      shot.y = shot.move.y
+      break
+    case "beam":
+      shot.x = shot.move.x - lib.hlx
+      shot.y = shot.move.y
+      beamTarget(w, shot, lib)
+      break
+  }
+  if (lib.fplrx) shot.x += w.player_cx - shot.startx
+  if (lib.fplry) shot.y += w.player_cy - shot.starty
+}
+
+/** SHOTS_Think: leaving the screen, animation end, doneflag. Returns true to skip the hit tests. */
+function ageShot(shot: Shot, lib: ShotLib): boolean {
+  if ((shot.y + 16 < 0 || shot.x < 0 || shot.x > 320 || shot.y > 200) && lib.move_flag) {
+    shot.move.done = true
+    return true
+  }
+  if (!shot.delayflag) {
+    if (shot.speed < lib.maxspeed) shot.speed++
+    shot.curframe++
+    if (shot.curframe >= lib.numframes) {
+      if (lib.move_flag) shot.curframe = lib.startframe
+      else {
+        shot.move.done = true
+        return true
+      }
+    }
+  }
+  if (!shot.doneflag) return false
+  shot.move.done = true
+  return true
+}
+
+/** SHOTS_Think: damage enemies / tiles by hit type. */
+function hitShot(w: World, shot: Shot, lib: ShotLib): void {
+  switch (lib.ht) {
+    case "suck": {
+      const enemy: Ship | null = enemyDamageEnergy(w, shot.x, shot.y, lib.hits)
+      if (enemy) {
+        shot.doneflag = true
+        w.startAnim(Anim.BLUE_SPARK, shot.x, shot.y)
+        w.startEAnim(enemy, Anim.ENERGY_GRAB, enemy.hlx, enemy.hly)
+      }
+      break
+    }
+    case "grall":
+      if (enemyDamage(w, "all", shot.x, shot.y, lib.hits)) {
+        shot.doneflag = true
+        spark(w, shot.x, shot.y)
+      }
+      break
+    case "all":
+      if (enemyDamage(w, "all", shot.x, shot.y, lib.hits)) {
+        shot.doneflag = true
+        spark(w, shot.x, shot.y)
+      } else if (tileIsHit(w, lib.hits, shot.x, shot.y)) shot.move.done = true
+      break
+    case "air":
+      if (enemyDamage(w, "air", shot.x, shot.y, lib.hits)) {
+        shot.doneflag = true
+        spark(w, shot.x, shot.y)
+      }
+      break
+    default:
+      hitShotGround(w, shot, lib)
+  }
+}
+
+/** SHOTS_Think: the ground hit types. */
+function hitShotGround(w: World, shot: Shot, lib: ShotLib): void {
+  switch (lib.ht) {
+    case "ground":
+      if (enemyDamage(w, "ground", shot.x, shot.y, lib.hits)) {
+        shot.doneflag = true
+        w.startAnim(Anim.ORANGE_SPARK, shot.x, shot.y)
+      } else if (tileIsHit(w, lib.hits, shot.x, shot.y)) shot.move.done = true
+      break
+    case "gtile":
+      if (tileBomb(w, lib.hits, shot.x, shot.y)) shot.move.done = true
+      if (enemyDamage(w, "ground", shot.x, shot.y, 5)) {
+        shot.doneflag = true
+        w.startAnim(Anim.SMALL_GROUND_EXPLO, shot.x, shot.y)
+      }
+      break
+  }
+}
+
+/** SHOTS_Think shot_done: returns true when the shot is removed. */
+function finishShot(w: World, shot: Shot, lib: ShotLib): boolean {
+  if (shot.delayflag) {
+    shot.delayflag = false
+    shot.move.x2 = shot.move.x + (w.rng.random(32) - 16)
+    shot.move.y2 = 0
+    w.startAnim(Anim.SMALL_SMOKE_DOWN, shot.move.x, shot.move.y)
+    initMobj(shot.move)
+    return false
+  }
+  if (lib.type === Obj.MEGA_BOMB) {
+    w.eshots.length = 0
+    tileDamageAll(w)
+    for (const enemy of w.enemies.ships) enemy.hits -= lib.hits
+    w.startfadeflag = true
+    w.startAnim(Anim.SUPER_SHIELD, 0, 0)
+    return true
+  }
+  return lib.type !== Obj.TURRET
+}
+
 /** SHOTS_Think */
 export function shotsThink(w: World): void {
+  decrementShootRate(w)
+
+  for (let i = 0; i < w.shots.length; i++) {
+    const shot = w.shots[i] as Shot
+    if (stepShot(w, shot)) w.shots.splice(i--, 1)
+  }
+}
+
+function decrementShootRate(w: World): void {
   for (let t = 0; t <= LAST_WEAPON; t++) {
     const l = w.shotLib[t]
     if (l && l.cur_shoot > 0) l.cur_shoot--
   }
+}
 
-  for (let i = 0; i < w.shots.length; i++) {
-    const shot = w.shots[i] as Shot
-    const lib = shot.lib
-    let skipHits = false
+/** SHOTS_Think: per-shot update; returns true once the shot should be removed. */
+function stepShot(w: World, shot: Shot): boolean {
+  const lib = shot.lib
 
-    switch (lib.beam) {
-      case "shoot":
-        shot.x = shot.move.x - lib.hlx
-        shot.y = lib.move_flag ? shot.move.y - lib.hly : shot.move.y
-        if (lib.smoke) w.startAnim(Anim.SMALL_SMOKE_DOWN, shot.x + lib.hlx, shot.y + (lib.hly << 1))
-        break
-      case "line":
-        shot.x = shot.move.x
-        shot.y = shot.move.y
-        break
-      case "beam":
-        shot.x = shot.move.x - lib.hlx
-        shot.y = shot.move.y
-        for (const enemy of w.enemies.ships) {
-          if (shot.x > enemy.x && shot.x < enemy.x2 && enemy.y < w.player_cy && enemy.y > -30) {
-            enemy.hits -= lib.hits
-            if (enemy.hits !== -1) {
-              shot.move.y2 = enemy.y + enemy.hly
-              break
-            }
-          }
-        }
-        break
-    }
+  placeShot(w, shot, lib)
+  const skipHits = ageShot(shot, lib)
+  if (!skipHits && !lib.meffect) hitShot(w, shot, lib)
 
-    if (lib.fplrx) shot.x += w.player_cx - shot.startx
-    if (lib.fplry) shot.y += w.player_cy - shot.starty
+  if (shot.move.done && finishShot(w, shot, lib)) return true
+  if (!lib.move_flag) return false
 
-    if (shot.y + 16 < 0 || shot.x < 0 || shot.x > 320 || shot.y > 200) {
-      if (lib.move_flag) {
-        shot.move.done = true
-        skipHits = true
-      }
-    }
-
-    if (!skipHits && !shot.delayflag) {
-      if (shot.speed < lib.maxspeed) shot.speed++
-      shot.curframe++
-      if (shot.curframe >= lib.numframes) {
-        if (lib.move_flag) shot.curframe = lib.startframe
-        else {
-          shot.move.done = true
-          skipHits = true
-        }
-      }
-    }
-
-    if (!skipHits && shot.doneflag) {
+  if (lib.use_plot) moveSobj(shot.move, shot.speed)
+  else {
+    shot.move.y -= shot.speed
+    if (shot.move.y < 0) {
       shot.move.done = true
-      skipHits = true
-    }
-
-    if (!skipHits && !lib.meffect) {
-      switch (lib.ht) {
-        case "suck": {
-          const enemy: Ship | null = enemyDamageEnergy(w, shot.x, shot.y, lib.hits)
-          if (enemy) {
-            shot.doneflag = true
-            w.startAnim(Anim.BLUE_SPARK, shot.x, shot.y)
-            w.startEAnim(enemy, Anim.ENERGY_GRAB, enemy.hlx, enemy.hly)
-          }
-          break
-        }
-        case "grall":
-          if (enemyDamage(w, "all", shot.x, shot.y, lib.hits)) {
-            shot.doneflag = true
-            spark(w, shot.x, shot.y)
-          }
-          break
-        case "all":
-          if (enemyDamage(w, "all", shot.x, shot.y, lib.hits)) {
-            shot.doneflag = true
-            spark(w, shot.x, shot.y)
-          } else if (tileIsHit(w, lib.hits, shot.x, shot.y)) shot.move.done = true
-          break
-        case "air":
-          if (enemyDamage(w, "air", shot.x, shot.y, lib.hits)) {
-            shot.doneflag = true
-            spark(w, shot.x, shot.y)
-          }
-          break
-        case "ground":
-          if (enemyDamage(w, "ground", shot.x, shot.y, lib.hits)) {
-            shot.doneflag = true
-            w.startAnim(Anim.ORANGE_SPARK, shot.x, shot.y)
-          } else if (tileIsHit(w, lib.hits, shot.x, shot.y)) shot.move.done = true
-          break
-        case "gtile":
-          if (tileBomb(w, lib.hits, shot.x, shot.y)) shot.move.done = true
-          if (enemyDamage(w, "ground", shot.x, shot.y, 5)) {
-            shot.doneflag = true
-            w.startAnim(Anim.SMALL_GROUND_EXPLO, shot.x, shot.y)
-          }
-          break
-      }
-    }
-
-    // shot_done:
-    if (shot.move.done) {
-      if (shot.delayflag) {
-        shot.delayflag = false
-        shot.move.x2 = shot.move.x + (w.rng.random(32) - 16)
-        shot.move.y2 = 0
-        w.startAnim(Anim.SMALL_SMOKE_DOWN, shot.move.x, shot.move.y)
-        initMobj(shot.move)
-      } else if (lib.type === Obj.MEGA_BOMB) {
-        w.eshots.length = 0
-        tileDamageAll(w)
-        for (const enemy of w.enemies.ships) enemy.hits -= lib.hits
-        w.startfadeflag = true
-        w.startAnim(Anim.SUPER_SHIELD, 0, 0)
-        w.shots.splice(i--, 1)
-        continue
-      } else if (lib.type !== Obj.TURRET) {
-        w.shots.splice(i--, 1)
-        continue
-      }
-    }
-
-    if (!lib.move_flag) continue
-
-    if (lib.use_plot) moveSobj(shot.move, shot.speed)
-    else {
-      shot.move.y -= shot.speed
-      if (shot.move.y < 0) {
-        shot.move.done = true
-        shot.doneflag = true
-      }
+      shot.doneflag = true
     }
   }
+  return false
 }
 
 /**
@@ -577,10 +618,12 @@ export function shotsThink(w: World): void {
  * `w.turretBeams` so the renderer still sees this frame's beams.
  */
 export function shotsAfterDisplay(w: World): void {
-  for (const s of [...w.shots]) {
+  for (let i = 0; i < w.shots.length; i++) {
+    const s = w.shots[i] as Shot
     if (s.lib.beam === "line") {
       w.turretBeams.push({ x: s.move.x, y: s.move.y })
-      removeShot(w, s)
+      w.shots.splice(i--, 1)
+      continue
     }
     if (s.lib.beam === "beam") s.cnt = (s.cnt + 1) % 4
   }

@@ -174,15 +174,16 @@ function lineCanvas(): HTMLCanvasElement {
       ),
     ]
     if (lib?.beam === "beam") {
-      pics.push(pic(beamCanvas(t === Obj.DEATH_RAY), "beam"))
       pics.push(
+        pic(beamCanvas(t === Obj.DEATH_RAY), "beam"),
         pic(shotCanvas(lib.key), "tile x3", ZOOM),
         ...refPic(`fx_${lib.key}`, "orig x3", ZOOM),
       )
     } else if (lib?.beam === "line") pics.push(pic(lineCanvas(), "beam"))
     else if (lib?.key) {
-      pics.push(pic(shotCanvas(lib.key), "shot"), ...refPic(`fx_${lib.key}`))
       pics.push(
+        pic(shotCanvas(lib.key), "shot"),
+        ...refPic(`fx_${lib.key}`),
         pic(shotCanvas(lib.key), "shot x3", ZOOM),
         ...refPic(`fx_${lib.key}`, "orig x3", ZOOM),
       )

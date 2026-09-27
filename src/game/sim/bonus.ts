@@ -76,50 +76,48 @@ function remove(w: World, i: number): void {
   b.list.splice(i, 1)
 }
 
+/** Player touches a pickup: collect it. Returns true when the bonus is used up. */
+function collect(w: World, cur: Bonus): boolean {
+  w.sfx("BONUS")
+  if (cur.type === Obj.ENERGY) w.inv.addEnergy(MAX_SHIELD / 4)
+  else w.inv.add(cur.type)
+  w.pickups.push({ type: cur.type, x: cur.x, y: cur.y })
+  if (!OBJ_LIB[cur.type]?.moneyflag) return true
+  cur.dflag = true
+  cur.countdown = 50
+  return false
+}
+
 /** BONUS_Think */
 export function bonusThink(w: World): void {
   const b = w.bonus
-  const x = w.playerx
-  const y = w.playery
-  const x2 = w.playerx + PLAYERWIDTH
-  const y2 = w.playery + PLAYERHEIGHT
   for (let i = 0; i < b.list.length; i++) {
     const cur = b.list[i] as Bonus
-    cur.bx = cur.x - BONUS_WIDTH / 2 + (XPOS[cur.pos] as number)
-    cur.by = cur.y - BONUS_HEIGHT / 2 + (YPOS[cur.pos] as number)
-    cur.gy = cur.y - (GLOW >> 1) + (YPOS[cur.pos] as number)
-    cur.y++
-    if (b.gcnt & 1) {
-      cur.pos++
-      if (cur.pos >= 16) cur.pos = 0
-      cur.curframe++
-      if (cur.curframe >= (FRAMES[cur.type] ?? 1)) cur.curframe = 0
-    }
-    if (cur.x > x && cur.x < x2 && cur.y > y && cur.y < y2) {
-      if (!cur.dflag && w.inv.getAmt(Obj.ENERGY) > 0) {
-        w.sfx("BONUS")
-        if (cur.type === Obj.ENERGY) w.inv.addEnergy(MAX_SHIELD / 4)
-        else w.inv.add(cur.type)
-        w.pickups.push({ type: cur.type, x: cur.x, y: cur.y })
-        if (OBJ_LIB[cur.type]?.moneyflag) {
-          cur.dflag = true
-          cur.countdown = 50
-        } else {
-          remove(w, i--)
-          continue
-        }
-      }
-    }
-    if (cur.dflag) {
-      cur.countdown--
-      if (cur.countdown <= 0) {
-        remove(w, i--)
-        continue
-      }
-    }
-    if (cur.gy > 200) {
-      remove(w, i--)
-    }
+    if (stepBonus(w, cur)) remove(w, i--)
   }
   b.gcnt++
+}
+
+/** BONUS_Think: per-pickup update; returns true once the pickup should be removed. */
+function stepBonus(w: World, cur: Bonus): boolean {
+  const b = w.bonus
+  cur.bx = cur.x - BONUS_WIDTH / 2 + (XPOS[cur.pos] as number)
+  cur.by = cur.y - BONUS_HEIGHT / 2 + (YPOS[cur.pos] as number)
+  cur.gy = cur.y - (GLOW >> 1) + (YPOS[cur.pos] as number)
+  cur.y++
+  if (b.gcnt & 1) {
+    cur.pos++
+    if (cur.pos >= 16) cur.pos = 0
+    cur.curframe++
+    if (cur.curframe >= (FRAMES[cur.type] ?? 1)) cur.curframe = 0
+  }
+  const x2 = w.playerx + PLAYERWIDTH
+  const y2 = w.playery + PLAYERHEIGHT
+  const touched = cur.x > w.playerx && cur.x < x2 && cur.y > w.playery && cur.y < y2
+  if (touched && !cur.dflag && w.inv.getAmt(Obj.ENERGY) > 0 && collect(w, cur)) return true
+  if (cur.dflag) {
+    cur.countdown--
+    if (cur.countdown <= 0) return true
+  }
+  return cur.gy > 200
 }

@@ -317,14 +317,16 @@ const station: Draw = (ctx, w, h, t, _r, p) => {
   ctx.clip()
   const lines: [Pt, Pt][] = []
   for (let i = -3; i <= 3; i++) {
-    lines.push([
-      [cx - R, cy + (i * R) / 4],
-      [cx + R, cy + (i * R) / 4],
-    ])
-    lines.push([
-      [cx + (i * R) / 4, cy - R],
-      [cx + (i * R) / 4, cy + R],
-    ])
+    lines.push(
+      [
+        [cx - R, cy + (i * R) / 4],
+        [cx + R, cy + (i * R) / 4],
+      ],
+      [
+        [cx + (i * R) / 4, cy - R],
+        [cx + (i * R) / 4, cy + R],
+      ],
+    )
   }
   panelLines(ctx, lines, "rgba(0,0,0,0.25)")
   ctx.restore()
@@ -367,7 +369,7 @@ const turret: Draw = (ctx, w, h, t, r, p) => {
     [2, h - k],
     [2, k],
   ])
-  metal(ctx, 0, w, p.dark, p.mid, p.light, "rgba(255,255,255,0.2)")
+  metal(ctx, 0, w, p.dark, p.mid, p.light, ["rgba(255,255,255,0.2)", 1.5])
   for (const [x, y] of [
     [k * 1.1, k * 1.1],
     [w - k * 1.1, k * 1.1],
@@ -390,7 +392,7 @@ const turret: Draw = (ctx, w, h, t, r, p) => {
 /** Bunker / hangar block. */
 const bunker: Draw = (ctx, w, h, t, _r, p) => {
   roundRect(ctx, 2, 2, w - 4, h - 4, 6)
-  metal(ctx, 0, w, p.dark, p.mid, p.light, "rgba(255,255,255,0.2)")
+  metal(ctx, 0, w, p.dark, p.mid, p.light, ["rgba(255,255,255,0.2)", 1.5])
   const doors = 3
   for (let i = 0; i < doors; i++) {
     const x = w * (0.12 + (i * 0.76) / doors)

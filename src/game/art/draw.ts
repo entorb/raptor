@@ -17,7 +17,7 @@ export function seeded(seed: number): () => number {
 
 export function hashString(s: string): number {
   let h = 2166136261
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ (s.codePointAt(i) as number), 16777619)
   return h >>> 0
 }
 
@@ -52,8 +52,7 @@ export function metal(
   dark: string,
   mid: string,
   light: string,
-  rim = "rgba(255,255,255,0.35)",
-  rimWidth = 1.5,
+  [rim, rimWidth]: [string, number] = ["rgba(255,255,255,0.35)", 1.5],
 ): void {
   const g = ctx.createLinearGradient(x0, 0, x1, 0)
   g.addColorStop(0, dark)

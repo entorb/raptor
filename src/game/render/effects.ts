@@ -150,6 +150,8 @@ export class Effects {
         return
       case "LGHTIN_BLK":
       case "LGHTIN_HIGH":
+      case "SPLAT_BLK":
+      case "BIGSPLAT_BLK":
         this.energy.explode(6, x, y)
         return
       case "BSPARK_BLK":
@@ -163,10 +165,6 @@ export class Effects {
       case "FLARE_PIC":
       case "SPARKLE_PIC":
         this.groundFire.explode(8, x, y)
-        return
-      case "SPLAT_BLK":
-      case "BIGSPLAT_BLK":
-        this.energy.explode(6, x, y)
         return
       default:
         return // GUNSTR (muzzle) and SHIPGLOW (shield) are drawn by the player view

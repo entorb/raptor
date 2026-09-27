@@ -300,18 +300,9 @@ export class World {
   }
 
   private keyAccel(neg: boolean, pos: boolean, v: number, max: number): number {
-    if (neg || pos) {
-      if (neg) {
-        if (v >= 0) v = -1
-        v--
-        if (-v > max) v = -max
-      } else {
-        if (v <= 0) v = 1
-        v++
-        if (v > max) v = max
-      }
-    } else if (v !== 0) v = Math.trunc(v / 2)
-    return v
+    if (neg) return Math.max(-max, (v >= 0 ? -1 : v) - 1)
+    if (pos) return Math.min(max, (v <= 0 ? 1 : v) + 1)
+    return Math.trunc(v / 2)
   }
 
   /** IPT_GetMouse: steer towards the (virtual) pointer. */
@@ -336,25 +327,27 @@ export class World {
     this.applyMove()
   }
 
+  private clampPlayer(): void {
+    if (this.playery < MINPLAYERY) {
+      this.playery = MINPLAYERY
+      this.g_addy = 0
+    } else if (this.playery > MAXPLAYERY) {
+      this.playery = MAXPLAYERY
+      this.g_addy = 0
+    }
+    if (this.playerx < PLAYERMINX) {
+      this.playerx = PLAYERMINX
+      this.g_addx = 0
+    } else if (this.playerx + PLAYERWIDTH > PLAYERMAXX) {
+      this.playerx = PLAYERMAXX - PLAYERWIDTH
+      this.g_addx = 0
+    }
+  }
+
   private applyMove(): void {
     this.playerx += this.g_addx
     this.playery += this.g_addy
-    if (this.startendwave === EMPTY) {
-      if (this.playery < MINPLAYERY) {
-        this.playery = MINPLAYERY
-        this.g_addy = 0
-      } else if (this.playery > MAXPLAYERY) {
-        this.playery = MAXPLAYERY
-        this.g_addy = 0
-      }
-      if (this.playerx < PLAYERMINX) {
-        this.playerx = PLAYERMINX
-        this.g_addx = 0
-      } else if (this.playerx + PLAYERWIDTH > PLAYERMAXX) {
-        this.playerx = PLAYERMAXX - PLAYERWIDTH
-        this.g_addx = 0
-      }
-    }
+    if (this.startendwave === EMPTY) this.clampPlayer()
     const delta = Math.min(3, Math.abs(this.playerx - this.oldx) >> 2)
     if (this.playerx < this.oldx) {
       if (this.playerpic < this.playerbasepic + delta) this.playerpic++
@@ -365,6 +358,43 @@ export class World {
     this.oldx = this.playerx
     this.player_cx = this.playerx + PLAYERWIDTH / 2
     this.player_cy = this.playery + PLAYERHEIGHT / 2
+  }
+
+  /** DEMO_Think (playback): recorded buttons and player position; null when the demo is over. */
+  private demoStep(): DemoFrame | null {
+    const r = this.demo?.[this.demoPos]
+    this.demoPos++
+    if (!r || this.demoPos > this.demoMax) {
+      this.end_wave = true
+      return null
+    }
+    this.playerx = r.px
+    this.playery = r.py
+    this.player_cx = r.px + PLAYERWIDTH / 2
+    this.player_cy = r.py + PLAYERHEIGHT / 2
+    this.playerpic = r.pic
+    return r
+  }
+
+  /** Fire, cycle-weapon and mega-bomb buttons (the latter two fire once per press). */
+  private buttons(but: boolean[]): void {
+    if (but[0]) {
+      this.use(Obj.FORWARD_GUNS)
+      this.use(Obj.PLASMA_GUNS)
+      this.use(Obj.MICRO_MISSLE)
+      if (this.plr.sweapon !== EMPTY) this.use(this.plr.sweapon as ObjType)
+    }
+    if (!but[1]) this.b2_flag = false
+    else if (!this.b2_flag) {
+      this.sfx("SWEP")
+      this.b2_flag = true
+      this.inv.getNext()
+    }
+    if (!but[2]) this.b3_flag = false
+    else if (!this.b3_flag) {
+      this.b3_flag = true
+      this.use(Obj.MEGA_BOMB)
+    }
   }
 
   /** One Do_Game iteration. Returns false once the wave is over (end_wave). */
@@ -380,42 +410,13 @@ export class World {
 
     let but = [inp.fire, inp.cycle, inp.mega]
     if (this.demo) {
-      // DEMO_Think (playback): recorded buttons and player position
-      const r = this.demo[this.demoPos]
-      this.demoPos++
-      if (!r || this.demoPos > this.demoMax) {
-        this.end_wave = true
-        return false
-      }
+      const r = this.demoStep()
+      if (!r) return false
       but = [!!r.b[0], !!r.b[1], !!r.b[2]]
-      this.playerx = r.px
-      this.playery = r.py
-      this.player_cx = r.px + PLAYERWIDTH / 2
-      this.player_cy = r.py + PLAYERHEIGHT / 2
-      this.playerpic = r.pic
     } else this.movePlayer(inp)
 
     if (inp.select !== null) this.inv.makeSpecial(inp.select)
-
-    if (but[0]) {
-      this.use(Obj.FORWARD_GUNS)
-      this.use(Obj.PLASMA_GUNS)
-      this.use(Obj.MICRO_MISSLE)
-      if (this.plr.sweapon !== EMPTY) this.use(this.plr.sweapon as ObjType)
-    }
-    if (but[1]) {
-      if (!this.b2_flag) {
-        this.sfx("SWEP")
-        this.b2_flag = true
-        this.inv.getNext()
-      }
-    } else this.b2_flag = false
-    if (but[2]) {
-      if (!this.b3_flag) {
-        this.b3_flag = true
-        this.use(Obj.MEGA_BOMB)
-      }
-    } else this.b3_flag = false
+    this.buttons(but)
 
     if (this.startendwave !== EMPTY) {
       if (this.startendwave === 0) this.end_wave = true
@@ -457,69 +458,72 @@ export class World {
 
   /** Logic of RAP_DisplayStats: death explosion, fly-off at wave end, low shield losses. */
   private displayStats(): void {
-    const r = this.rng
     const sup = this.inv.getAmt(Obj.SUPER_SHIELD)
     const shield = this.inv.getAmt(Obj.ENERGY)
 
-    if (shield <= 0 && !this.god) {
-      // Watcom evaluates call arguments right to left
-      let y = this.playery + r.random(32)
-      this.startAnim(Anim.MED_AIR_EXPLO, this.playerx + r.random(32), y)
-      y = this.playery + r.random(32)
-      this.startAnim(Anim.SMALL_AIR_EXPLO, this.playerx + r.random(32), y)
-      if (this.startendwave > END_EXPLODE) {
-        r.random(2)
-        this.sfx("AIREXPLO")
-      }
-      if (this.startendwave === EMPTY) this.startendwave = END_DURATION
-      if (this.startendwave === END_EXPLODE) {
-        this.draw_player = false
-        this.sfx("AIREXPLO")
-        this.sfx("AIREXPLO2")
-        this.startAnim(Anim.LARGE_AIR_EXPLO, this.player_cx, this.player_cy)
-        for (let loop = 0; loop < (PLAYERWIDTH * PLAYERHEIGHT) / 2; loop++) {
-          const x = this.playerx - PLAYERWIDTH / 2 + r.random(PLAYERWIDTH * 2)
-          const yy = this.playery - PLAYERHEIGHT / 2 + r.random(PLAYERHEIGHT * 2)
-          if (loop & 1) this.startAnim(Anim.LARGE_AIR_EXPLO, x, yy)
-          else this.startAAnim(Anim.MED_AIR_EXPLO2, x, yy)
-        }
-      }
-    }
-
-    if (this.startendwave !== EMPTY && shield > 0) {
-      if (this.startendwave === END_FLYOFF) {
-        this.control_pause = true
-        this.sfx("FLYBY")
-      }
-      if (this.startendwave < END_FLYOFF) {
-        let x = 0
-        if (this.playerx < 160 - 8) x = 8
-        else if (this.playerx > 160 + 8) x = -8
-        // IPT_FMovePlayer
-        this.g_addx = x
-        this.g_addy = -4
-        if (!this.demo) this.applyMove()
-      }
-    }
-
+    if (shield <= 0 && !this.god) this.playerDeath()
+    if (this.startendwave !== EMPTY && shield > 0) this.flyOff()
     this.lowShield = false
-    if (shield <= SHIELD_LOW && !this.god) {
-      if (this.gl_cnt % 8 === 0) {
-        this.blinkflag = !this.blinkflag
-        if (this.blinkflag && this.damage) this.damage--
-      }
-      if (shield < this.g_oldshield && sup < 1) {
-        if (this.inv.loseObj()) {
-          this.sfx("CRASH")
-          this.damage = 2
-        }
-      }
-      if (this.blinkflag) {
-        this.lowShield = true
-        if (this.startendwave === EMPTY) this.sfx("WARNING")
-      }
-    }
+    if (shield <= SHIELD_LOW && !this.god) this.lowShieldWarning(shield, sup)
     this.weaponLost = this.lowShield && this.damage > 0
     this.g_oldshield = shield
+  }
+
+  /** RAP_DisplayStats: explosions while the player ship dies. */
+  private playerDeath(): void {
+    const r = this.rng
+    // Watcom evaluates call arguments right to left
+    let y = this.playery + r.random(32)
+    this.startAnim(Anim.MED_AIR_EXPLO, this.playerx + r.random(32), y)
+    y = this.playery + r.random(32)
+    this.startAnim(Anim.SMALL_AIR_EXPLO, this.playerx + r.random(32), y)
+    if (this.startendwave > END_EXPLODE) {
+      r.random(2)
+      this.sfx("AIREXPLO")
+    }
+    if (this.startendwave === EMPTY) this.startendwave = END_DURATION
+    if (this.startendwave !== END_EXPLODE) return
+    this.draw_player = false
+    this.sfx("AIREXPLO")
+    this.sfx("AIREXPLO2")
+    this.startAnim(Anim.LARGE_AIR_EXPLO, this.player_cx, this.player_cy)
+    for (let loop = 0; loop < (PLAYERWIDTH * PLAYERHEIGHT) / 2; loop++) {
+      const x = this.playerx - PLAYERWIDTH / 2 + r.random(PLAYERWIDTH * 2)
+      const yy = this.playery - PLAYERHEIGHT / 2 + r.random(PLAYERHEIGHT * 2)
+      if (loop & 1) this.startAnim(Anim.LARGE_AIR_EXPLO, x, yy)
+      else this.startAAnim(Anim.MED_AIR_EXPLO2, x, yy)
+    }
+  }
+
+  /** RAP_DisplayStats: the ship flies off the top after the wave is won. */
+  private flyOff(): void {
+    if (this.startendwave === END_FLYOFF) {
+      this.control_pause = true
+      this.sfx("FLYBY")
+    }
+    if (this.startendwave >= END_FLYOFF) return
+    let x = 0
+    if (this.playerx < 160 - 8) x = 8
+    else if (this.playerx > 160 + 8) x = -8
+    // IPT_FMovePlayer
+    this.g_addx = x
+    this.g_addy = -4
+    if (!this.demo) this.applyMove()
+  }
+
+  /** RAP_DisplayStats: blinking warning, weapon loss on shield hits. */
+  private lowShieldWarning(shield: number, sup: number): void {
+    if (this.gl_cnt % 8 === 0) {
+      this.blinkflag = !this.blinkflag
+      if (this.blinkflag && this.damage) this.damage--
+    }
+    if (shield < this.g_oldshield && sup < 1 && this.inv.loseObj()) {
+      this.sfx("CRASH")
+      this.damage = 2
+    }
+    if (this.blinkflag) {
+      this.lowShield = true
+      if (this.startendwave === EMPTY) this.sfx("WARNING")
+    }
   }
 }

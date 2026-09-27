@@ -25,8 +25,11 @@ export const UI = {
 
 export class TextMenu {
   private items: MenuItem[] = []
-  private rows: { bg: GameObjects.Rectangle; label: GameObjects.Text; detail: GameObjects.Text }[] =
-    []
+  private readonly rows: {
+    bg: GameObjects.Rectangle
+    label: GameObjects.Text
+    detail: GameObjects.Text
+  }[] = []
   private cursor = 0
   private readonly visible: number
   private scroll = 0
@@ -116,7 +119,10 @@ export class TextMenu {
       const sel = this.scroll + i === this.cursor
       r.label.setText(it ? it.label : "")
       r.detail.setText(it?.detail ?? "")
-      r.label.setColor(!it ? UI.text : it.disabled || it.dim ? UI.dim : sel ? "#ffffff" : UI.text)
+      let color = UI.text
+      if (it?.disabled || it?.dim) color = UI.dim
+      else if (it && sel) color = "#ffffff"
+      r.label.setColor(color)
       r.bg.setFillStyle(0x39d0ff, it && sel ? 0.18 : 0)
       r.bg.setStrokeStyle(1, 0x39d0ff, it && sel ? 0.8 : 0)
       if (r.bg.input) r.bg.input.enabled = !!it

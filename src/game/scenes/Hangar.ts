@@ -13,7 +13,7 @@ import {
   withLoadout,
 } from "../campaign"
 import { ENEMY_LIB } from "../data/ep1"
-import { SECTORS, type Sector } from "../data/save"
+import { type PilotSave, SECTORS, type Sector } from "../data/save"
 import { reportMissionStart } from "../data/stats"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
@@ -261,83 +261,16 @@ export class Hangar extends Scene {
     this.mode = mode
     const p = currentPilot()
     if (!p) return
-    const inv = this.lo.inv
-    const items: MenuItem[] = []
-    this.items = []
     const sector: Sector = p.sector ?? "bravo"
-    const total = sectorWaves(p, sector)
-    const next = nextWave(p, sector)
-    const wave =
-      next === null
-        ? "COMPLETE"
-        : next === total - 1
-          ? `FINAL WAVE ${next + 1}`
-          : `WAVE ${next + 1} of ${total}`
-    this.sub.setText(
-      `${sector === "train" ? SECTOR_NAMES.train : `${SECTOR_NAMES.bravo}  ·  ${DIFF_NAMES[p.diff]}`}  ·  ${wave}`,
-    )
+    this.items = []
+    this.sub.setText(this.subtitle(p, sector))
     for (const t of this.table) t.destroy()
     this.table = []
-    if (mode === "hangar") {
-      if (next !== null) items.push({ label: "Launch Mission", action: () => this.launch(next) })
-      // cycles through SECTORS (enter/right = next, left = previous)
-      const cycle = (d = 1) => {
-        const i = SECTORS.indexOf(sector)
-        const next = SECTORS[(i + d + SECTORS.length) % SECTORS.length] ?? sector
-        setPilot({ ...withLoadout(p, this.lo), sector: next })
-        this.show("hangar")
-      }
-      items.push({ label: "Sector", action: () => cycle(), adjust: cycle })
-      if (doneWaves(p, sector))
-        items.push({ label: "Replay Mission", action: () => this.show("replay") })
-      items.push({ label: "Supply Shop: Buy", action: () => this.show("buy") })
-      items.push({ label: "Supply Shop: Sell", action: () => this.show("sell") })
-      items.push({ label: "Exit to Main Menu", action: () => this.exit() })
-      this.items = items.map(() => null)
-    } else if (mode === "replay") {
-      for (let w = 0; w < doneWaves(p, sector); w++) {
-        const st = p.stats?.[levelKey(sector, w)]
-        items.push({
-          label: `Wave ${w + 1}`,
-          detail: st ? `${st.n}x  best ${st.top[0] ?? 0} CR` : "",
-          action: () => this.launch(w),
-        })
-      }
-      items.push({ label: "Back", action: () => this.show("hangar") })
-      this.items = items.map(() => null)
-    } else if (mode === "result") {
-      this.showResult(p.stats?.[this.result?.key ?? ""]?.top ?? [])
-      items.push({ label: "Continue", action: () => this.show("hangar") })
-      this.items = [null]
-    } else if (mode === "buy") {
-      for (const t of inv.buyList()) {
-        const lib = OBJ_LIB[t]
-        if (!lib) continue
-        const cost = inv.getCost(t)
-        items.push({
-          label: `${lib.name}${this.owned(t)}`,
-          detail: `${cost} CR`,
-          dim: cost > this.lo.plr.score,
-          action: () => this.trade(t, true),
-        })
-        this.items.push(t)
-      }
-      items.push({ label: "Done", action: () => this.show("hangar") })
-      this.items.push(null)
-    } else {
-      for (const t of inv.sellList()) {
-        const lib = OBJ_LIB[t]
-        if (!lib) continue
-        items.push({
-          label: `${lib.name}${this.owned(t)}`,
-          detail: `+${inv.getResale(t)} CR`,
-          action: () => this.trade(t, false),
-        })
-        this.items.push(t)
-      }
-      items.push({ label: "Done", action: () => this.show("hangar") })
-      this.items.push(null)
-    }
+    let items: MenuItem[]
+    if (mode === "hangar") items = this.hangarItems(p, sector)
+    else if (mode === "replay") items = this.replayItems(p, sector)
+    else if (mode === "result") items = this.resultItems(p)
+    else items = this.shopItems(mode === "buy")
     // panel fits the rows (the shop adds a description line, the result its top-10 table)
     const rows = mode === "result" ? 10 : Math.min(items.length, 9)
     this.panel.setSize(360, rows * 36 + (mode === "buy" || mode === "sell" ? 60 : 16))
@@ -346,6 +279,89 @@ export class Hangar extends Scene {
     this.menu.setItems(items, keep)
     this.updateStatus()
     this.describe()
+  }
+
+  private subtitle(p: PilotSave, sector: Sector): string {
+    const total = sectorWaves(p, sector)
+    const next = nextWave(p, sector)
+    let wave = "COMPLETE"
+    if (next !== null)
+      wave = next === total - 1 ? `FINAL WAVE ${next + 1}` : `WAVE ${next + 1} of ${total}`
+    const name =
+      sector === "train" ? SECTOR_NAMES.train : `${SECTOR_NAMES.bravo}  ·  ${DIFF_NAMES[p.diff]}`
+    return `${name}  ·  ${wave}`
+  }
+
+  private hangarItems(p: PilotSave, sector: Sector): MenuItem[] {
+    const items: MenuItem[] = []
+    const next = nextWave(p, sector)
+    if (next !== null) items.push({ label: "Launch Mission", action: () => this.launch(next) })
+    // cycles through SECTORS (enter/right = next, left = previous)
+    const cycle = (d = 1) => {
+      const i = SECTORS.indexOf(sector)
+      const to = SECTORS[(i + d + SECTORS.length) % SECTORS.length] ?? sector
+      setPilot({ ...withLoadout(p, this.lo), sector: to })
+      this.show("hangar")
+    }
+    items.push({ label: "Sector", action: () => cycle(), adjust: cycle })
+    if (doneWaves(p, sector))
+      items.push({ label: "Replay Mission", action: () => this.show("replay") })
+    items.push(
+      { label: "Supply Shop: Buy", action: () => this.show("buy") },
+      { label: "Supply Shop: Sell", action: () => this.show("sell") },
+      { label: "Exit to Main Menu", action: () => this.exit() },
+    )
+    this.items = items.map(() => null)
+    return items
+  }
+
+  private replayItems(p: PilotSave, sector: Sector): MenuItem[] {
+    const items: MenuItem[] = []
+    for (let w = 0; w < doneWaves(p, sector); w++) {
+      const st = p.stats?.[levelKey(sector, w)]
+      items.push({
+        label: `Wave ${w + 1}`,
+        detail: st ? `${st.n}x  best ${st.top[0] ?? 0} CR` : "",
+        action: () => this.launch(w),
+      })
+    }
+    items.push({ label: "Back", action: () => this.show("hangar") })
+    this.items = items.map(() => null)
+    return items
+  }
+
+  private resultItems(p: PilotSave): MenuItem[] {
+    this.showResult(p.stats?.[this.result?.key ?? ""]?.top ?? [])
+    this.items = [null]
+    return [{ label: "Continue", action: () => this.show("hangar") }]
+  }
+
+  private shopItems(buy: boolean): MenuItem[] {
+    const inv = this.lo.inv
+    const items: MenuItem[] = []
+    for (const t of buy ? inv.buyList() : inv.sellList()) {
+      const lib = OBJ_LIB[t]
+      if (!lib) continue
+      const label = `${lib.name}${this.owned(t)}`
+      if (buy) {
+        const cost = inv.getCost(t)
+        items.push({
+          label,
+          detail: `${cost} CR`,
+          dim: cost > this.lo.plr.score,
+          action: () => this.trade(t, true),
+        })
+      } else
+        items.push({
+          label,
+          detail: `+${inv.getResale(t)} CR`,
+          action: () => this.trade(t, false),
+        })
+      this.items.push(t)
+    }
+    items.push({ label: "Done", action: () => this.show("hangar") })
+    this.items.push(null)
+    return items
   }
 
   /** STORE.C "you have": amount for stackables (onlyflag), else number of copies (spares). */
@@ -362,13 +378,10 @@ export class Hangar extends Scene {
     const name = OBJ_LIB[t]?.name ?? ""
     if (buy) {
       const r = inv.buy(t)
-      this.msg.setText(
-        r === Buy.GOTIT
-          ? `Purchased ${name}`
-          : r === Buy.NOMONEY
-            ? "Not enough credits"
-            : "No room on the ship",
-      )
+      let text = "No room on the ship"
+      if (r === Buy.GOTIT) text = `Purchased ${name}`
+      else if (r === Buy.NOMONEY) text = "Not enough credits"
+      this.msg.setText(text)
       this.msg.setColor(r === Buy.GOTIT ? UI.gold : UI.warn)
     } else {
       inv.sell(t)

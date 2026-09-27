@@ -114,7 +114,9 @@ export function eshotShoot(w: World, enemy: Ship, gun: number): void {
       cur.lib = LIB_NORMAL
       m.x -= cur.lib.xoff
       m.y -= cur.lib.yoff
-      m.x2 = type === ES_ANGLELEFT ? m.x - 32 : type === ES_ANGLERIGHT ? m.x + 32 : m.x
+      m.x2 = m.x
+      if (type === ES_ANGLELEFT) m.x2 = m.x - 32
+      else if (type === ES_ANGLERIGHT) m.x2 = m.x + 32
       m.y2 = type === ES_ATDOWN ? 200 : m.y + 32
       cur.speed = cur.lib.speed >> 1
       break
@@ -162,6 +164,59 @@ export function eshotShoot(w: World, enemy: Ship, gun: number): void {
   if (!m.done) list.push(cur)
 }
 
+/** ESHOT_Think for a laser beam: follows its gun, damages the player below it. */
+function thinkLaser(w: World, shot: EShot, lib: EShotLib): void {
+  if (shot.curframe >= lib.num_frames) {
+    shot.doneflag = true
+    return
+  }
+  shot.x = shot.en.x + (shot.en.lib.shootx[shot.gun_num] ?? 0) - 4
+  shot.y = shot.en.y + (shot.en.lib.shooty[shot.gun_num] ?? 0)
+  shot.move.y2 = 200
+  const dx = Math.abs(shot.x - w.player_cx)
+  if (dx < PLAYERWIDTH / 2 && shot.y < w.player_cy) {
+    shot.move.y2 = w.player_cy + w.rng.random(4) - 2
+    w.subEnergy(lib.hits)
+  }
+}
+
+/** ESHOT_Think for a moving shot or a mine (speed 0: floats on the spot, then explodes). */
+function moveShot(w: World, shot: EShot, lib: EShotLib): void {
+  if (lib.speed) {
+    shot.x = shot.move.x
+    shot.y = shot.move.y
+    moveSobj(shot.move, shot.speed)
+    if (shot.speed < lib.speed) shot.speed++
+    return
+  }
+  shot.speed--
+  if (!shot.speed) {
+    shot.doneflag = true
+    w.startAnim(Anim.SMALL_AIR_EXPLO, shot.x + 4, shot.y + 4)
+    return
+  }
+  shot.x = shot.move.x + (XPOS[shot.pos] as number)
+  shot.y = shot.move.y + (YPOS[shot.pos] as number)
+  shot.move.y++
+  shot.pos++
+  if (shot.pos >= 16) shot.pos = 0
+}
+
+/** ESHOT_Think for everything but lasers. */
+function thinkShot(w: World, shot: EShot, lib: EShotLib): void {
+  if (shot.curframe >= lib.num_frames) shot.curframe = 0
+  moveShot(w, shot, lib)
+  if (shot.y >= 200 || shot.y < 0) shot.doneflag = true
+  if (shot.x >= 320 || shot.x < 0) shot.doneflag = true
+  const dx = Math.abs(shot.x - w.player_cx)
+  const dy = Math.abs(shot.y - w.player_cy)
+  if (dx < PLAYERWIDTH / 2 && dy < PLAYERHEIGHT / 2) {
+    w.startAnim(Anim.SMALL_AIR_EXPLO, shot.x, shot.y)
+    shot.doneflag = true
+    w.subEnergy(lib.hits)
+  }
+}
+
 /** ESHOT_Think */
 export function eshotThink(w: World): void {
   const list = w.eshots
@@ -169,47 +224,8 @@ export function eshotThink(w: World): void {
     const shot = list[i] as EShot
     const lib = shot.lib
     shot.curframe++
-    if (shot.type === ES_LASER) {
-      if (shot.curframe < lib.num_frames) {
-        shot.x = shot.en.x + (shot.en.lib.shootx[shot.gun_num] ?? 0) - 4
-        shot.y = shot.en.y + (shot.en.lib.shooty[shot.gun_num] ?? 0)
-        shot.move.y2 = 200
-        const dx = Math.abs(shot.x - w.player_cx)
-        if (dx < PLAYERWIDTH / 2 && shot.y < w.player_cy) {
-          shot.move.y2 = w.player_cy + w.rng.random(4) - 2
-          w.subEnergy(lib.hits)
-        }
-      } else shot.doneflag = true
-    } else {
-      if (shot.curframe >= lib.num_frames) shot.curframe = 0
-      if (lib.speed) {
-        shot.x = shot.move.x
-        shot.y = shot.move.y
-        moveSobj(shot.move, shot.speed)
-        if (shot.speed < lib.speed) shot.speed++
-      } else {
-        shot.speed--
-        if (shot.speed) {
-          shot.x = shot.move.x + (XPOS[shot.pos] as number)
-          shot.y = shot.move.y + (YPOS[shot.pos] as number)
-          shot.move.y++
-          shot.pos++
-          if (shot.pos >= 16) shot.pos = 0
-        } else {
-          shot.doneflag = true
-          w.startAnim(Anim.SMALL_AIR_EXPLO, shot.x + 4, shot.y + 4)
-        }
-      }
-      if (shot.y >= 200 || shot.y < 0) shot.doneflag = true
-      if (shot.x >= 320 || shot.x < 0) shot.doneflag = true
-      const dx = Math.abs(shot.x - w.player_cx)
-      const dy = Math.abs(shot.y - w.player_cy)
-      if (dx < PLAYERWIDTH / 2 && dy < PLAYERHEIGHT / 2) {
-        w.startAnim(Anim.SMALL_AIR_EXPLO, shot.x, shot.y)
-        shot.doneflag = true
-        w.subEnergy(lib.hits)
-      }
-    }
+    if (shot.type === ES_LASER) thinkLaser(w, shot, lib)
+    else thinkShot(w, shot, lib)
     if (shot.doneflag) {
       list.splice(i--, 1)
       continue
