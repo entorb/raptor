@@ -1,0 +1,145 @@
+// Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
+import type { PilotSave, Sector } from "./data/save"
+import { DIFF_TRAIN, DIFF_WRAP, Obj } from "./sim/consts"
+import { Inventory, newPilotObjs } from "./sim/objects"
+
+export interface Loadout {
+  plr: { score: number; sweapon: number }
+  inv: Inventory
+}
+
+/** Build the runtime inventory for a saved pilot (fresh pilots get the starting loadout). */
+export function loadout(p: PilotSave): Loadout {
+  const plr = { score: p.score, sweapon: p.sweapon }
+  const inv = new Inventory(plr)
+  if (p.objs.length) inv.load(p.objs)
+  else newPilotObjs(inv)
+  return { plr, inv }
+}
+
+export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
+  return { ...p, score: l.plr.score, sweapon: l.plr.sweapon, objs: l.inv.save() }
+}
+
+export const SECTOR_NAMES: Record<Sector, string> = { bravo: "BRAVO SECTOR", train: "TRAINING" }
+const TRAIN_WAVES = DIFF_WRAP[DIFF_TRAIN] ?? 4
+const TOP = 10
+
+/** Waves in this difficulty's campaign (training ends after 4). */
+export function wavesFor(diff: number): number {
+  return DIFF_WRAP[diff] ?? 9
+}
+
+export function sectorWaves(p: PilotSave, sector: Sector): number {
+  return sector === "train" ? TRAIN_WAVES : wavesFor(p.diff)
+}
+
+/** Difficulty the sim runs with: training always flies DIFF_TRAIN. */
+export function sectorDiff(p: PilotSave, sector: Sector): number {
+  return sector === "train" ? DIFF_TRAIN : p.diff
+}
+
+/** Next campaign wave of a sector, null when the sector is finished. */
+export function nextWave(p: PilotSave, sector: Sector): number | null {
+  const w = sector === "bravo" ? p.wave : (p.train ?? 0)
+  return w < sectorWaves(p, sector) ? w : null
+}
+
+/** Waves this pilot has finished at least once in a sector (replayable). */
+export function doneWaves(p: PilotSave, sector: Sector): number {
+  return sector === "train" ? (p.train ?? 0) : Math.max(p.done ?? 0, p.wave)
+}
+
+export const levelKey = (sector: Sector, wave: number) => `${sector === "train" ? "t" : "b"}${wave}`
+
+/** Count a finished run and keep the level's top-10 earnings; rank is 1-based or null. */
+export function recordRun(
+  p: PilotSave,
+  key: string,
+  earned: number,
+): { pilot: PilotSave; rank: number | null } {
+  const old = p.stats?.[key] ?? { n: 0, top: [] }
+  const top = [...old.top, earned].sort((a, b) => b - a).slice(0, TOP)
+  // ties: the new run ranks below equal older runs
+  const idx = top.lastIndexOf(earned)
+  const rank = idx < 0 || old.top.filter((v) => v >= earned).length >= TOP ? null : idx + 1
+  return { pilot: { ...p, stats: { ...p.stats, [key]: { n: old.n + 1, top } } }, rank }
+}
+
+export type WaveResult = "complete" | "dead" | "abort"
+export type Outcome = "landing" | "death" | "trainingComplete" | "episodeComplete"
+
+/**
+ * WIN_MainLoop after Do_Game. `p` already holds the post-flight score/inventory (for an abort the
+ * caller restores the start score, as Do_Game does). Death returns the pilot unchanged: the web
+ * version reloads the last save (DOS returns to the main menu without saving).
+ * Web changes: training is a sector of every pilot, the difficulty stays fixed per pilot, and
+ * `wave` != `nextWave` is a replay (credits and loadout kept, the campaign stays put).
+ */
+export function afterWave(
+  p: PilotSave,
+  result: WaveResult,
+  sector: Sector = "bravo",
+  wave = nextWave(p, sector) ?? 0,
+  earned = 0,
+): { pilot: PilotSave; outcome: Outcome; rank: number | null } {
+  if (result === "dead") return { pilot: p, outcome: "death", rank: null }
+  if (result === "abort") return { pilot: p, outcome: "landing", rank: null }
+  const { pilot, rank } = recordRun(p, levelKey(sector, wave), earned)
+  if (wave !== nextWave(p, sector)) return { pilot, outcome: "landing", rank }
+  if (sector === "train") {
+    const train = wave + 1
+    return {
+      pilot: { ...pilot, train },
+      outcome: train === TRAIN_WAVES ? "trainingComplete" : "landing",
+      rank,
+    }
+  }
+  // episode end: DOS raises the difficulty and restarts; here the difficulty stays fixed and
+  // the finished sector stays open for replays
+  const wave1 = p.wave + 1
+  return {
+    pilot: { ...pilot, wave: wave1, done: Math.max(p.done ?? 0, wave1) },
+    outcome: wave1 === wavesFor(p.diff) ? "episodeComplete" : "landing",
+    rank,
+  }
+}
+
+export function runCampaignSelfCheck(): void {
+  const assert = (c: boolean, m: string) => {
+    if (!c) throw new Error(`selfcheck: ${m}`)
+  }
+  const base: PilotSave = {
+    name: "T",
+    score: 0,
+    sweapon: -1,
+    wave: 0,
+    diff: 2,
+    objs: [],
+  }
+  const l = loadout(base)
+  assert(l.plr.score === 10000 && l.inv.getAmt(Obj.ENERGY) === 75, "new pilot loadout")
+  assert(afterWave(base, "complete").pilot.wave === 1, "wave advances")
+  assert(afterWave({ ...base, wave: 3 }, "complete").pilot.done === 4, "done tracks finished waves")
+  const replay = afterWave({ ...base, wave: 8, done: 9 }, "complete", "bravo", 2, 500)
+  assert(replay.outcome === "landing" && replay.pilot.wave === 8, "replay keeps campaign wave")
+  assert(replay.pilot.stats?.b2?.n === 1 && replay.rank === 1, "replay is recorded")
+  assert(afterWave(base, "abort").pilot.wave === 0, "abort keeps wave")
+  const last = afterWave({ ...base, wave: 8 }, "complete")
+  assert(
+    last.outcome === "episodeComplete" &&
+      last.pilot.diff === 2 &&
+      nextWave(last.pilot, "bravo") === null &&
+      doneWaves(last.pilot, "bravo") === 9,
+    "episode end keeps difficulty, sector finished",
+  )
+  const t1 = afterWave(base, "complete", "train")
+  assert(t1.pilot.train === 1 && t1.pilot.wave === 0, "training advances separately")
+  const t4 = afterWave({ ...base, train: 3 }, "complete", "train")
+  assert(t4.outcome === "trainingComplete" && nextWave(t4.pilot, "train") === null, "training end")
+  let q = base
+  for (let i = 1; i <= 12; i++) q = recordRun(q, "b0", i * 100).pilot
+  const r = recordRun(q, "b0", 450)
+  assert(r.rank === 9 && r.pilot.stats?.b0?.top.length === 10, "top 10 rank")
+  assert(recordRun(q, "b0", 100).rank === null, "below top 10")
+}

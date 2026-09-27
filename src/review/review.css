@@ -1,0 +1,178 @@
+:root {
+  color-scheme: dark;
+  --bg: #05060d;
+  --panel: #0d1220;
+  --line: #1f2a44;
+  --text: #d6e2ff;
+  --dim: #7c8aa8;
+  --accent: #39d0ff;
+  --gold: #ffd23d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    15px / 1.45 system-ui,
+    sans-serif;
+}
+
+header,
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+h2 {
+  margin: 36px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent);
+  scroll-margin-top: 12px;
+}
+
+h3 {
+  margin: 20px 0 8px;
+  font-size: 16px;
+  color: var(--gold);
+}
+
+p,
+.dim {
+  color: var(--dim);
+}
+
+code {
+  color: var(--text);
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+a {
+  color: var(--accent);
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.card .name {
+  font-weight: 600;
+}
+
+.card .meta {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.pics {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.pic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.frames {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+canvas,
+.pic img {
+  background: #000 radial-gradient(#1b2340 1px, transparent 1px) 0 0 / 12px 12px;
+  border-radius: 4px;
+  max-width: 100%;
+  image-rendering: auto;
+}
+
+.pic img {
+  image-rendering: pixelated;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--line);
+  margin-right: 4px;
+}
+
+.tag.boss {
+  background: #6b1a2a;
+}
+
+.tag.ground {
+  background: #3a3218;
+}
+
+details {
+  margin: 8px 0;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td,
+th {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--dim);
+  font-weight: 500;
+}
+
+audio {
+  height: 32px;
+  max-width: 260px;
+}
