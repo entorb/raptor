@@ -79,6 +79,9 @@ export const FX: Record<Fx, [SfxFile, number, number]> = {
   MONKEY: ["mon1", 128, 127],
 }
 
+/** Voices per sample; a new one cuts off the oldest (DOS FX.C mixed 2..8 channels in total). */
+export const MAX_VOICES = 4
+
 const SND_CLOSE = 40
 const SND_FAR = 500
 
@@ -111,6 +114,7 @@ export class Audio {
   private song: Sound.BaseSound | null = null
   private songKey: Song | null = null
   private boss: Sound.BaseSound | null = null
+  private readonly voices = new Map<SfxFile, Sound.BaseSound[]>()
   musicVolume = 0.6
   sfxVolume = 0.8
 
@@ -132,12 +136,24 @@ export class Audio {
         vol = (vol * s.vol) / 127
         pan = s.pan
       }
-      this.manager.play(`sfx-${file}`, {
+      this.voice(this.manager, file).play({
         volume: vol * this.sfxVolume,
         rate: pitchRate(pitch + e.rnd),
         pan,
       })
     }
+  }
+
+  /** A one-shot sound for `file` (destroyed when done), within MAX_VOICES of that sample. */
+  private voice(manager: Sound.WebAudioSoundManager, file: SfxFile): Sound.BaseSound {
+    const list = this.voices.get(file) ?? []
+    this.voices.set(file, list)
+    if (list.length >= MAX_VOICES) list[0]?.destroy()
+    const s = manager.add(`sfx-${file}`)
+    list.push(s)
+    s.once(Sound.Events.DESTROY, () => list.splice(list.indexOf(s), 1))
+    s.once(Sound.Events.COMPLETE, () => s.destroy())
+    return s
   }
 
   /** FX_BOSS1 is re-triggered while not playing (ENEMY_Think boss_sound). */
