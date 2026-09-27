@@ -16,7 +16,7 @@ import { toggleFullscreen } from "../input/fullscreen"
 import { hasInstallPrompt, promptInstall } from "../pwa"
 import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
-import { backdrop, type MenuItem, TextMenu, UI } from "../ui/textMenu"
+import { backdrop, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
 
 export const DIFF_NAMES = ["Training", "Rookie", "Veteran", "Elite"]
 
@@ -34,6 +34,7 @@ export class Menu extends Scene {
   private mode: Mode = "main"
   private tick: () => void = () => {}
   private info!: GameObjects.Text
+  private body!: GameObjects.Text
   private stats!: GameObjects.Text
   private globalGames: number | null = null
   private actions!: GameObjects.Container
@@ -81,6 +82,17 @@ export class Menu extends Scene {
     this.info = this.add
       .text(480, 566, "", { fontFamily: UI.font, fontSize: "15px", color: UI.dim, align: "center" })
       .setOrigin(0.5)
+    // body text for content that belongs above the menu items, not the footer (e.g. install help)
+    this.body = this.add
+      .text(480, 352, "", {
+        fontFamily: UI.font,
+        fontSize: "18px",
+        color: UI.text,
+        align: "center",
+        wordWrap: { width: 480 },
+        lineSpacing: 10,
+      })
+      .setOrigin(0.5)
     this.add
       .text(480, 588, "A remake of Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)", {
         fontFamily: UI.font,
@@ -113,6 +125,7 @@ export class Menu extends Scene {
     this.actions.setVisible(mode === "main")
     this.closeNameInput()
     this.info.setText("")
+    this.body.setText("")
     let items: MenuItem[]
     switch (mode) {
       case "main":
@@ -146,12 +159,12 @@ export class Menu extends Scene {
 
   private mainItems(): MenuItem[] {
     const items: MenuItem[] = [
-      { label: "Play", action: () => this.show("pilots") },
-      { label: "Options", action: () => this.show("options") },
+      { label: `${ICON.play} Play`, action: () => this.show("pilots") },
+      { label: `${ICON.options} Options`, action: () => this.show("options") },
     ]
     if (this.scale.fullscreen.available)
       items.push({
-        label: this.scale.isFullscreen ? "Exit Fullscreen" : "Fullscreen",
+        label: `${ICON.fullscreen} ${this.scale.isFullscreen ? "Exit Fullscreen" : "Fullscreen"}`,
         action: () => {
           toggleFullscreen(this)
           this.time.delayedCall(300, () => this.show("main"))
@@ -170,8 +183,8 @@ export class Menu extends Scene {
       },
     }))
     items.push(
-      { label: "New Pilot", action: () => this.show("name") },
-      { label: "Back", action: () => this.show("main") },
+      { label: `${ICON.add} New Pilot`, action: () => this.show("name") },
+      { label: `${ICON.back} Back`, action: () => this.show("main") },
     )
     return items
   }
@@ -182,25 +195,25 @@ export class Menu extends Scene {
       this.info.setText(`${DIFF_NAMES[p.diff]} ${p.name}: ${p.score} CR`)
       items.push(
         {
-          label: "Fly",
+          label: `${ICON.play} Fly`,
           action: () => {
             setPilot(p, false)
             this.scene.start("Hangar")
           },
         },
-        { label: "Delete Pilot", action: () => this.show("delete") },
+        { label: `${ICON.delete} Delete Pilot`, action: () => this.show("delete") },
       )
     } else {
       this.info.setText(`Delete pilot ${p.name}? This cannot be undone.`)
       items.push({
-        label: "Yes, delete",
+        label: `${ICON.delete} Yes, delete`,
         action: () => {
           deletePilot(p.name)
           this.show("pilots")
         },
       })
     }
-    items.push({ label: "Back", action: () => this.show("pilots") })
+    items.push({ label: `${ICON.back} Back`, action: () => this.show("pilots") })
     return items
   }
 
@@ -209,8 +222,8 @@ export class Menu extends Scene {
     // row 0 lies under the <input>: activating it (keyboard) focuses the field
     return [
       { label: "", action: () => input.focus() },
-      { label: "OK", action: () => this.submitName() },
-      { label: "Back", action: () => this.show("pilots") },
+      { label: `${ICON.confirm} OK`, action: () => this.submitName() },
+      { label: `${ICON.back} Back`, action: () => this.show("pilots") },
     ]
   }
 
@@ -225,15 +238,15 @@ export class Menu extends Scene {
       { label: "Rookie", detail: "easy", action: start(DIFF_EASY) },
       { label: "Veteran", detail: "normal", action: start(DIFF_NORMAL) },
       { label: "Elite", detail: "hard", action: start(DIFF_HARD) },
-      { label: "Back", action: () => this.show("name") },
+      { label: `${ICON.back} Back`, action: () => this.show("name") },
     ]
   }
 
   private installItems(): MenuItem[] {
-    this.info.setText(
+    this.body.setText(
       'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
     )
-    return [{ label: "Back", action: () => this.show("main") }]
+    return [{ label: `${ICON.back} Back`, action: () => this.show("main") }]
   }
 
   private optionsItems(): MenuItem[] {
@@ -278,7 +291,7 @@ export class Menu extends Scene {
         action: () => setAutoFire(!s.autoFire),
         adjust: () => setAutoFire(!s.autoFire),
       },
-      { label: "Back", action: () => this.show("main") },
+      { label: `${ICON.back} Back`, action: () => this.show("main") },
     ]
   }
 
@@ -335,9 +348,11 @@ export class Menu extends Scene {
   private actionRow(x: number, y: number): GameObjects.Container {
     const style = { fontFamily: UI.font, fontSize: "18px", color: UI.accent }
     const defs: [string, (t: GameObjects.Text) => void][] = [
-      ...(isInstalled() ? [] : [["Install App", () => this.install()] as [string, () => void]]),
-      ["Share", (t) => this.share(t)],
-      ["Contact", () => window.open(CONTACT_URL, "_blank", "noopener")],
+      ...(isInstalled()
+        ? []
+        : [[`${ICON.install} Install App`, () => this.install()] as [string, () => void]]),
+      [`${ICON.share} Share`, (t) => this.share(t)],
+      [`${ICON.contact} Contact`, () => window.open(CONTACT_URL, "_blank", "noopener")],
     ]
     const texts = defs.map(([label, act]) => {
       const t = this.add.text(0, 0, label, style).setOrigin(0, 0.5).setPadding(8, 6, 8, 6)
@@ -373,7 +388,7 @@ export class Menu extends Scene {
       .then(() => {
         t.setText("Link copied")
         this.time.delayedCall(1500, () => {
-          if (t.active) t.setText("Share")
+          if (t.active) t.setText(`${ICON.share} Share`)
         })
       })
       .catch(() => {})

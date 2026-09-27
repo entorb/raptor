@@ -18,7 +18,7 @@ import { reportMissionStart } from "../data/stats"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
 import { Buy, OBJ_LIB } from "../sim/objects"
-import { backdrop, header, type MenuItem, TextMenu, UI } from "../ui/textMenu"
+import { backdrop, header, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
 import { DIFF_NAMES } from "./Menu"
 
 type Mode = "hangar" | "buy" | "sell" | "replay" | "result"
@@ -295,7 +295,8 @@ export class Hangar extends Scene {
   private hangarItems(p: PilotSave, sector: Sector): MenuItem[] {
     const items: MenuItem[] = []
     const next = nextWave(p, sector)
-    if (next !== null) items.push({ label: "Launch Mission", action: () => this.launch(next) })
+    if (next !== null)
+      items.push({ label: `${ICON.play} Launch Mission`, action: () => this.launch(next) })
     // cycles through SECTORS (enter/right = next, left = previous)
     const cycle = (d = 1) => {
       const i = SECTORS.indexOf(sector)
@@ -305,11 +306,11 @@ export class Hangar extends Scene {
     }
     items.push({ label: "Sector", action: () => cycle(), adjust: cycle })
     if (doneWaves(p, sector))
-      items.push({ label: "Replay Mission", action: () => this.show("replay") })
+      items.push({ label: `${ICON.replay} Replay Mission`, action: () => this.show("replay") })
     items.push(
-      { label: "Supply Shop: Buy", action: () => this.show("buy") },
-      { label: "Supply Shop: Sell", action: () => this.show("sell") },
-      { label: "Exit to Main Menu", action: () => this.exit() },
+      { label: `${ICON.buy} Supply Shop: Buy`, action: () => this.show("buy") },
+      { label: `${ICON.sell} Supply Shop: Sell`, action: () => this.show("sell") },
+      { label: `${ICON.back} Exit to Main Menu`, action: () => this.exit() },
     )
     this.items = items.map(() => null)
     return items
@@ -325,7 +326,7 @@ export class Hangar extends Scene {
         action: () => this.launch(w),
       })
     }
-    items.push({ label: "Back", action: () => this.show("hangar") })
+    items.push({ label: `${ICON.back} Back`, action: () => this.show("hangar") })
     this.items = items.map(() => null)
     return items
   }
@@ -333,7 +334,7 @@ export class Hangar extends Scene {
   private resultItems(p: PilotSave): MenuItem[] {
     this.showResult(p.stats?.[this.result?.key ?? ""]?.top ?? [])
     this.items = [null]
-    return [{ label: "Continue", action: () => this.show("hangar") }]
+    return [{ label: `${ICON.play} Continue`, action: () => this.show("hangar") }]
   }
 
   private shopItems(buy: boolean): MenuItem[] {
@@ -359,7 +360,7 @@ export class Hangar extends Scene {
         })
       this.items.push(t)
     }
-    items.push({ label: "Done", action: () => this.show("hangar") })
+    items.push({ label: `${ICON.confirm} Done`, action: () => this.show("hangar") })
     this.items.push(null)
     return items
   }
