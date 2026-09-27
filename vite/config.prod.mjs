@@ -45,7 +45,7 @@ export default defineConfig({
   plugins: [
     phasermsg(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       // Inject the registration script; avoids importing virtual:pwa-register.
       injectRegister: "auto",
       manifest: {

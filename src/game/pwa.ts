@@ -43,3 +43,32 @@ export function hasInstallPrompt(): boolean {
 export function promptInstall(): Promise<boolean> {
   return controller?.prompt() ?? Promise.resolve(false)
 }
+
+// Update prompt. The service worker uses registerType "prompt": a new version
+// installs in the background and waits until the player accepts it.
+
+/** Look for a newer version. Resolves with its waiting service worker, or null. */
+export async function checkForUpdate(): Promise<ServiceWorker | null> {
+  const sw = typeof navigator === "undefined" ? undefined : navigator.serviceWorker
+  const reg = await sw?.getRegistration().catch(() => undefined)
+  if (!sw || !reg) return null
+  // vite-plugin-pwa periodic-update recipe: no check offline or while one is installing
+  if (navigator.onLine && !reg.installing) await reg.update().catch(() => {})
+  const installing = reg.installing
+  if (installing && !reg.waiting)
+    await new Promise<void>((resolve) => {
+      installing.addEventListener("statechange", () => {
+        if (installing.state !== "installing") resolve()
+      })
+    })
+  // no controller = first install, nothing to replace
+  return sw.controller ? reg.waiting : null
+}
+
+/** Activate the waiting service worker (workbox SKIP_WAITING) and reload once it controls the page. */
+export function applyUpdate(waiting: ServiceWorker): void {
+  navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), {
+    once: true,
+  })
+  waiting.postMessage({ type: "SKIP_WAITING" })
+}
