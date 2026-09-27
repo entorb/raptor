@@ -18,6 +18,9 @@ export async function readGlobalMissions(): Promise<number | null> {
 }
 
 export function reportMissionStart(): void {
+  // dev server and local preview must not raise the live counter
+  const host = globalThis.location?.hostname ?? ""
+  if (import.meta.env.DEV || host === "localhost" || host === "127.0.0.1") return
   // `globalThis.fetch` may be missing in some environments (tests); the
   // optional call short-circuits, and `.catch` swallows network rejections.
   void globalThis.fetch?.(`${STATS_URL}&action=write`).catch(() => {})

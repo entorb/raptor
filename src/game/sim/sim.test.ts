@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1"
 import { BEGINNER_MAP } from "../data/training"
-import { DIFF_TRAIN, MAP_SIZE, Obj } from "./consts"
+import { DIFF_NORMAL, DIFF_TRAIN, MAP_SIZE, Obj } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, moveEobj, moveSobj, newMove } from "./move"
 import { Buy, Inventory, newPilotObjs } from "./objects"
 import { Rng } from "./rng"
-import { NO_INPUT, World } from "./world"
+import { CHARGE_SHIELD, NO_INPUT, World } from "./world"
 
 describe("MOVEOBJ", () => {
   it("MoveEobj stops exactly on the target and returns leftover speed", () => {
@@ -153,5 +153,19 @@ describe("training beginner wave (web)", () => {
     for (let f = 0; f < 5000 && !boss && w.step(NO_INPUT); f++)
       boss = w.enemies.ships.find((s) => s.lib.bossflag)
     expect(boss?.hits).toBe(75)
+  })
+})
+
+describe("shield recharge (web: firing pauses, not resets)", () => {
+  it("recharges between short bursts", () => {
+    const plr = { score: 0, sweapon: -1 }
+    const inv = new Inventory(plr)
+    newPilotObjs(inv)
+    const w = new World(0, plr, inv, DIFF_NORMAL)
+    w.god = true
+    const fire = { ...NO_INPUT, fire: true }
+    // burst every 10 frames: DOS never recharged this way
+    for (let f = 0; f < CHARGE_SHIELD * 3; f++) w.step(f % 10 === 0 ? fire : NO_INPUT)
+    expect(inv.getAmt(Obj.ENERGY)).toBeGreaterThan(75)
   })
 })

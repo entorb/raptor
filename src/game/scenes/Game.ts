@@ -561,7 +561,7 @@ export class Game extends Scene {
   /** Mission briefing: all controls plus the keys of the special weapons on board. */
   private controlsLines(): string[] {
     const inv = this.world.inv
-    const fire = this.input2.autoFire ? "AUTO-FIRE ON" : "AUTO-FIRE OFF"
+    const fire = this.input2.autoFire ? "ON" : "OFF"
     const specials = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t)).map(
       ([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`,
     )
@@ -571,15 +571,20 @@ export class Game extends Scene {
           `FIRE         ${this.input2.autoFire ? "automatic" : "while touching"}`,
           "SPECIAL      ▶ button: next · tap icon at bottom",
           "NOVA BOMB    ● button",
-          "PAUSE        ❚❚ button (also auto-fire on/off)",
+          "PAUSE        ❚❚ button",
+          `AUTO-FIRE    ${fire} · toggle in pause menu`,
         ]
       : [
           "MOVE         Arrows / WASD",
-          `FIRE         ${fire} (F toggles) · Space / Ctrl`,
+          "FIRE         Space / Ctrl",
           "SPECIAL      Shift / Alt: next weapon",
           "NOVA BOMB    B / Enter",
           "PAUSE        P / Esc",
+          `AUTO-FIRE    F: on/off (now ${fire})`,
         ]
+    // OBJS_Think: no recharge on hard
+    if (this.world.curplr_diff < DIFF_HARD)
+      lines.push("             not firing recharges the shield")
     if (specials.length) {
       lines.push(
         "",
@@ -870,7 +875,13 @@ export class Game extends Scene {
         message: aborted ? "Mission aborted." : `Wave ${this.wave + 1} ${verb}: +${earned} CR`,
       }
       if (replay && result === "complete")
-        data.result = { key: levelKey(this.sector, this.wave), wave: this.wave, earned, rank }
+        data.result = {
+          key: levelKey(this.sector, this.wave),
+          sector: this.sector,
+          wave: this.wave,
+          earned,
+          rank,
+        }
       return {
         text: aborted ? "MISSION ABORTED" : `${sim ? "SIMULATION" : "WAVE"} COMPLETE`,
         next: () => this.scene.start("Hangar", data),

@@ -4,10 +4,11 @@ import { seeded } from "../art/draw"
 import { BAY, PAD, PAD_TILT } from "../art/hangar"
 import { getAudio } from "../audio/audio"
 import {
-  doneWaves,
+  defaultWave,
   type Loadout,
   levelKey,
   nextWave,
+  playable,
   SECTOR_NAMES,
   sectorWaves,
   withLoadout,
@@ -19,15 +20,27 @@ import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
 import { Buy, OBJ_LIB } from "../sim/objects"
 import { backdrop, header, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
-import { DIFF_NAMES } from "./Menu"
+import { pilotTitle } from "./Menu"
 
-type Mode = "hangar" | "buy" | "sell" | "replay" | "result"
+type Mode = "hangar" | "shop" | "launch"
 
 export interface HangarData {
   message?: string
   /** a finished replay: shown against the level's top 10 */
-  result?: { key: string; wave: number; earned: number; rank: number | null }
+  result?: { key: string; sector: Sector; wave: number; earned: number; rank: number | null }
 }
+
+/** A tappable box of the launch screen. */
+interface Box {
+  bg: GameObjects.Rectangle
+  label: GameObjects.Text
+}
+
+/** Launch screen rows (keyboard focus): sector boxes, wave boxes, launch button. */
+const ROW_SECTOR = 0
+const ROW_WAVE = 1
+const ROW_LAUNCH = 2
+const WAVE_STEP = 38
 
 /** One-line shop descriptions (space re-theme of the ITEMxx_TXT help). */
 const DESC: Partial<Record<ObjType, string>> = {
@@ -67,6 +80,14 @@ export class Hangar extends Scene {
   private backBg!: GameObjects.Rectangle
   private backIcon!: GameObjects.Text
   private backFocused = false
+  private buying = true
+  private selSector: Sector = "bravo"
+  private selWave = 0
+  private focusRow = ROW_LAUNCH
+  private launchObjs: (GameObjects.Rectangle | GameObjects.Text)[] = []
+  private sectorBoxes: Box[] = []
+  private waveBoxes: Box[] = []
+  private launchBox!: Box
 
   constructor() {
     super("Hangar")
@@ -93,8 +114,11 @@ export class Hangar extends Scene {
       .setOrigin(0.5, 0)
       .setStrokeStyle(1, 0x39d0ff, 0.35)
     header(this, "HANGAR")
+    this.add
+      .text(480, 96, pilotTitle(p), { fontFamily: UI.font, fontSize: "22px", color: UI.text })
+      .setOrigin(0.5)
     this.sub = this.add
-      .text(480, 100, "", { fontFamily: UI.font, fontSize: "20px", color: UI.accent })
+      .text(480, 122, "", { fontFamily: UI.font, fontSize: "18px", color: UI.accent })
       .setOrigin(0.5)
     this.status = this.add
       .text(480, 578, "", { fontFamily: UI.mono, fontSize: "19px", color: UI.text })
@@ -110,15 +134,20 @@ export class Hangar extends Scene {
       })
       .setOrigin(0.5)
     this.msg = this.add
-      .text(480, 136, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
+      .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
+    this.buildLaunch(p)
+    // launch keys before the menu's and the back icon's: a key that switches modes (menu Launch,
+    // back icon DOWN) must not also act on the launch screen within the same keypress
+    this.bindLaunchKeys()
     this.menu = new TextMenu(this, 470, 164, 340, 36, 9)
     this.menu.onBack = () => this.backAction()
     this.menu.onMove = () => this.describe()
     this.menu.onUpFromStart = () => this.setBackFocus(true)
     this.buildBackButton()
     getAudio().playSong(this, "hangar")
-    this.show(this.result ? "result" : "hangar")
+    if (this.result) this.openLaunch(this.result.sector, this.result.wave)
+    else this.show("hangar")
     this.save()
   }
 
@@ -238,7 +267,7 @@ export class Hangar extends Scene {
     this.scene.start("Menu")
   }
 
-  /** Exit to hangar (from buy/sell/replay) or to the main menu (from hangar). */
+  /** Exit to hangar (from shop/launch) or to the main menu (from hangar). */
   private backAction(): void {
     if (this.mode === "hangar") this.exit()
     else this.show("hangar")
@@ -274,8 +303,9 @@ export class Hangar extends Scene {
   /** Keyboard focus: also disables the list so its own arrow/confirm keys don't fire. */
   private setBackFocus(on: boolean): void {
     this.backFocused = on
-    this.menu.enabled = !on
+    this.menu.enabled = !on && this.mode !== "launch"
     this.setBackVisual(on)
+    if (this.mode === "launch") this.refreshLaunch()
   }
 
   private setBackVisual(on: boolean): void {
@@ -309,24 +339,26 @@ export class Hangar extends Scene {
   }
 
   private show(mode: Mode): void {
+    const keep = this.mode === mode
     this.mode = mode
     const p = currentPilot()
     if (!p) return
-    const sector: Sector = p.sector ?? "bravo"
     this.items = []
-    this.sub.setText(this.subtitle(p, sector))
-    for (const t of this.table) t.destroy()
-    this.table = []
-    let items: MenuItem[]
-    if (mode === "hangar") items = this.hangarItems(p, sector)
-    else if (mode === "replay") items = this.replayItems(p, sector)
-    else if (mode === "result") items = this.resultItems(p)
-    else items = this.shopItems(mode === "buy")
-    // panel fits the rows (the shop adds a description line, the result its top-10 table)
-    const rows = mode === "result" ? 10 : Math.min(items.length, 9)
-    this.panel.setSize(360, rows * 36 + (mode === "buy" || mode === "sell" ? 60 : 16))
-    const keep =
-      mode === "hangar" ? this.menu.index < items.length : mode === "buy" || mode === "sell"
+    this.clearTable()
+    const launch = mode === "launch"
+    for (const o of this.launchObjs) {
+      o.setVisible(launch)
+      if (o.input) o.input.enabled = launch
+    }
+    this.menu.enabled = !launch && !this.backFocused
+    let items: MenuItem[] = []
+    if (mode === "hangar") items = this.hangarItems()
+    else if (mode === "shop") items = this.shopItems()
+    else this.refreshLaunch()
+    this.sub.setText(this.subtitle(p, launch ? this.selSector : (p.sector ?? "bravo")))
+    // panel fits the rows (the shop adds a description line, launch its boxes and top-10 table)
+    const h = Math.min(items.length, 9) * 36 + (mode === "shop" ? 60 : 16)
+    this.panel.setSize(360, launch ? 404 : h)
     this.menu.setItems(items, keep)
     this.updateStatus()
     this.describe()
@@ -338,59 +370,194 @@ export class Hangar extends Scene {
     let wave = "COMPLETE"
     if (next !== null)
       wave = next === total - 1 ? `FINAL WAVE ${next + 1}` : `WAVE ${next + 1} of ${total}`
-    const name =
-      sector === "train" ? SECTOR_NAMES.train : `${SECTOR_NAMES.bravo}  ·  ${DIFF_NAMES[p.diff]}`
-    return `${name}  ·  ${wave}`
+    return `${SECTOR_NAMES[sector]}  ·  ${wave}`
   }
 
-  private hangarItems(p: PilotSave, sector: Sector): MenuItem[] {
-    const items: MenuItem[] = []
-    const next = nextWave(p, sector)
-    if (next !== null)
-      items.push({ label: `${ICON.play} Launch Mission`, action: () => this.launch(next) })
-    // cycles through SECTORS (enter/right = next, left = previous)
-    const cycle = (d = 1) => {
-      const i = SECTORS.indexOf(sector)
-      const to = SECTORS[(i + d + SECTORS.length) % SECTORS.length] ?? sector
-      setPilot({ ...withLoadout(p, this.lo), sector: to })
-      this.show("hangar")
-    }
-    items.push({ label: "Sector", action: () => cycle(), adjust: cycle })
-    if (doneWaves(p, sector))
-      items.push({ label: `${ICON.replay} Replay Mission`, action: () => this.show("replay") })
-    items.push(
-      { label: `${ICON.buy} Supply Shop: Buy`, action: () => this.show("buy") },
-      { label: `${ICON.sell} Supply Shop: Sell`, action: () => this.show("sell") },
+  private hangarItems(): MenuItem[] {
+    const items: MenuItem[] = [
+      {
+        label: `${ICON.play} Launch`,
+        action: () => {
+          const s = currentPilot()?.sector ?? "bravo"
+          this.openLaunch(s, this.defaultWave(s))
+        },
+      },
+      {
+        label: `${ICON.buy} Shop`,
+        action: () => {
+          this.buying = true
+          this.show("shop")
+        },
+      },
       { label: `${ICON.back} Exit to Main Menu`, action: () => this.exit() },
-    )
+    ]
     this.items = items.map(() => null)
     return items
   }
 
-  private replayItems(p: PilotSave, sector: Sector): MenuItem[] {
-    const items: MenuItem[] = []
-    for (let w = 0; w < doneWaves(p, sector); w++) {
-      const st = p.stats?.[levelKey(sector, w)]
-      items.push({
-        label: `Wave ${w + 1}`,
-        detail: st ? `${st.n}x  best ${st.top[0] ?? 0} CR` : "",
-        action: () => this.launch(w),
-      })
+  private defaultWave(sector: Sector): number {
+    const p = currentPilot()
+    return p ? defaultWave(p, sector) : 0
+  }
+
+  /** Launch screen: 2 sector boxes, the sector's wave boxes, the level's top 10, Launch. */
+  private buildLaunch(p: PilotSave): void {
+    // the scene instance is reused: drop the objects of the previous visit
+    this.launchObjs = []
+    this.waveBoxes = []
+    this.table = []
+    const box = (x: number, y: number, w: number, h: number, size: number, tap: () => void) => {
+      const bg = this.add.rectangle(x, y, w, h, 0x39d0ff, 0).setInteractive({ useHandCursor: true })
+      const label = this.add
+        .text(x, y, "", { fontFamily: UI.font, fontSize: `${size}px`, color: UI.text })
+        .setOrigin(0.5)
+      bg.on("pointerup", tap)
+      this.launchObjs.push(bg, label)
+      return { bg, label }
     }
-    items.push({ label: `${ICON.back} Back`, action: () => this.show("hangar") })
-    this.items = items.map(() => null)
-    return items
+    this.sectorBoxes = SECTORS.map((s, i) =>
+      box(551 + i * 178, 184, 174, 40, 17, () => {
+        this.focusRow = ROW_SECTOR
+        this.selectSector(s)
+      }),
+    )
+    const waves = Math.max(...SECTORS.map((s) => sectorWaves(p, s)))
+    for (let w = 0; w < waves; w++)
+      this.waveBoxes.push(
+        box(0, 232, WAVE_STEP - 4, 36, 18, () => {
+          this.focusRow = ROW_WAVE
+          this.selWave = w
+          this.refreshLaunch()
+        }),
+      )
+    this.launchBox = box(640, 536, 356, 40, 19, () => this.launch())
   }
 
-  private resultItems(p: PilotSave): MenuItem[] {
-    this.showResult(p.stats?.[this.result?.key ?? ""]?.top ?? [])
-    this.items = [null]
-    return [{ label: `${ICON.play} Continue`, action: () => this.show("hangar") }]
+  private openLaunch(sector: Sector, wave: number): void {
+    this.selSector = sector
+    this.selWave = wave
+    this.focusRow = ROW_LAUNCH
+    this.show("launch")
   }
 
-  private shopItems(buy: boolean): MenuItem[] {
+  /** Select a sector (remembered as the pilot's last sector) and its default wave. */
+  private selectSector(s: Sector): void {
+    const p = currentPilot()
+    if (!p) return
+    setPilot({ ...withLoadout(p, this.lo), sector: s })
+    this.selSector = s
+    this.selWave = defaultWave(p, s)
+    this.show("launch")
+  }
+
+  private bindLaunchKeys(): void {
+    const kb = this.input.keyboard
+    const on = (keys: string[], fn: () => void) => {
+      for (const k of keys)
+        kb?.on(`keydown-${k}`, () => {
+          if (this.mode === "launch" && !this.backFocused) fn()
+        })
+    }
+    const focus = (row: number) => {
+      this.focusRow = row
+      this.refreshLaunch()
+    }
+    on(["UP", "W"], () => {
+      if (this.focusRow === ROW_SECTOR) this.setBackFocus(true)
+      else focus(this.focusRow - 1)
+    })
+    on(["DOWN", "S"], () => focus(Math.min(ROW_LAUNCH, this.focusRow + 1)))
+    on(["LEFT", "A"], () => this.stepLaunch(-1))
+    on(["RIGHT", "D"], () => this.stepLaunch(1))
+    on(["ENTER", "SPACE"], () => {
+      if (this.focusRow === ROW_LAUNCH) this.launch()
+      else focus(ROW_LAUNCH)
+    })
+  }
+
+  /** LEFT/RIGHT on the launch screen: cycle sectors, or move to the next playable wave. */
+  private stepLaunch(d: number): void {
+    const p = currentPilot()
+    if (!p) return
+    if (this.focusRow === ROW_SECTOR) {
+      const i = SECTORS.indexOf(this.selSector)
+      this.selectSector(SECTORS[(i + d + SECTORS.length) % SECTORS.length] ?? this.selSector)
+    } else if (this.focusRow === ROW_WAVE) {
+      const n = sectorWaves(p, this.selSector)
+      for (let w = this.selWave + d; w >= 0 && w < n; w += d)
+        if (playable(p, this.selSector, w)) {
+          this.selWave = w
+          this.refreshLaunch()
+          return
+        }
+    }
+  }
+
+  private paint(b: Box, sel: boolean, focus: boolean, dim = false): void {
+    b.bg.setFillStyle(0x39d0ff, sel ? 0.22 : 0.05)
+    let alpha = 0.35
+    if (focus) alpha = 0.9
+    else if (sel) alpha = 0.8
+    else if (dim) alpha = 0.12
+    b.bg.setStrokeStyle(focus ? 2 : 1, focus ? 0xffffff : 0x39d0ff, alpha)
+    let color = UI.text
+    if (dim) color = UI.dim
+    else if (sel || focus) color = "#ffffff"
+    b.label.setColor(color)
+  }
+
+  private refreshLaunch(): void {
+    const p = currentPilot()
+    if (!p) return
+    const s = this.selSector
+    const row = this.backFocused ? -1 : this.focusRow
+    SECTORS.forEach((sec, i) => {
+      const b = this.sectorBoxes[i]
+      if (!b) return
+      b.label.setText(sec === "train" ? "TRAINING" : "BRAVO")
+      this.paint(b, sec === s, row === ROW_SECTOR && sec === s)
+    })
+    const n = sectorWaves(p, s)
+    const next = nextWave(p, s)
+    this.waveBoxes.forEach((b, w) => {
+      const shown = w < n
+      const ok = shown && playable(p, s, w)
+      const x = 640 + (w - (n - 1) / 2) * WAVE_STEP
+      b.bg.setVisible(shown).setX(x)
+      b.label
+        .setVisible(shown)
+        .setX(x)
+        .setText(String(w + 1))
+      if (b.bg.input) b.bg.input.enabled = ok
+      const sel = w === this.selWave
+      this.paint(b, sel, row === ROW_WAVE && sel, !ok)
+      // the next campaign wave in gold
+      if (ok && !sel && w === next) b.label.setColor(UI.gold)
+    })
+    const replay = this.selWave !== next
+    this.launchBox.label.setText(
+      `${replay ? ICON.replay : ICON.play} ${replay ? "REPLAY" : "LAUNCH"}  ·  WAVE ${this.selWave + 1}`,
+    )
+    this.paint(this.launchBox, row === ROW_LAUNCH, row === ROW_LAUNCH)
+    this.showTop(p)
+  }
+
+  private shopItems(): MenuItem[] {
+    const buy = this.buying
     const inv = this.lo.inv
-    const items: MenuItem[] = []
+    const flip = () => {
+      this.buying = !this.buying
+      this.show("shop")
+    }
+    const items: MenuItem[] = [
+      {
+        label: `${buy ? ICON.buy : ICON.sell} ${buy ? "Buy" : "Sell"}`,
+        detail: buy ? "[BUY]  sell" : "buy  [SELL]",
+        action: flip,
+        adjust: flip,
+      },
+    ]
+    this.items.push(null)
     for (const t of buy ? inv.buyList() : inv.sellList()) {
       const lib = OBJ_LIB[t]
       if (!lib) continue
@@ -443,32 +610,40 @@ export class Hangar extends Scene {
     this.show(this.mode)
   }
 
-  /** Top-10 earnings of the replayed level, the new run in gold. */
-  private showResult(top: number[]): void {
-    const r = this.result
-    if (!r) return
-    const line = (y: number, text: string, color: string, size = 20) =>
+  private clearTable(): void {
+    for (const t of this.table) t.destroy()
+    this.table = []
+  }
+
+  /** Top-10 earnings of the selected level; a just finished replay in gold. */
+  private showTop(p: PilotSave): void {
+    this.clearTable()
+    const key = levelKey(this.selSector, this.selWave)
+    const st = p.stats?.[key]
+    const top = st?.top ?? []
+    const r = this.result?.key === key ? this.result : undefined
+    const line = (y: number, text: string, color: string, size = 18) =>
       this.table.push(
         this.add
           .text(640, y, text, { fontFamily: UI.mono, fontSize: `${size}px`, color })
           .setOrigin(0.5),
       )
-    line(236, `WAVE ${r.wave + 1} REPLAY  ·  TOP 10`, UI.accent, 22)
+    line(272, `WAVE ${this.selWave + 1}  ·  TOP 10  ·  ${st?.n ?? 0}x flown`, UI.accent, 19)
+    if (!top.length) line(300, "No runs yet", UI.dim)
     top.forEach((v, i) => {
-      const me = r.rank === i + 1
       line(
-        270 + i * 24,
+        296 + i * 21,
         `${String(i + 1).padStart(2)}.  ${String(v).padStart(8)} CR`,
-        me ? UI.gold : UI.text,
+        r?.rank === i + 1 ? UI.gold : UI.text,
       )
     })
-    if (r.rank === null)
-      line(270 + top.length * 24 + 6, `+${r.earned} CR: not in the top 10`, UI.warn)
+    if (r && r.rank === null)
+      line(296 + top.length * 21 + 4, `+${r.earned} CR: not in the top 10`, UI.warn)
   }
 
-  private launch(wave: number): void {
+  private launch(): void {
     this.save()
     reportMissionStart()
-    this.scene.start("Game", { wave, sector: currentPilot()?.sector ?? "bravo" })
+    this.scene.start("Game", { wave: this.selWave, sector: this.selSector })
   }
 }
