@@ -42,7 +42,8 @@ import { Tiles, tileScroll, tileThink } from "./tile"
 
 const MAX_ADDX = 10
 const MAX_ADDY = 8
-const CHARGE_SHIELD = 24 * 4
+/** web: DOS 24 * 4; halved so the recharge is noticeable */
+export const CHARGE_SHIELD = 24 * 2
 const FADE_FRAMES = 20
 const SHAKES = [-4, 4, -3, 3, -2, 2, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, 0, 0]
 
@@ -285,11 +286,13 @@ export class World {
   private use(type: ObjType): void {
     if (this.inv.use(type, (t) => playerShoot(this, t))) {
       this.objuse_flag = true
-      this.think_cnt = 0
     }
   }
 
-  /** OBJS_Think: slow shield recharge while not firing (not on hard). */
+  /**
+   * OBJS_Think: slow shield recharge while not firing (not on hard).
+   * web: firing pauses the counter instead of resetting it (DOS `think_cnt = 0` in OBJS_Use).
+   */
   private objsThink(): void {
     if (this.curplr_diff >= DIFF_HARD) return
     if (this.objuse_flag) {

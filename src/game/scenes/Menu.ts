@@ -18,7 +18,11 @@ import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
 import { backdrop, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
 
-export const DIFF_NAMES = ["Training", "Rookie", "Veteran", "Elite"]
+/** Pilot titles by difficulty, from DIFF_EASY (training is a sector, not a difficulty). */
+const DIFF_NAMES = ["Rookie", "Veteran", "Elite"]
+
+/** "Veteran Name": the pilot's title (difficulty) and name. */
+export const pilotTitle = (p: PilotSave) => `${DIFF_NAMES[p.diff - DIFF_EASY] ?? ""} ${p.name}`
 
 type Mode = "main" | "pilots" | "pilot" | "delete" | "name" | "new" | "options" | "install"
 
@@ -199,7 +203,7 @@ export class Menu extends Scene {
   private pilotsItems(): MenuItem[] {
     // most recently played first (savePilot keeps the list in that order)
     const items: MenuItem[] = loadPilots().map((p) => ({
-      label: `${DIFF_NAMES[p.diff]} ${p.name}`,
+      label: pilotTitle(p),
       action: () => {
         this.picked = p
         this.show("pilot")
@@ -215,7 +219,7 @@ export class Menu extends Scene {
   private pilotItems(p: PilotSave, mode: "pilot" | "delete"): MenuItem[] {
     const items: MenuItem[] = []
     if (mode === "pilot") {
-      this.info.setText(`${DIFF_NAMES[p.diff]} ${p.name}: ${p.score} CR`)
+      this.info.setText(`${pilotTitle(p)}: ${p.score} CR`)
       items.push(
         {
           label: `${ICON.play} Fly`,

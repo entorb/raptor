@@ -61,6 +61,16 @@ export function doneWaves(p: PilotSave, sector: Sector): number {
   return sector === "train" ? (p.train ?? 0) : Math.max(p.done ?? 0, p.wave)
 }
 
+/** Wave preselected in the Hangar: the next unfinished one, else the sector's last. */
+export function defaultWave(p: PilotSave, sector: Sector): number {
+  return nextWave(p, sector) ?? sectorWaves(p, sector) - 1
+}
+
+/** A wave can be flown once finished (replay) or when it is the next campaign wave. */
+export function playable(p: PilotSave, sector: Sector, w: number): boolean {
+  return w < doneWaves(p, sector) || w === nextWave(p, sector)
+}
+
 export const levelKey = (sector: Sector, wave: number) => `${sector === "train" ? "t" : "b"}${wave}`
 
 /** Count a finished run and keep the level's top-10 earnings; rank is 1-based or null. */
@@ -100,8 +110,10 @@ export function afterWave(
   if (wave !== nextWave(p, sector)) return { pilot, outcome: "landing", rank }
   if (sector === "train") {
     const train = wave + 1
+    // finished training: the Hangar now defaults to the Bravo sector
+    const sector = train === TRAIN_WAVES ? "bravo" : pilot.sector
     return {
-      pilot: { ...pilot, train },
+      pilot: { ...pilot, train, sector },
       outcome: train === TRAIN_WAVES ? "trainingComplete" : "landing",
       rank,
     }
@@ -150,6 +162,9 @@ export function runCampaignSelfCheck(): void {
   assert(t4.outcome === "landing" && nextWave(t4.pilot, "train") === 4, "training has 5 waves")
   const t5 = afterWave({ ...base, train: 4 }, "complete", "train")
   assert(t5.outcome === "trainingComplete" && nextWave(t5.pilot, "train") === null, "training end")
+  assert(t5.pilot.sector === "bravo" && t4.pilot.sector === base.sector, "training end -> bravo")
+  assert(defaultWave(base, "train") === 0 && defaultWave(t5.pilot, "train") === 4, "default wave")
+  assert(playable(t4.pilot, "train", 4) && !playable(base, "train", 1), "playable waves")
   assert(waveMap("train", 0).map === BEGINNER_MAP, "training starts with the beginner wave")
   assert(waveMap("train", 4).index === 3 && waveMap("bravo", 4).index === 4, "wave -> DOS map")
   let q = base
