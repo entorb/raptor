@@ -213,7 +213,11 @@ export function drawHudBar(ctx: Ctx, lit: [string, string, string] | null): void
   ctx.fill()
   for (let i = 0; i < segs; i++) {
     let c = "#1a2030"
-    if (lit) c = lit[i / segs < 0.25 ? 0 : i / segs < 0.5 ? 1 : 2]
+    if (lit) {
+      const frac = i / segs
+      const tier = frac < 0.25 ? 0 : frac < 0.5 ? 1 : 2
+      c = lit[tier]
+    }
     ctx.globalAlpha = lit ? 0.95 : 0.8
     ctx.fillStyle = c
     roundRect(ctx, 3, h - 2 - (i + 1) * step, 12, step - 4, 2)

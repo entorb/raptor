@@ -915,17 +915,7 @@ export class Game extends Scene {
     // web change: an abort also restores the saved loadout (weapons lost in flight come back)
     if (result === "abort") reloadPilot()
     else setPilot(pilot)
-    if (outcome === "landing") {
-      const aborted = result === "abort"
-      const verb = replay ? "replayed" : "complete"
-      const data: HangarData = {
-        message: aborted ? "Mission aborted." : `Wave ${this.wave + 1} ${verb}: +${earned} CR`,
-      }
-      return {
-        text: aborted ? "MISSION ABORTED" : `${sim ? "SIMULATION" : "WAVE"} COMPLETE`,
-        next: () => this.scene.start("Hangar", data),
-      }
-    }
+    if (outcome === "landing") return this.landingTarget(sim, result, replay, earned)
     const training = outcome === "trainingComplete"
     const message = training
       ? "Training complete. Missions can be replayed."
@@ -933,6 +923,24 @@ export class Game extends Scene {
     return {
       text: training ? "TRAINING COMPLETE" : `${SECTOR_NAMES.bravo} SECURED`,
       next: () => this.scene.start("Hangar", { message }),
+    }
+  }
+
+  private landingTarget(
+    sim: boolean,
+    result: WaveResult,
+    replay: boolean,
+    earned: number,
+  ): { text: string; next: () => void } {
+    const aborted = result === "abort"
+    const verb = replay ? "replayed" : "complete"
+    const data: HangarData = {
+      message: aborted ? "Mission aborted." : `Wave ${this.wave + 1} ${verb}: +${earned} CR`,
+    }
+    const completeText = `${sim ? "SIMULATION" : "WAVE"} COMPLETE`
+    return {
+      text: aborted ? "MISSION ABORTED" : completeText,
+      next: () => this.scene.start("Hangar", data),
     }
   }
 

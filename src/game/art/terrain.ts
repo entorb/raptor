@@ -171,7 +171,7 @@ export class ChunkJob {
 
   /** Fills `this.rgb` with the lit surface color at map cell `i` (DOS px dx, dy). */
   private surfaceColor(i: number, dx: number, dy: number): void {
-    const { seed, SW, rgb } = this
+    const { SW } = this
     // light from top-left
     const gx = (this.hgt[i + 1] as number) - (this.hgt[i] as number)
     const gy = (this.hgt[i + SW] as number) - (this.hgt[i] as number)
@@ -182,15 +182,26 @@ export class ChunkJob {
       return
     }
     if (m > 0.5) {
-      const plate = 0.8 + hash2(Math.floor(dx / 16), Math.floor(dy / 16), seed + 7) * 0.25
-      const seam = dx % 16 < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
-      rgb[0] = 72 * plate * seam * shade
-      rgb[1] = 84 * plate * seam * shade
-      rgb[2] = 102 * plate * seam * shade
-      if ((dx + 8) % 32 < 1.4 && dy % 48 < 1.6) rgb.splice(0, 3, 90, 230, 255)
+      this.plateColor(shade, dx, dy)
       return
     }
-    // rock: dusty warm grey to cool slate
+    this.rockColor(shade, dx, dy)
+  }
+
+  /** Hull plating: seamed panels with an occasional glowing light strip. */
+  private plateColor(shade: number, dx: number, dy: number): void {
+    const { seed, rgb } = this
+    const plate = 0.8 + hash2(Math.floor(dx / 16), Math.floor(dy / 16), seed + 7) * 0.25
+    const seam = dx % 16 < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
+    rgb[0] = 72 * plate * seam * shade
+    rgb[1] = 84 * plate * seam * shade
+    rgb[2] = 102 * plate * seam * shade
+    if ((dx + 8) % 32 < 1.4 && dy % 48 < 1.6) rgb.splice(0, 3, 90, 230, 255)
+  }
+
+  /** Rock: dusty warm grey to cool slate, with glowing lichen patches. */
+  private rockColor(shade: number, dx: number, dy: number): void {
+    const { seed, rgb } = this
     const tone = vnoise(dx / 60, dy / 60, seed + 11)
     rgb[0] = (88 + tone * 30) * shade
     rgb[1] = (80 + tone * 18) * shade

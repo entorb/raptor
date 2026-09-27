@@ -242,7 +242,7 @@ export class Inventory {
   getNext(): void {
     let idx = WEAPON_ORDER.indexOf(this.plr.sweapon as ObjType)
     let setval = EMPTY
-    for (let loop = 0; loop < WEAPON_ORDER.length; loop++) {
+    for (const _ of WEAPON_ORDER) {
       idx = (idx + 1) % WEAPON_ORDER.length
       const pos = WEAPON_ORDER[idx] as ObjType
       const cur = this.p_objs[pos]
