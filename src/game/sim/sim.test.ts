@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1"
-import { MAP_SIZE, Obj } from "./consts"
+import { BEGINNER_MAP } from "../data/training"
+import { DIFF_TRAIN, MAP_SIZE, Obj } from "./consts"
+import type { Ship } from "./enemy"
 import { initMobj, moveEobj, moveSobj, newMove } from "./move"
 import { Buy, Inventory, newPilotObjs } from "./objects"
 import { Rng } from "./rng"
+import { NO_INPUT, World } from "./world"
 
 describe("MOVEOBJ", () => {
   it("MoveEobj stops exactly on the target and returns leftover speed", () => {
@@ -126,5 +129,29 @@ describe("episode 1 data", () => {
   })
   it("every tile has 16 material cells", () => {
     expect(TILE_CELLS.every((c) => /^[0-3]{16}$/.test(c))).toBe(true)
+  })
+})
+
+describe("training beginner wave (web)", () => {
+  const easy = (spawns: number[][]) => spawns.filter((s) => s[5] === 3)
+  it("is short, sparse, shield-only, boss last", () => {
+    const sp = BEGINNER_MAP.spawns
+    const rows = sp.map((s) => s[3] ?? 0)
+    expect(rows).toEqual([...rows].sort((a, b) => b - a))
+    expect(ENEMY_LIB[sp[sp.length - 1]?.[1] ?? 0]?.bossflag).toBe(1)
+    const bonus = new Set(sp.map((s) => ENEMY_LIB[s[1] ?? 0]?.bonus).filter((b) => b !== -1))
+    expect([...bonus]).toEqual([Obj.ENERGY])
+    expect(sp.length).toBeLessThan(easy(MAPS[0]?.spawns ?? []).length / 3)
+  })
+  it("spawns a weaker boss", () => {
+    const plr = { score: 0, sweapon: -1 }
+    const inv = new Inventory(plr)
+    newPilotObjs(inv)
+    const w = new World(0, plr, inv, DIFF_TRAIN, BEGINNER_MAP)
+    w.god = true
+    let boss: Ship | undefined
+    for (let f = 0; f < 5000 && !boss && w.step(NO_INPUT); f++)
+      boss = w.enemies.ships.find((s) => s.lib.bossflag)
+    expect(boss?.hits).toBe(75)
   })
 })

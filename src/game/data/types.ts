@@ -37,3 +37,11 @@ export interface EnemyLib {
   flightx: number[]
   flighty: number[]
 }
+
+/** One wave's map: MAPS entry (tile FLATS indices + CSPRITE spawn records), plus web tweaks. */
+export interface WaveMap {
+  flats: number[]
+  spawns: number[][]
+  /** web: halve the boss hits and burst length (beginner training wave) */
+  easyBoss?: boolean
+}
