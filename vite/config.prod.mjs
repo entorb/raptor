@@ -70,10 +70,22 @@ export default defineConfig({
           },
         ],
       },
+      // The 512 px icons are only fetched by the browser on install; keep them out of the precache.
+      includeManifestIcons: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ogg,json,webmanifest}"],
-        globIgnores: [],
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Music (~6 MB) is loaded on demand (Audio.playSong) and cached when first heard.
+        globIgnores: ["assets/music/**", "icons/*512x512.png"],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/music\/[^/]+\.ogg$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "music",
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
       },
