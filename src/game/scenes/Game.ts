@@ -116,6 +116,7 @@ export class Game extends Scene {
     warn: GameObjects.Text
     banner: GameObjects.Text
     weaponName: GameObjects.Text
+    novas: GameObjects.Image[]
   }
   /** Bottom strip: special weapons on board with their keys (tap to select on touch). */
   private weaponBar: {
@@ -266,7 +267,14 @@ export class Game extends Scene {
     this.prevScroll = this.scrollY()
     this.prevPlayer = { x: w.player_cx, y: w.player_cy }
     this.input2.setShip(w.player_cx, w.player_cy)
+    const nova = w.shots.find((s) => s.lib.type === Obj.MEGA_BOMB)
+    const novaAt = nova && { x: nova.x + nova.lib.hlx, y: nova.y + nova.lib.hly }
     const running = w.step(this.input2.read())
+    // startfadeflag (mega bomb detonation) just turned into fadeflag with fadecnt 0
+    if (novaAt && w.fadeflag && w.fadecnt === 0) {
+      this.fx.nova(novaAt.x * SCALE, novaAt.y * SCALE)
+      this.shakeAmt = Math.max(this.shakeAmt, 10)
+    }
     const audio = getAudio()
     audio.play(w.sfxEvents, w.player_cx, w.player_cy)
     audio.bossLoop(w.bossLoop)
@@ -357,7 +365,7 @@ export class Game extends Scene {
     for (const s of w.enemies.ships) this.trackShip(w, s)
     for (const s of w.shots) {
       if (s.lib.beam === "beam" || s.lib.beam === "line") continue
-      this.track(
+      const t = this.track(
         `s${s.id}`,
         `shot-${s.lib.key}`,
         "__BASE",
@@ -365,6 +373,7 @@ export class Game extends Scene {
         s.y + s.lib.hly,
         D.shots,
       )
+      if (s.lib.type === Obj.MEGA_BOMB) t.obj.setScale(1.8 + 0.2 * Math.sin(w.frame * 0.6))
     }
     for (const e of w.eshots) {
       if (e.type === 5) continue // laser: drawn as a beam
@@ -520,7 +529,10 @@ export class Game extends Scene {
       .setShadow(0, 0, UI.accent, 12, true, true)
       .setAlpha(0)
     this.lastWeapon = this.world.plr.sweapon
-    this.hud = { g, score, special, warn, banner, weaponName }
+    const novas = Array.from({ length: 5 }, (_, i) =>
+      this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
+    )
+    this.hud = { g, score, special, warn, banner, weaponName, novas }
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
@@ -644,7 +656,7 @@ export class Game extends Scene {
     this.updateWeaponBar(sw)
     // nova bombs + phase shields
     const nova = inv.getAmt(Obj.MEGA_BOMB)
-    for (let i = 0; i < nova; i++) g.fillStyle(0xffe066, 0.95).fillCircle(64 + i * 22, 580, 7)
+    for (const [i, img] of this.hud.novas.entries()) img.setVisible(i < nova)
     const phase = inv.getTotal(Obj.SUPER_SHIELD)
     for (let i = 0; i < phase; i++) g.lineStyle(3, 0x46e0ff, 0.95).strokeCircle(64 + i * 22, 22, 7)
     // damage scanner (boss integrity)

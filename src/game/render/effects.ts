@@ -1,6 +1,6 @@
 // Particle effects for the original ANIMS (explosions, sparks, smoke) in the modern look.
 import type { GameObjects, Scene } from "phaser"
-import { SCALE } from "../data/playfield"
+import { PLAY, SCALE } from "../data/playfield"
 import type { AnimObj } from "../sim/anims"
 
 type Emitter = GameObjects.Particles.ParticleEmitter
@@ -169,6 +169,36 @@ export class Effects {
       default:
         return // GUNSTR (muzzle) and SHIPGLOW (shield) are drawn by the player view
     }
+  }
+
+  /** Nova bomb detonation (DOS: palette flash + shake): screen flash, shockwaves, fireball. */
+  nova(x: number, y: number): void {
+    const depth = this.flash.depth + 1
+    const tween = (obj: GameObjects.Shape, cfg: Record<string, unknown>) =>
+      this.scene.tweens.add({ targets: obj, onComplete: () => obj.destroy(), ...cfg })
+    const screen = this.scene.add
+      .rectangle(0, 0, PLAY.w, PLAY.h, 0xfff4d0, 0.85)
+      .setOrigin(0)
+      .setDepth(depth)
+      .setBlendMode("ADD")
+    tween(screen, { alpha: 0, duration: 700, ease: "Quad.easeIn" })
+    const core = this.scene.add.circle(x, y, 40, 0xffe890, 1).setDepth(depth).setBlendMode("ADD")
+    tween(core, { scale: 5, alpha: 0, duration: 900, ease: "Cubic.easeOut" })
+    for (const [i, color] of [0xffffff, 0xffe066, 0xff8a30].entries()) {
+      const ring = this.scene.add
+        .circle(x, y, 30, color, 0)
+        .setStrokeStyle(10 - i * 2, color, 0.9)
+        .setDepth(depth)
+        .setBlendMode("ADD")
+      tween(ring, { scale: 22, alpha: 0, duration: 900, delay: i * 120, ease: "Cubic.easeOut" })
+    }
+    this.fire.explode(120, x, y)
+    this.spark.setParticleTint(0xffe066)
+    this.spark.explode(90, x, y)
+    this.energy.explode(60, x, y)
+    this.flash.setParticleTint(0xffffff)
+    this.flash.explode(4, x, y)
+    this.smoke.explode(12, x, y)
   }
 
   /** Extra debris when an enemy dies (bigger ships throw more). */

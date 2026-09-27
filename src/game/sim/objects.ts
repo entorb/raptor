@@ -1,6 +1,6 @@
 // Port of dosraptor/SOURCE/OBJECTS.C: player inventory, shop rules, shield energy.
 
-import { EMPTY, FIRST_SPECIAL, type Fx, LAST_WEAPON, MAX_SHIELD, Obj, type ObjType } from "./consts"
+import { EMPTY, type Fx, MAX_SHIELD, Obj, type ObjType } from "./consts"
 
 export interface ObjLib {
   name: string
@@ -136,6 +136,15 @@ export const OBJ_LIB: ObjLib[] = [
   money("Energy Crystal", 50),
 ]
 
+/**
+ * Special weapons in shop order (by price). Web change to RAP.C Do_Game: the shop rows, HUD
+ * strip, number-key picks (`gameInput.ts SPECIAL_KEYS`) and the cycle (Shift/Alt) button all walk
+ * this same order instead of the DOS object order.
+ */
+export const WEAPON_ORDER: ObjType[] = OBJ_LIB.map((_, t) => t as ObjType)
+  .filter((t) => OBJ_LIB[t]?.specialw)
+  .sort((a, b) => (OBJ_LIB[a]?.cost ?? 0) - (OBJ_LIB[b]?.cost ?? 0))
+
 export interface InvObj {
   type: ObjType
   num: number
@@ -231,16 +240,16 @@ export class Inventory {
   }
 
   getNext(): void {
-    let pos = this.plr.sweapon < Obj.DUMB_MISSLE ? Obj.DUMB_MISSLE : this.plr.sweapon + 1
+    let idx = WEAPON_ORDER.indexOf(this.plr.sweapon as ObjType)
     let setval = EMPTY
-    for (let loop = FIRST_SPECIAL; loop <= LAST_WEAPON; loop++) {
-      if (pos > LAST_WEAPON) pos = FIRST_SPECIAL
+    for (let loop = 0; loop < WEAPON_ORDER.length; loop++) {
+      idx = (idx + 1) % WEAPON_ORDER.length
+      const pos = WEAPON_ORDER[idx] as ObjType
       const cur = this.p_objs[pos]
-      if (cur?.num && OBJ_LIB[pos]?.specialw) {
+      if (cur?.num) {
         setval = pos
         break
       }
-      pos++
     }
     this.plr.sweapon = setval
   }

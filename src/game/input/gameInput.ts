@@ -8,7 +8,8 @@
 import type { Input, Scene } from "phaser"
 import { SCALE } from "../data/playfield"
 import { loadSettings, saveSettings } from "../data/save"
-import { Obj, type ObjType } from "../sim/consts"
+import type { ObjType } from "../sim/consts"
+import { WEAPON_ORDER } from "../sim/objects"
 import type { FrameInput } from "../sim/world"
 
 export interface TouchButton {
@@ -19,20 +20,28 @@ export interface TouchButton {
   r: number
 }
 
-/** RAP.C Do_Game special weapon keys: Phaser key name, label, weapon. */
-export const SPECIAL_KEYS: [string, string, ObjType][] = [
-  ["ONE", "1", Obj.DUMB_MISSLE],
-  ["TWO", "2", Obj.MINI_GUN],
-  ["THREE", "3", Obj.TURRET],
-  ["FOUR", "4", Obj.MISSLE_PODS],
-  ["FIVE", "5", Obj.AIR_MISSLE],
-  ["SIX", "6", Obj.GRD_MISSLE],
-  ["SEVEN", "7", Obj.BOMB],
-  ["EIGHT", "8", Obj.ENERGY_GRAB],
-  ["NINE", "9", Obj.PULSE_CANNON],
-  ["ZERO", "0", Obj.DEATH_RAY],
-  ["MINUS", "-", Obj.FORWARD_LASER],
-]
+const KEYS = [
+  ["ONE", "1"],
+  ["TWO", "2"],
+  ["THREE", "3"],
+  ["FOUR", "4"],
+  ["FIVE", "5"],
+  ["SIX", "6"],
+  ["SEVEN", "7"],
+  ["EIGHT", "8"],
+  ["NINE", "9"],
+  ["ZERO", "0"],
+  ["MINUS", "-"],
+] as const
+
+/**
+ * Special weapon keys: Phaser key name, label, weapon, in shop order (`objects.ts WEAPON_ORDER`) —
+ * also the order the cycle (Shift/Alt) button and the HUD strip walk.
+ */
+export const SPECIAL_KEYS: [string, string, ObjType][] = WEAPON_ORDER.map((t, i) => [
+  ...(KEYS[i] ?? ["", ""]),
+  t,
+])
 
 /** Touch drag sensitivity (game px per screen px). */
 const DRAG_GAIN = 1.4

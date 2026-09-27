@@ -16,7 +16,7 @@ const SHOT_BOX: Record<string, [number, number, number, number]> = {
   MISGRD_BLK: [1, 0, 6, 11],
   BLDGBOMB_PIC: [2, 0, 4, 8],
   POWDIS_BLK: [2, 3, 13, 11],
-  MEGABM_BLK: [2, 0, 4, 8],
+  MEGABM_BLK: [1, 0, 6, 8],
   SHOKWV_BLK: [0, 0, 16, 14],
   FRNTLAS_BLK: [2, 0, 4, 3],
   DETHRY_BLK: [0, 0, 8, 3],
@@ -112,12 +112,42 @@ function drawShotArt(ctx: Ctx, key: string, w: number, h: number): void {
       ctx.stroke()
       glow(ctx, cx, cy, w * 0.35, "#39d0ff")
       return
-    case "MEGABM_BLK":
+    case "MEGABM_BLK": {
+      // nova warhead flying up: exhaust, tail fins, dark casing, glowing energy core + ring
+      glow(ctx, cx, h * 0.98, w * 0.45, "#ff9a2e")
+      polyPath(ctx, [
+        [cx - w * 0.2, h * 0.62],
+        [0, h * 0.95],
+        [cx - w * 0.2, h * 0.86],
+      ])
+      metal(ctx, 0, cx, "#2a2410", "#7a6a3a", "#c9b27a", ["rgba(255,224,102,0.6)", 1])
+      polyPath(ctx, [
+        [cx + w * 0.2, h * 0.62],
+        [w, h * 0.95],
+        [cx + w * 0.2, h * 0.86],
+      ])
+      metal(ctx, cx, w, "#2a2410", "#7a6a3a", "#c9b27a", ["rgba(255,224,102,0.6)", 1])
+      polyPath(ctx, [
+        [cx, 0],
+        [cx + w * 0.3, h * 0.2],
+        [cx + w * 0.3, h * 0.84],
+        [cx - w * 0.3, h * 0.84],
+        [cx - w * 0.3, h * 0.2],
+      ])
+      metal(ctx, cx - w * 0.3, cx + w * 0.3, "#1c1a22", "#55505e", "#b8b0c4", [
+        "rgba(255,255,255,0.35)",
+        1,
+      ])
+      ctx.fillStyle = "#ffe066"
+      ctx.fillRect(cx - w * 0.3, h * 0.3, w * 0.6, h * 0.05)
+      ctx.fillRect(cx - w * 0.3, h * 0.66, w * 0.6, h * 0.05)
       ctx.beginPath()
-      ctx.ellipse(cx, cy, w * 0.5, h * 0.48, 0, 0, Math.PI * 2)
-      metal(ctx, 0, w, "#4a3a00", "#ffe066", "#ffffff")
-      glow(ctx, cx, cy, w * 0.6, "#ffe066", "#ffffff")
+      ctx.ellipse(cx, h * 0.5, w * 0.2, h * 0.11, 0, 0, Math.PI * 2)
+      ctx.fillStyle = "#fff6c0"
+      ctx.fill()
+      glow(ctx, cx, h * 0.5, w * 0.75, "#ffc930", "#ffffff")
       return
+    }
     case "SHOKWV_BLK":
       ctx.save()
       ctx.globalCompositeOperation = "lighter"
