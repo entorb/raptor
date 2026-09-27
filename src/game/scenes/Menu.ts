@@ -13,7 +13,7 @@ import {
 } from "../data/save"
 import { readGlobalMissions } from "../data/stats"
 import { toggleFullscreen } from "../input/fullscreen"
-import { hasInstallPrompt, promptInstall } from "../pwa"
+import { applyUpdate, checkForUpdate, hasInstallPrompt, promptInstall } from "../pwa"
 import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
 import { backdrop, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
@@ -24,7 +24,16 @@ const DIFF_NAMES = ["Rookie", "Veteran", "Elite"]
 /** "Veteran Name": the pilot's title (difficulty) and name. */
 export const pilotTitle = (p: PilotSave) => `${DIFF_NAMES[p.diff - DIFF_EASY] ?? ""} ${p.name}`
 
-type Mode = "main" | "pilots" | "pilot" | "delete" | "name" | "new" | "options" | "install"
+type Mode =
+  | "main"
+  | "pilots"
+  | "pilot"
+  | "delete"
+  | "name"
+  | "new"
+  | "options"
+  | "install"
+  | "update"
 
 const CONTACT_URL = "https://entorb.net/contact.php?origin=raptor"
 const SOURCE_URL = "https://github.com/entorb/raptor"
@@ -56,6 +65,8 @@ export class Menu extends Scene {
   /** pilot picked in the "pilots" list, name typed in "name" mode */
   private picked: PilotSave | null = null
   private newName = ""
+  /** newer service worker waiting for the player's OK (asked on every visit to the start screen) */
+  private waitingSw: ServiceWorker | null = null
 
   constructor() {
     super("Menu")
@@ -135,6 +146,10 @@ export class Menu extends Scene {
     kb?.on("keydown-SPACE", () => this.activateAction())
     getAudio().playSong(this, "mainmenu")
     this.show("main")
+    void checkForUpdate().then((sw) => {
+      this.waitingSw = sw
+      if (sw && this.scene.isActive() && this.mode === "main") this.show("update")
+    })
   }
 
   update(): void {
@@ -177,6 +192,9 @@ export class Menu extends Scene {
         break
       case "install":
         items = this.installItems()
+        break
+      case "update":
+        items = this.updateItems()
         break
       default:
         items = this.optionsItems()
@@ -274,6 +292,21 @@ export class Menu extends Scene {
       'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
     )
     return [{ label: `${ICON.back} Back`, action: () => this.show("main") }]
+  }
+
+  private updateItems(): MenuItem[] {
+    this.body.setText("A new version of Raptor is available.")
+    const sw = this.waitingSw
+    return [
+      {
+        label: `${ICON.install} Update`,
+        action: () => {
+          this.body.setText("Updating…")
+          if (sw) applyUpdate(sw)
+        },
+      },
+      { label: `${ICON.back} Skip`, action: () => this.show("main") },
+    ]
   }
 
   private optionsItems(): MenuItem[] {
