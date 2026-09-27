@@ -1,6 +1,7 @@
 // Dev-only sound review page (/raptor/review/sounds.html): generated sfx and songs next to the
 // archived originals (original_game/audio, if present).
 import { FX, pitchRate, SFX_FILES, SONG_FILES, WAVE_SONGS } from "../game/audio/audio"
+import { initFilter, waveVisible } from "./filter"
 
 const ORIG = import.meta.glob("../../original_game/audio/**/*.ogg", {
   eager: true,
@@ -42,7 +43,7 @@ function table(id: string, title: string, head: string[]): HTMLTableSectionEleme
   return t.tBodies[0] as HTMLTableSectionElement
 }
 
-function row(body: HTMLTableSectionElement, cells: (string | HTMLElement)[]): void {
+function row(body: HTMLTableSectionElement, cells: (string | HTMLElement)[]): HTMLElement {
   const tr = el("tr")
   for (const c of cells) {
     const td = el("td")
@@ -50,6 +51,7 @@ function row(body: HTMLTableSectionElement, cells: (string | HTMLElement)[]): vo
     tr.append(td)
   }
   body.append(tr)
+  return tr
 }
 
 /** Play like Audio.play: DMX pitch -> playback rate (pitch shifts), FX volume 0..127. */
@@ -82,6 +84,8 @@ function eventButton(file: string, name: string, pitch: number, vol: number): HT
   }
 }
 
+const waveRows: [HTMLElement, number[]][] = []
+
 {
   const body = table("music", "Music", ["Song", "Used for", "New", "Original"])
   const use: Record<string, string> = {
@@ -92,11 +96,18 @@ function eventButton(file: string, name: string, pitch: number, vol: number): HT
   for (const s of SONG_FILES) {
     const waves = WAVE_SONGS.flatMap((w, i) => (w === s ? [i + 1] : []))
     const used = use[s] ?? (waves.length ? `Wave ${waves.join(", ")}` : "")
-    row(body, [
+    const tr = row(body, [
       s,
       used,
       player(`${BASE}assets/music/${s}.ogg`),
       player(ORIG[`../../original_game/audio/music/${s}.ogg`]),
     ])
+    // menu / hangar / death songs play in every sector and wave
+    if (!use[s] && waves.length) waveRows.push([tr, waves])
   }
 }
+
+// sector / wave filter: wave songs only (sfx are not bound to a wave)
+initFilter((f) => {
+  for (const [tr, waves] of waveRows) tr.hidden = !waves.some((w) => waveVisible(f, w - 1))
+})

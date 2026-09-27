@@ -64,6 +64,9 @@ export class Hangar extends Scene {
   private sub!: GameObjects.Text
   private panel!: GameObjects.Rectangle
   private table: GameObjects.Text[] = []
+  private backBg!: GameObjects.Rectangle
+  private backIcon!: GameObjects.Text
+  private backFocused = false
 
   constructor() {
     super("Hangar")
@@ -110,8 +113,10 @@ export class Hangar extends Scene {
       .text(480, 136, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
     this.menu = new TextMenu(this, 470, 164, 340, 36, 9)
-    this.menu.onBack = () => (this.mode === "hangar" ? this.exit() : this.show("hangar"))
+    this.menu.onBack = () => this.backAction()
     this.menu.onMove = () => this.describe()
+    this.menu.onUpFromStart = () => this.setBackFocus(true)
+    this.buildBackButton()
     getAudio().playSong(this, "hangar")
     this.show(this.result ? "result" : "hangar")
     this.save()
@@ -231,6 +236,52 @@ export class Hangar extends Scene {
   private exit(): void {
     this.save()
     this.scene.start("Menu")
+  }
+
+  /** Exit to hangar (from buy/sell/replay) or to the main menu (from hangar). */
+  private backAction(): void {
+    if (this.mode === "hangar") this.exit()
+    else this.show("hangar")
+  }
+
+  /** Top-right back icon: mouse click/hover, or UP off the menu's first row. */
+  private buildBackButton(): void {
+    this.backBg = this.add
+      .rectangle(908, 40, 56, 44, 0x10182a, 0.85)
+      .setStrokeStyle(1, 0x39d0ff, 0)
+      .setInteractive({ useHandCursor: true })
+    this.backIcon = this.add
+      .text(908, 40, ICON.back, { fontFamily: UI.font, fontSize: "26px", color: UI.text })
+      .setOrigin(0.5)
+    this.backBg.on("pointerover", () => this.setBackVisual(true))
+    this.backBg.on("pointerout", () => this.setBackVisual(this.backFocused))
+    this.backBg.on("pointerup", () => this.backAction())
+    const kb = this.input.keyboard
+    kb?.on("keydown-DOWN", () => {
+      if (this.backFocused) this.setBackFocus(false)
+    })
+    kb?.on("keydown-S", () => {
+      if (this.backFocused) this.setBackFocus(false)
+    })
+    kb?.on("keydown-ENTER", () => {
+      if (this.backFocused) this.backAction()
+    })
+    kb?.on("keydown-SPACE", () => {
+      if (this.backFocused) this.backAction()
+    })
+  }
+
+  /** Keyboard focus: also disables the list so its own arrow/confirm keys don't fire. */
+  private setBackFocus(on: boolean): void {
+    this.backFocused = on
+    this.menu.enabled = !on
+    this.setBackVisual(on)
+  }
+
+  private setBackVisual(on: boolean): void {
+    this.backBg.setStrokeStyle(1, 0x39d0ff, on ? 0.8 : 0)
+    this.backBg.setFillStyle(on ? 0x39d0ff : 0x10182a, on ? 0.18 : 0.85)
+    this.backIcon.setColor(on ? "#ffffff" : UI.text)
   }
 
   private items: (ObjType | null)[] = []

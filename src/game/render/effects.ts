@@ -14,9 +14,12 @@ export class Effects {
   private readonly debris: Emitter
   private readonly energy: Emitter
   private readonly groundFire: Emitter
+  /** boom flash / spark tints (training sim: hologram "derez" instead of fire) */
+  private readonly boomTint: [number, number]
 
-  constructor(scene: Scene, groundDepth: number, airDepth: number) {
+  constructor(scene: Scene, groundDepth: number, airDepth: number, sim = false) {
     this.scene = scene
+    this.boomTint = sim ? [0xb0ffe8, 0x7fffd0] : [0xffe8b0, 0xffd070]
     const add = (tex: string, cfg: Record<string, unknown>, depth: number) =>
       scene.add.particles(0, 0, tex, { emitting: false, ...cfg }).setDepth(depth)
     this.smoke = add(
@@ -26,7 +29,7 @@ export class Effects {
         lifespan: { min: 600, max: 1200 },
         scale: { start: 0.6, end: 2.2 },
         alpha: { start: 0.35, end: 0 },
-        color: [0x9aa0b0, 0x3a3e48],
+        color: sim ? [0x2a8a90, 0x0a2030] : [0x9aa0b0, 0x3a3e48],
         rotate: { min: 0, max: 360 },
       },
       airDepth - 1,
@@ -38,7 +41,9 @@ export class Effects {
         lifespan: { min: 250, max: 700 },
         scale: { start: 1.6, end: 0 },
         alpha: { start: 1, end: 0 },
-        color: [0xfff6d0, 0xffc040, 0xff5a20, 0x401010],
+        color: sim
+          ? [0xffffff, 0x9dffe0, 0x2effb4, 0x0a3a40]
+          : [0xfff6d0, 0xffc040, 0xff5a20, 0x401010],
         blendMode: "ADD",
       },
       airDepth,
@@ -96,7 +101,7 @@ export class Effects {
         lifespan: { min: 400, max: 900 },
         scale: { start: 1.1, end: 0 },
         alpha: { start: 0.9, end: 0 },
-        color: [0xfff0b0, 0xff8a20, 0x802010],
+        color: sim ? [0xd0fff0, 0x2effb4, 0x0a4030] : [0xfff0b0, 0xff8a20, 0x802010],
         blendMode: "ADD",
       },
       groundDepth,
@@ -105,10 +110,10 @@ export class Effects {
 
   private boom(x: number, y: number, size: number): void {
     const n = Math.round(6 + size * 0.5)
-    this.flash.setParticleTint(0xffe8b0)
+    this.flash.setParticleTint(this.boomTint[0])
     this.flash.explode(1, x, y)
     this.fire.explode(n, x, y)
-    this.spark.setParticleTint(0xffd070)
+    this.spark.setParticleTint(this.boomTint[1])
     this.spark.explode(Math.round(n / 2), x, y)
     this.smoke.explode(Math.max(2, Math.round(n / 4)), x, y)
     if (size > 30) this.debris.explode(Math.round(size / 8), x, y)

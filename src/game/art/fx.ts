@@ -1,7 +1,7 @@
 // Procedural effect textures: shots, particles, pickups, map structures.
 import { PIC_SIZES } from "../data/ep1"
 import { Obj } from "../sim/consts"
-import { type Ctx, canopy, glow, metal, polyPath, roundRect, seeded } from "./draw"
+import { bullseye, type Ctx, canopy, glow, metal, polyPath, roundRect, seeded } from "./draw"
 
 /**
  * Visible pixels [x, y, w, h] of the original shot pictures inside their PIC_SIZES box (DOS px,
@@ -306,8 +306,104 @@ function solarCells(ctx: Ctx, s: number): void {
     }
 }
 
+/** Training range pad: dark plate with a sim grid, glowing edge and `kind` specific targets. */
+function drawTrainingStructure(ctx: Ctx, kind: number, s: number): void {
+  const line = ["#5dffc8", "#ffd24a", "#7fd3ff", "#ff7ad8"][kind % 4] as string
+  roundRect(ctx, s * 0.08, s * 0.08, s * 0.84, s * 0.84, 6)
+  ctx.fillStyle = "rgba(10,24,36,0.9)"
+  ctx.fill()
+  ctx.save()
+  ctx.clip()
+  ctx.strokeStyle = "rgba(93,255,200,0.18)"
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let i = 1; i < 6; i++) {
+    ctx.moveTo((s * i) / 6, 0)
+    ctx.lineTo((s * i) / 6, s)
+    ctx.moveTo(0, (s * i) / 6)
+    ctx.lineTo(s, (s * i) / 6)
+  }
+  ctx.stroke()
+  ctx.restore()
+  roundRect(ctx, s * 0.08, s * 0.08, s * 0.84, s * 0.84, 6)
+  ctx.save()
+  ctx.shadowColor = line
+  ctx.shadowBlur = 8
+  ctx.strokeStyle = line
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.restore()
+  const c = s / 2
+  switch (kind % 4) {
+    case 0:
+      bullseye(ctx, c, c, s * 0.3)
+      break
+    case 1:
+      for (const [x, y] of [
+        [0.3, 0.3],
+        [0.7, 0.3],
+        [0.3, 0.7],
+        [0.7, 0.7],
+      ])
+        bullseye(ctx, s * (x as number), s * (y as number), s * 0.14, line)
+      break
+    case 2:
+      // sensor pylon
+      for (let i = 3; i > 0; i--) {
+        ctx.beginPath()
+        ctx.arc(c, c, s * 0.1 * i, 0, Math.PI * 2)
+        ctx.strokeStyle = line
+        ctx.globalAlpha = 0.3 * i
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      glow(ctx, c, c, s * 0.14, line)
+      break
+    default:
+      // hazard-striped practice crate
+      ctx.save()
+      roundRect(ctx, s * 0.22, s * 0.22, s * 0.56, s * 0.56, 3)
+      ctx.clip()
+      for (let i = -4; i < 8; i++) {
+        polyPath(ctx, [
+          [s * (i * 0.14), s],
+          [s * (i * 0.14 + 0.07), s],
+          [s * (i * 0.14 + 0.07 + 1), 0],
+          [s * (i * 0.14 + 1), 0],
+        ])
+        ctx.fillStyle = "#ffd24a"
+        ctx.fill()
+      }
+      ctx.restore()
+      bullseye(ctx, c, c, s * 0.12, line)
+  }
+}
+
+/** Wireframe outline left by a "destroyed" training structure. */
+function drawTrainingWreck(ctx: Ctx, s: number, seed: number): void {
+  const r = seeded(seed)
+  roundRect(ctx, s * 0.08, s * 0.08, s * 0.84, s * 0.84, 6)
+  ctx.fillStyle = "rgba(10,24,36,0.6)"
+  ctx.fill()
+  ctx.setLineDash([6, 5])
+  ctx.strokeStyle = "rgba(93,255,200,0.45)"
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  ctx.setLineDash([])
+  // derezzed pixel blocks
+  for (let i = 0; i < 14; i++) {
+    const b = s * (0.03 + r() * 0.05)
+    ctx.fillStyle = `rgba(93,255,200,${0.15 + r() * 0.35})`
+    ctx.fillRect(s * (0.15 + r() * 0.65), s * (0.15 + r() * 0.65), b, b)
+  }
+}
+
 /** Destructible map structure (station module) on a 96x96 cell; `kind` picks the design. */
-export function drawStructure(ctx: Ctx, kind: number, s: number): void {
+export function drawStructure(ctx: Ctx, kind: number, s: number, train = false): void {
+  if (train) {
+    drawTrainingStructure(ctx, kind, s)
+    return
+  }
   const cx = s / 2
   const cy = s / 2
   const pal = ["#2effb4", "#ffae2e", "#46e0ff", "#ff5a7a"][kind % 4] as string
@@ -373,7 +469,11 @@ export function drawStructure(ctx: Ctx, kind: number, s: number): void {
 }
 
 /** Scorched wreck left by a destroyed structure. */
-export function drawWreck(ctx: Ctx, s: number, seed: number): void {
+export function drawWreck(ctx: Ctx, s: number, seed: number, train = false): void {
+  if (train) {
+    drawTrainingWreck(ctx, s, seed)
+    return
+  }
   const r = seeded(seed)
   const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s * 0.48)
   g.addColorStop(0, "rgba(0,0,0,0.9)")

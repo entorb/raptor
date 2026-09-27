@@ -57,6 +57,21 @@ code {
   color: var(--text);
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.filter {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+}
+
+.filter select {
+  margin-left: 6px;
+  min-width: 90px;
+}
+
 nav {
   display: flex;
   flex-wrap: wrap;

@@ -2,6 +2,7 @@
 // is drawn at 3x its original size (same hitbox), nose pointing down (enemies fly towards the
 // player). Animated originals get `frames` variants (rotation, light pulses, treads).
 import {
+  bullseye,
   type Ctx,
   canopy,
   glow,
@@ -664,6 +665,140 @@ function specFor(name: string, w: number, h: number): Spec {
   return { draw: w > h ? gunship : interceptor, pal: E }
 }
 
+// ---- training sector: holographic target drones (same hitbox, one shape per unit role) ----------
+
+type Role = "dart" | "ring" | "core" | "board" | "cube"
+
+function roleOf(spec: Spec): Role {
+  if (spec.pal === CRITTER) return "cube"
+  if (spec.pal === G || spec.draw === turret) return "board"
+  if ([capital, cruiser, station].includes(spec.draw)) return "core"
+  if ([gunship, drone, orb].includes(spec.draw)) return "ring"
+  return "dart"
+}
+
+/** Translucent hologram fill with scanlines, then a glowing outline (uses the current path). */
+function holo(ctx: Ctx, h: number, line: string): void {
+  ctx.save()
+  const g = ctx.createLinearGradient(0, 0, 0, h)
+  g.addColorStop(0, "rgba(40,255,200,0.10)")
+  g.addColorStop(1, "rgba(40,180,255,0.28)")
+  ctx.fillStyle = g
+  ctx.fill()
+  ctx.save()
+  ctx.clip()
+  ctx.fillStyle = "rgba(200,255,240,0.10)"
+  for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, 4096, 1)
+  ctx.restore()
+  ctx.shadowColor = line
+  ctx.shadowBlur = 6
+  ctx.strokeStyle = line
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  ctx.restore()
+}
+
+function regularPoly(ctx: Ctx, x: number, y: number, rx: number, ry: number, n: number, a0 = 0) {
+  const pts: Pt[] = []
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i * Math.PI * 2) / n
+    pts.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry])
+  }
+  polyPath(ctx, pts)
+}
+
+const HOLO_LINE: Record<Role, string> = {
+  dart: "#5dffc8",
+  ring: "#5dffc8",
+  core: "#ffd24a",
+  board: "#7fd3ff",
+  cube: "#c9a0ff",
+}
+
+function drawTrainingUnit(ctx: Ctx, spec: Spec, w: number, h: number, t: number, r: () => number) {
+  const role = roleOf(spec)
+  const line = spec.pal === X ? "#ff7ad8" : HOLO_LINE[role]
+  const cx = w / 2
+  const cy = h / 2
+  const m = Math.min(w, h)
+  const spin = t * Math.PI * 2
+  switch (role) {
+    case "dart": {
+      // arrowhead drone, nose down
+      const span = w * (0.4 + r() * 0.08)
+      mirrorPath(ctx, cx, [
+        [0, h * 0.97],
+        [span, h * 0.3],
+        [span * 0.85, h * 0.08],
+        [w * 0.1, h * 0.3],
+        [0, h * 0.18],
+      ])
+      holo(ctx, h, line)
+      bullseye(ctx, cx, h * 0.45, m * 0.14)
+      engines(ctx, [cx - span * 0.8, cx + span * 0.8], h * 0.1, w * 0.07, line)
+      break
+    }
+    case "ring": {
+      ctx.beginPath()
+      ctx.ellipse(cx, cy, w * 0.44, h * 0.44, 0, 0, Math.PI * 2)
+      holo(ctx, h, line)
+      ctx.save()
+      ctx.strokeStyle = line
+      ctx.lineWidth = 2
+      for (let i = 0; i < 4; i++) {
+        const a = spin + (i * Math.PI) / 2
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, w * 0.34, h * 0.34, 0, a, a + 0.8)
+        ctx.stroke()
+      }
+      ctx.restore()
+      bullseye(ctx, cx, cy, m * 0.22)
+      break
+    }
+    case "core": {
+      regularPoly(ctx, cx, cy, w * 0.48, h * 0.48, 6, Math.PI / 6)
+      holo(ctx, h, line)
+      regularPoly(ctx, cx, cy, w * 0.3, h * 0.3, 6, spin / 6)
+      ctx.save()
+      ctx.strokeStyle = line
+      ctx.globalAlpha = 0.6
+      ctx.stroke()
+      ctx.restore()
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + (i * Math.PI) / 3
+        glow(ctx, cx + Math.cos(a) * w * 0.4, cy + Math.sin(a) * h * 0.4, m * 0.06, line)
+      }
+      bullseye(ctx, cx, cy, m * 0.18)
+      break
+    }
+    case "board": {
+      // pop-up target board with corner brackets
+      roundRect(ctx, w * 0.08, h * 0.08, w * 0.84, h * 0.84, m * 0.1)
+      holo(ctx, h, line)
+      bullseye(ctx, cx, cy, m * (0.26 + 0.04 * Math.sin(spin)))
+      break
+    }
+    default: {
+      // rotating wireframe cube (training dummy)
+      const s = m * 0.28
+      const ox = Math.cos(spin) * s * 0.5
+      const oy = Math.sin(spin) * s * 0.3 - s * 0.3
+      polyPath(ctx, [
+        [cx - s, cy - s],
+        [cx - s + ox, cy - s + oy],
+        [cx + s + ox, cy - s + oy],
+        [cx + s + ox, cy + s + oy],
+        [cx + s, cy + s],
+        [cx - s, cy + s],
+      ])
+      holo(ctx, h, line)
+      roundRect(ctx, cx - s, cy - s, s * 2, s * 2, 1)
+      holo(ctx, h, line)
+      bullseye(ctx, cx, cy, s * 0.6)
+    }
+  }
+}
+
 /** Draw frame `frame` of `frames` for an original picture name into a w x h canvas area. */
 export function drawUnit(
   ctx: Ctx,
@@ -672,10 +807,13 @@ export function drawUnit(
   h: number,
   frame: number,
   frames: number,
+  train = false,
 ): void {
   const spec = specFor(name, w, h)
   const r = seeded(hashString(name))
-  spec.draw(ctx, w, h, frames > 1 ? frame / frames : 0, r, spec.pal)
+  const t = frames > 1 ? frame / frames : 0
+  if (train) drawTrainingUnit(ctx, spec, w, h, t, r)
+  else spec.draw(ctx, w, h, t, r, spec.pal)
 }
 
 /** Player ship, nose up; bank -3..3 (DOS playerpic 0..6, 3 = level). */
