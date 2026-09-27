@@ -11,6 +11,7 @@ import {
   playable,
   SECTOR_NAMES,
   sectorWaves,
+  topRunLine,
   withLoadout,
 } from "../campaign"
 import { ENEMY_LIB } from "../data/ep1"
@@ -26,8 +27,6 @@ type Mode = "hangar" | "shop" | "launch"
 
 export interface HangarData {
   message?: string
-  /** a finished replay: shown against the level's top 10 */
-  result?: { key: string; sector: Sector; wave: number; earned: number; rank: number | null }
 }
 
 /** A tappable box of the launch screen. */
@@ -73,7 +72,6 @@ export class Hangar extends Scene {
   private msg!: GameObjects.Text
   private tick: () => void = () => {}
   private message = ""
-  private result: HangarData["result"]
   private sub!: GameObjects.Text
   private panel!: GameObjects.Rectangle
   private table: GameObjects.Text[] = []
@@ -95,7 +93,6 @@ export class Hangar extends Scene {
 
   init(data: HangarData): void {
     this.message = data?.message ?? ""
-    this.result = data?.result
   }
 
   create(): void {
@@ -143,11 +140,12 @@ export class Hangar extends Scene {
     this.menu = new TextMenu(this, 470, 164, 340, 36, 9)
     this.menu.onBack = () => this.backAction()
     this.menu.onMove = () => this.describe()
-    this.menu.onUpFromStart = () => this.setBackFocus(true)
+    this.menu.onUpFromStart = () => {
+      if (this.mode !== "hangar") this.setBackFocus(true)
+    }
     this.buildBackButton()
     getAudio().playSong(this, "hangar")
-    if (this.result) this.openLaunch(this.result.sector, this.result.wave)
-    else this.show("hangar")
+    this.show("hangar")
     this.save()
   }
 
@@ -346,6 +344,12 @@ export class Hangar extends Scene {
     this.items = []
     this.clearTable()
     const launch = mode === "launch"
+    // the hangar menu has its own Exit row: the back icon is for the shop and launch screens
+    const back = mode !== "hangar"
+    if (!back && this.backFocused) this.setBackFocus(false)
+    this.backBg.setVisible(back)
+    if (this.backBg.input) this.backBg.input.enabled = back
+    this.backIcon.setVisible(back)
     for (const o of this.launchObjs) {
       o.setVisible(launch)
       if (o.input) o.input.enabled = launch
@@ -615,13 +619,12 @@ export class Hangar extends Scene {
     this.table = []
   }
 
-  /** Top-10 earnings of the selected level; a just finished replay in gold. */
+  /** Top-10 runs of the selected level. */
   private showTop(p: PilotSave): void {
     this.clearTable()
     const key = levelKey(this.selSector, this.selWave)
     const st = p.stats?.[key]
     const top = st?.top ?? []
-    const r = this.result?.key === key ? this.result : undefined
     const line = (y: number, text: string, color: string, size = 18) =>
       this.table.push(
         this.add
@@ -630,15 +633,7 @@ export class Hangar extends Scene {
       )
     line(272, `WAVE ${this.selWave + 1}  ·  TOP 10  ·  ${st?.n ?? 0}x flown`, UI.accent, 19)
     if (!top.length) line(300, "No runs yet", UI.dim)
-    top.forEach((v, i) => {
-      line(
-        296 + i * 21,
-        `${String(i + 1).padStart(2)}.  ${String(v).padStart(8)} CR`,
-        r?.rank === i + 1 ? UI.gold : UI.text,
-      )
-    })
-    if (r && r.rank === null)
-      line(296 + top.length * 21 + 4, `+${r.earned} CR: not in the top 10`, UI.warn)
+    top.forEach((v, i) => void line(296 + i * 21, topRunLine(i, v), UI.text))
   }
 
   private launch(): void {

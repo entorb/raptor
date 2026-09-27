@@ -80,6 +80,8 @@ describe("Inventory (OBJECTS.C)", () => {
     inv.loseObj()
     expect(inv.isEquip(Obj.AIR_MISSLE)).toBe(false)
     expect(plr.sweapon).toBe(Obj.DUMB_MISSLE)
+    for (let i = 0; i < 20; i++) inv.loseObj()
+    expect(inv.isEquip(Obj.FORWARD_GUNS)).toBe(true) // shield hits never take the blasters
   })
   it("extra copies of a weapon are spares that replace a lost one (OBJS_Add/OBJS_Del)", () => {
     const { plr, inv } = fresh()
@@ -91,6 +93,7 @@ describe("Inventory (OBJECTS.C)", () => {
     expect(inv.isEquip(Obj.PLASMA_GUNS)).toBe(true)
     expect(inv.getTotal(Obj.PLASMA_GUNS)).toBe(1)
     expect(inv.canBuy(Obj.FORWARD_GUNS)).toBe(false) // only while none is equipped
+    expect(inv.canSell(Obj.FORWARD_GUNS)).toBe(false) // web: never sold
     for (let i = 0; i < 5; i++) inv.buy(Obj.SUPER_SHIELD)
     expect(inv.buy(Obj.SUPER_SHIELD)).toBe(Buy.SHIPFULL) // at most 5 phase shields
   })

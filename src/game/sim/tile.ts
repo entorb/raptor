@@ -41,6 +41,9 @@ export class Tiles {
   delays: TileDelay[] = []
   spark_delay = 0
   flare_delay = 0
+  /** web: destructible structures in the map / destroyed so far (mission stats) */
+  structs = 0
+  destroyed = 0
 
   /** TILE_CacheLevel */
   load(flats: number[]): void {
@@ -50,12 +53,15 @@ export class Tiles {
     this.last_tile = false
     this.delays = []
     this.tdead.fill(0)
+    this.structs = 0
+    this.destroyed = 0
     for (let i = 0; i < MAP_SIZE; i++) {
       const f = flats[i] ?? 0
       this.money[i] = FLATS.bounty[f] ?? 0
       this.titems[i] = f
       this.eitems[i] = FLATS.link[f] ?? f
       this.hits[i] = this.eitems[i] !== this.titems[i] ? (FLATS.hp[f] ?? 1) : 1
+      if (this.eitems[i] !== this.titems[i]) this.structs++
     }
   }
 }
@@ -118,6 +124,7 @@ function thinkSpots(w: World): void {
       ts.y = y
       ts.item = t.titems[mapspot] as number
       if ((t.hits[mapspot] as number) < 0 && !t.tdead[mapspot]) {
+        if (t.titems[mapspot] !== t.eitems[mapspot]) t.destroyed++
         w.sfx3d("GEXPLO", x + 16, y + 16)
         doDamage(w, mapspot, 5)
         w.plr.score += t.money[mapspot] as number

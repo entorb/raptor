@@ -17,7 +17,7 @@ export interface PilotSave {
   sector?: Sector
   /** training waves finished (the training sector has 4) */
   train?: number
-  /** per level (`b<wave>`, `t<wave>`): completions and top-10 earnings (descending) */
+  /** per level (`b<wave>`, `t<wave>`): completions and top-10 runs by earnings (descending) */
   stats?: Record<string, LevelStats>
 }
 
@@ -27,7 +27,13 @@ export type Sector = (typeof SECTORS)[number]
 
 export interface LevelStats {
   n: number
-  top: number[]
+  top: TopRun[]
+}
+
+/** A top-10 run: credits earned and percent of enemies destroyed (missing in old saves). */
+export interface TopRun {
+  cr: number
+  pct?: number
 }
 
 export interface Settings {
@@ -37,6 +43,7 @@ export interface Settings {
   autoFire: boolean
 }
 
+// TODO: delete after 1.10.2026 (single-pilot save migration)
 const OLD_PILOT_KEY = "raptor.pilot.v1"
 const PILOTS_KEY = "raptor.pilots.v1"
 export const MAX_NAME = 16
@@ -80,6 +87,7 @@ export function loadPilots(): PilotSave[] {
   const old = read<unknown>(OLD_PILOT_KEY)
   if (old !== null) {
     // one-time migration of the single-pilot save
+    // TODO: delete after 1.10.2026
     remove(OLD_PILOT_KEY)
     if (isPilotSave(old)) savePilot(old)
   }
@@ -89,27 +97,33 @@ export function loadPilots(): PilotSave[] {
 
 const isStats = (v: unknown): v is LevelStats => {
   const s = v as LevelStats
-  return (
-    typeof s === "object" &&
-    s !== null &&
-    Number.isInteger(s.n) &&
-    Array.isArray(s.top) &&
-    s.top.every(Number.isInteger)
-  )
+  return typeof s === "object" && s !== null && Number.isInteger(s.n) && Array.isArray(s.top)
+}
+
+/** Old saves stored plain credits; drop malformed entries. */
+function topRuns(top: unknown[]): TopRun[] {
+  return top.flatMap((v) => {
+    // TODO: delete after 1.10.2026 (migration of plain-credit top-10 entries)
+    if (Number.isInteger(v)) return [{ cr: v as number }]
+    const r = v as TopRun
+    if (typeof r !== "object" || r === null || !Number.isInteger(r.cr)) return []
+    return [Number.isInteger(r.pct) ? { cr: r.cr, pct: r.pct } : { cr: r.cr }]
+  })
 }
 
 /** Fill defaults, drop untrusted junk and migrate old training pilots (diff 0) to Rookie. */
 function normalize(p: PilotSave): PilotSave {
   const stats = Object.fromEntries(
-    Object.entries(typeof p.stats === "object" && p.stats ? p.stats : {}).filter(([, v]) =>
-      isStats(v),
-    ),
+    Object.entries(typeof p.stats === "object" && p.stats ? p.stats : {})
+      .filter(([, v]) => isStats(v))
+      .map(([k, v]) => [k, { n: v.n, top: topRuns(v.top) }]),
   )
   const q: PilotSave = {
     ...p,
     sector: SECTORS.includes(p.sector as Sector) ? p.sector : "bravo",
     stats,
   }
+  // TODO: delete after 1.10.2026 (old training pilots migration)
   if (p.diff <= DIFF_TRAIN) return { ...q, diff: DIFF_EASY, wave: 0, done: 0, train: p.wave }
   return { ...q, train: q.train ?? 0 }
 }

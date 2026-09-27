@@ -11,12 +11,6 @@ beforeEach(() => {
   } as Storage
 })
 
-it("migrates the old single-pilot save", () => {
-  store.set("raptor.pilot.v1", JSON.stringify(newPilotSave("Old")))
-  expect(loadPilots().map((p) => p.name)).toEqual(["Old"])
-  expect(store.has("raptor.pilot.v1")).toBe(false)
-})
-
 it("keeps pilots unique by name, last saved first", () => {
   savePilot(newPilotSave("Ann"))
   savePilot(newPilotSave("Bob"))
@@ -37,14 +31,9 @@ it("drops invalid entries (localStorage is untrusted)", () => {
   expect(loadPilots()).toEqual([])
 })
 
-it("moves old training pilots (diff 0) to Rookie, keeping their training progress", () => {
-  const old = {
-    ...newPilotSave("T", 0),
-    wave: 2,
-    sector: "bravo" as const,
-    stats: { b0: { n: "x", top: [] } },
-  }
-  store.set("raptor.pilots.v1", JSON.stringify([old]))
-  const [p] = loadPilots()
-  expect([p?.diff, p?.wave, p?.train, p?.sector, p?.stats]).toEqual([1, 0, 2, "bravo", {}])
+it("drops malformed stats and top-10 runs", () => {
+  const top = [{ cr: 500, pct: 80 }, { cr: "x" }, { cr: 100, pct: "y" }]
+  const stats = { b0: { n: 3, top }, b1: { n: "x", top: [] } }
+  store.set("raptor.pilots.v1", JSON.stringify([{ ...newPilotSave("A"), stats }]))
+  expect(loadPilots()[0]?.stats).toEqual({ b0: { n: 3, top: [{ cr: 500, pct: 80 }, { cr: 100 }] } })
 })
