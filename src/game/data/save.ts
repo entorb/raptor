@@ -161,7 +161,7 @@ export function newPilotSave(name: string, diff = DIFF_NORMAL): PilotSave {
     wave: 0,
     diff,
     objs: [],
-    sector: "bravo",
+    sector: "train",
     train: 0,
     stats: {},
   }

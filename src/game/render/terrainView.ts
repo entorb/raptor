@@ -84,7 +84,11 @@ export class TerrainView {
       img.setPosition((MAP_LEFT + shake) * SCALE, (ci * CHUNK_PX - scrollY) * SCALE)
     }
 
-    // structures on visible rows
+    this.syncStructures(scrollY, shake, tiles)
+  }
+
+  /** Structures (or their wrecks) on the visible rows. */
+  private syncStructures(scrollY: number, shake: number, tiles: Tiles): void {
     const r0 = Math.max(0, Math.floor(scrollY / 32) - 1)
     const r1 = Math.floor((scrollY + 200) / 32) + 1
     const seen = new Set<number>()
@@ -93,13 +97,7 @@ export class TerrainView {
         const spot = r * MAP_COLS + c
         if (!this.destructible[spot]) continue
         seen.add(spot)
-        const alive = tiles.eitems[spot] !== tiles.titems[spot]
-        const tex = alive ? `struct-${spot % STRUCT_KINDS}` : `wreck-${spot % WRECK_KINDS}`
-        let img = this.structs.get(spot)
-        if (!img) {
-          img = this.scene.add.image(0, 0, tex).setDepth(this.depth + 1)
-          this.structs.set(spot, img)
-        } else if (img.texture.key !== tex) img.setTexture(tex)
+        const img = this.structImage(spot, tiles)
         img.setPosition((MAP_LEFT + shake + c * 32 + 16) * SCALE, (r * 32 + 16 - scrollY) * SCALE)
       }
     }
@@ -108,6 +106,18 @@ export class TerrainView {
         img.destroy()
         this.structs.delete(spot)
       }
+  }
+
+  /** The sprite of one structure spot, created on demand, showing the structure or its wreck. */
+  private structImage(spot: number, tiles: Tiles): GameObjects.Image {
+    const alive = tiles.eitems[spot] !== tiles.titems[spot]
+    const tex = alive ? `struct-${spot % STRUCT_KINDS}` : `wreck-${spot % WRECK_KINDS}`
+    let img = this.structs.get(spot)
+    if (!img) {
+      img = this.scene.add.image(0, 0, tex).setDepth(this.depth + 1)
+      this.structs.set(spot, img)
+    } else if (img.texture.key !== tex) img.setTexture(tex)
+    return img
   }
 
   /** Build the two chunks above the screen in small time slices (no frame hitches). */

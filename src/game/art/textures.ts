@@ -68,7 +68,9 @@ function stars(
     const y = r() * s
     const size = r() * big + 0.4
     const hue = r()
-    const col = hue < 0.2 ? "180,200,255" : hue < 0.3 ? "255,220,180" : "255,255,255"
+    let col = "255,255,255"
+    if (hue < 0.2) col = "180,200,255"
+    else if (hue < 0.3) col = "255,220,180"
     const a = 0.3 + r() * 0.7
     const g = ctx.createRadialGradient(x, y, 0, x, y, size * 2.5)
     g.addColorStop(0, `rgba(${col},${a})`)

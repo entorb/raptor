@@ -1,7 +1,6 @@
 // Port of dosraptor/SOURCE/OBJECTS.C: player inventory, shop rules, shield energy.
 
-import type { Fx } from "./consts"
-import { EMPTY, FIRST_SPECIAL, LAST_WEAPON, MAX_SHIELD, Obj, type ObjType } from "./consts"
+import { EMPTY, FIRST_SPECIAL, type Fx, LAST_WEAPON, MAX_SHIELD, Obj, type ObjType } from "./consts"
 
 export interface ObjLib {
   name: string
@@ -205,14 +204,11 @@ export class Inventory {
       return Buy.GOTIT
     }
     if (!this.reg && !lib.game1flag) return Buy.GOTIT
-    if (lib.onlyflag) {
-      for (const cur of this.objs) {
-        if (cur.type === type) {
-          if (cur.num >= lib.max_cnt) return Buy.SHIPFULL
-          cur.num = Math.min(cur.num + lib.start_cnt, lib.max_cnt)
-          return Buy.GOTIT
-        }
-      }
+    const stack = lib.onlyflag ? this.objs.find((o) => o.type === type) : undefined
+    if (stack) {
+      if (stack.num >= lib.max_cnt) return Buy.SHIPFULL
+      stack.num = Math.min(stack.num + lib.start_cnt, lib.max_cnt)
+      return Buy.GOTIT
     }
     if (this.objs.length >= MAX_OBJS) return Buy.SHIPFULL
     const cur: InvObj = { type, num: lib.start_cnt, inuse: false }

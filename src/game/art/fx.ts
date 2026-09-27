@@ -75,7 +75,7 @@ function drawShotArt(ctx: Ctx, key: string, w: number, h: number): void {
       [cx - w * 0.22, h * 0.8],
       [cx - w * 0.22, h * 0.2],
     ])
-    metal(ctx, cx - w * 0.4, cx + w * 0.4, "#2a2e36", body, "#ffffff", "rgba(255,255,255,0.3)", 1)
+    metal(ctx, cx - w * 0.4, cx + w * 0.4, "#2a2e36", body, "#ffffff", ["rgba(255,255,255,0.3)", 1])
     ctx.restore()
   }
   switch (key) {
@@ -200,7 +200,7 @@ export function drawShard(ctx: Ctx, s: number): void {
     [s * 0.6, s],
     [0, s * 0.6],
   ])
-  metal(ctx, 0, s, "#1b1f28", "#56627a", "#c8d2e6", "rgba(255,255,255,0.4)", 1)
+  metal(ctx, 0, s, "#1b1f28", "#56627a", "#c8d2e6", ["rgba(255,255,255,0.4)", 1])
 }
 
 /** Pickup color + glyph per object type. */
@@ -238,7 +238,7 @@ export function drawPickup(ctx: Ctx, type: number, s: number): void {
       [cx, s * 0.92],
       [s * 0.2, cy],
     ])
-    metal(ctx, s * 0.2, s * 0.8, "#6b4a00", "#ffc83d", "#fff6c8", "rgba(255,255,255,0.6)", 1.5)
+    metal(ctx, s * 0.2, s * 0.8, "#6b4a00", "#ffc83d", "#fff6c8", ["rgba(255,255,255,0.6)", 1.5])
     glow(ctx, cx, cy, s * 0.3, "#ffd23d")
     return
   }
@@ -260,6 +260,20 @@ export function drawPickup(ctx: Ctx, type: number, s: number): void {
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   ctx.fillText(glyph, cx, cy + 1)
+}
+
+/** Solar cell grid (the two top middle cells are left out for the hub). */
+function solarCells(ctx: Ctx, s: number): void {
+  for (let row = 0; row < 2; row++)
+    for (let col = 0; col < 4; col++) {
+      if (row === 0 && (col === 1 || col === 2)) continue
+      roundRect(ctx, s * (0.15 + col * 0.18), s * (0.23 + row * 0.28), s * 0.15, s * 0.25, 2)
+      ctx.fillStyle = "#0e2a48"
+      ctx.fill()
+      ctx.strokeStyle = "rgba(70,224,255,0.35)"
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
 }
 
 /** Destructible map structure (station module) on a 96x96 cell; `kind` picks the design. */
@@ -306,16 +320,7 @@ export function drawStructure(ctx: Ctx, kind: number, s: number): void {
       // solar panel module (same footprint as the cargo block)
       roundRect(ctx, s * 0.1, s * 0.18, s * 0.8, s * 0.64, 6)
       metal(ctx, 0, s, "#161a22", "#465062", "#b9c3d6")
-      for (let row = 0; row < 2; row++)
-        for (let col = 0; col < 4; col++) {
-          if (row === 0 && (col === 1 || col === 2)) continue
-          roundRect(ctx, s * (0.15 + col * 0.18), s * (0.23 + row * 0.28), s * 0.15, s * 0.25, 2)
-          ctx.fillStyle = "#0e2a48"
-          ctx.fill()
-          ctx.strokeStyle = "rgba(70,224,255,0.35)"
-          ctx.lineWidth = 1
-          ctx.stroke()
-        }
+      solarCells(ctx, s)
       roundRect(ctx, s * 0.33, s * 0.23, s * 0.33, s * 0.25, 3)
       ctx.fillStyle = "rgba(0,0,0,0.35)"
       ctx.fill()

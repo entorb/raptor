@@ -1,11 +1,10 @@
 // In-game controls -> sim FrameInput.
 // - Keyboard: arrows/WASD move (DOS keyboard acceleration), Space/Ctrl fire, Shift/Alt cycle
 //   special weapon, B/Enter nova bomb, 1..0,- pick a special, P/Esc pause.
-// - Mouse: steers towards the cursor like DOS mouse control; left fire, right cycle, middle bomb.
 // - Touch: drag anywhere (also the letterbox strips) moves a virtual cursor relative to the ship
 //   so the finger never covers it; on-screen buttons from `buttons`.
 // - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = Space/Ctrl,
-//   left mouse button or a finger on the screen.
+//   a finger on the screen.
 import type { Input, Scene } from "phaser"
 import { SCALE } from "../data/playfield"
 import { loadSettings, saveSettings } from "../data/save"
@@ -43,9 +42,8 @@ export class GameInput {
   autoFire = loadSettings().autoFire
   buttons: TouchButton[] = []
   onButton: (id: string) => void = () => {}
-  private keys: Record<string, Input.Keyboard.Key> = {}
+  private readonly keys: Record<string, Input.Keyboard.Key> = {}
   private pointer: { x: number; y: number } | null = null
-  private mouseButtons = 0
   private drag: { id: number; lastX: number; lastY: number } | null = null
   private tapButtons = new Set<string>()
   private selected: ObjType | null = null
@@ -91,7 +89,6 @@ export class GameInput {
     window.addEventListener("pointermove", this.move)
     window.addEventListener("pointerup", this.up)
     window.addEventListener("pointercancel", this.up)
-    window.addEventListener("contextmenu", this.noMenu)
     scene.events.once("shutdown", () => this.destroy())
   }
 
@@ -100,7 +97,6 @@ export class GameInput {
     window.removeEventListener("pointermove", this.move)
     window.removeEventListener("pointerup", this.up)
     window.removeEventListener("pointercancel", this.up)
-    window.removeEventListener("contextmenu", this.noMenu)
   }
 
   toggleAutoFire(): void {
@@ -133,18 +129,10 @@ export class GameInput {
     return { x: s.transformX(e.pageX), y: s.transformY(e.pageY) }
   }
 
-  private readonly noMenu = (e: Event) => {
-    if (e.target === this.scene.game.canvas) e.preventDefault()
-  }
-
   private readonly down = (e: PointerEvent) => {
     if (e.target instanceof Element && e.target.closest("#rotate")) return
     const p = this.toGame(e)
-    if (e.pointerType === "mouse") {
-      this.mouseButtons = e.buttons
-      this.pointer = { x: p.x / SCALE, y: p.y / SCALE }
-      return
-    }
+    if (e.pointerType === "mouse") return
     this.touchMode = true
     for (const b of this.buttons) {
       if ((p.x - b.x) ** 2 + (p.y - b.y) ** 2 <= b.r ** 2) {
@@ -155,19 +143,11 @@ export class GameInput {
     }
     if (this.drag) return
     this.drag = { id: e.pointerId, lastX: e.clientX, lastY: e.clientY }
-    if (!this.pointer) this.pointer = { ...this.shipCenter }
+    this.pointer ??= { ...this.shipCenter }
   }
 
   private readonly move = (e: PointerEvent) => {
-    if (e.pointerType === "mouse") {
-      this.mouseButtons = e.buttons
-      if (e.target === this.scene.game.canvas || this.pointer) {
-        const p = this.toGame(e)
-        this.pointer = { x: p.x / SCALE, y: p.y / SCALE }
-      }
-      return
-    }
-    if (!this.drag || e.pointerId !== this.drag.id || !this.pointer) return
+    if (e.pointerType === "mouse" || e.pointerId !== this.drag?.id || !this.pointer) return
     const ds = this.scene.scale.displayScale
     this.pointer.x += ((e.clientX - this.drag.lastX) * ds.x * DRAG_GAIN) / SCALE
     this.pointer.y += ((e.clientY - this.drag.lastY) * ds.y * DRAG_GAIN) / SCALE
@@ -178,11 +158,7 @@ export class GameInput {
   }
 
   private readonly up = (e: PointerEvent) => {
-    if (e.pointerType === "mouse") {
-      this.mouseButtons = e.buttons
-      return
-    }
-    if (this.drag && e.pointerId === this.drag.id) this.drag = null
+    if (e.pointerId === this.drag?.id) this.drag = null
   }
 
   /** Called once per sim frame. */
@@ -197,13 +173,9 @@ export class GameInput {
       up: this.isDown("UP", "W"),
       down: this.isDown("DOWN", "S"),
       pointer: this.pointer,
-      fire:
-        this.autoFire ||
-        this.drag !== null ||
-        this.isDown("SPACE", "CTRL") ||
-        (this.mouseButtons & 1) !== 0,
-      cycle: taps.has("cycle") || this.isDown("SHIFT", "ALT") || (this.mouseButtons & 2) !== 0,
-      mega: taps.has("mega") || this.isDown("B", "ENTER") || (this.mouseButtons & 4) !== 0,
+      fire: this.autoFire || this.drag !== null || this.isDown("SPACE", "CTRL"),
+      cycle: taps.has("cycle") || this.isDown("SHIFT", "ALT"),
+      mega: taps.has("mega") || this.isDown("B", "ENTER"),
       select: sel,
     }
   }

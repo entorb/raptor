@@ -324,239 +324,261 @@ function setPos(s: Ship): void {
   s.y2 = s.y + s.height - 1
 }
 
+/** ENEMY_Think: spawn the enemies whose map row scrolled in. */
+function spawnRow(w: World): void {
+  const e = w.enemies
+  if (e.end_waveflag) return
+  while (e.cur < e.spawns.length && (e.spawns[e.cur] as Spawn).y === e.tiley) {
+    if (spawnLinkedGroup(w)) break
+  }
+}
+
+/** ENEMY_Think: spawns one linked run of spawns; returns true once the wave is exhausted. */
+function spawnLinkedGroup(w: World): boolean {
+  const e = w.enemies
+  for (;;) {
+    const old = e.spawns[e.cur] as Spawn
+    if (old.level !== EB_NOT_USED) add(w, old)
+    if (e.cur === e.spawns.length - 1) {
+      e.end_waveflag = true
+      return true
+    }
+    e.cur++
+    if (old.link === EMPTY || old.link === 1) return false
+  }
+}
+
+/** ENEMY_Think: sprite animation and shoot countdown. */
+function animateShip(s: Ship): void {
+  const lib = s.lib
+  if (lib.num_frames <= 1) {
+    if (s.countdown < 1) {
+      s.countdown = -1
+      s.shoot_on = true
+    } else s.countdown -= lib.movespeed
+    return
+  }
+  if (s.frame_rate < 1) {
+    s.frame_rate = lib.frame_rate
+    if (s.anim_on) nextFrame(s)
+  } else s.frame_rate--
+
+  if (s.countdown >= 1) s.countdown -= lib.movespeed
+  else if (lib.animtype === GANIM_SHOOT) s.anim_on = true
+  else if (lib.animtype !== GANIM_MULTI) s.shoot_on = true
+  else if (s.multi === MULTI_OFF) s.multi = MULTI_START
+}
+
+function nextFrame(s: Ship): void {
+  const lib = s.lib
+  s.curframe++
+  if (s.curframe < s.num_frames) return
+  s.curframe -= lib.rewind
+  if (lib.animtype === GANIM_SHOOT) {
+    s.anim_on = false
+    s.shoot_on = true
+  } else if (lib.animtype === GANIM_MULTI) {
+    if (s.multi === MULTI_START) {
+      s.num_frames = lib.num_frames
+      s.multi = MULTI_END
+    } else if (s.multi === MULTI_END) s.shoot_on = true
+  }
+}
+
+/** Target of the current flight path point. */
+function pathRetarget(s: Ship, speed: number): void {
+  const lib = s.lib
+  retarget(s, s.sx + (lib.flightx[s.movepos] ?? 0), s.sy + (lib.flighty[s.movepos] ?? 0), speed)
+}
+
+function flyRepeat(s: Ship): void {
+  const lib = s.lib
+  setPos(s)
+  const speed = moveEobj(s.move, lib.movespeed)
+  if (!s.move.done) return
+  pathRetarget(s, speed)
+  if (!s.backward) {
+    s.movepos++
+    if (s.movepos >= lib.numflight) {
+      s.backward = true
+      s.movepos = lib.numflight - 1
+    }
+  } else {
+    s.movepos--
+    if (s.movepos <= lib.repos) {
+      s.backward = false
+      s.movepos = lib.repos
+    }
+  }
+}
+
+function flyKami(w: World, s: Ship): void {
+  const lib = s.lib
+  setPos(s)
+  const speed = moveEobj(s.move, lib.movespeed)
+  if (s.kami === KAMI_END) {
+    if (s.move.y > 201) s.doneflag = true
+    if (s.move.x > 320 + s.hlx) s.doneflag = true
+    if (s.move.y + s.width < 0) s.doneflag = true
+    if (s.move.x + s.width < 0) s.doneflag = true
+    return
+  }
+  if (!s.move.done) return
+  s.x2 = s.x + s.width - 1
+  s.y2 = s.y + s.height - 1
+  if (s.kami === KAMI_CHASE) {
+    retarget(s, w.player_cx, w.player_cy, speed)
+    s.kami = KAMI_END
+  } else pathRetarget(s, speed)
+  if (s.movepos < lib.numflight - 1) s.movepos++
+  else if (s.kami === KAMI_FLY) s.kami = KAMI_CHASE
+}
+
+function flyLinear(s: Ship): void {
+  const lib = s.lib
+  setPos(s)
+  const speed = moveEobj(s.move, lib.movespeed)
+  if (!s.move.done) return
+  pathRetarget(s, speed)
+  s.movepos++
+  if (s.movepos > lib.numflight) s.doneflag = true
+}
+
+/** ENEMY_Think: ground units scroll with the map (`dir` 0 = straight down). */
+function flyGround(w: World, s: Ship, dir: number): void {
+  const lib = s.lib
+  if (w.tiles.scroll_flag) s.y++
+  if (dir === 0) {
+    if (s.y > s.move.y2) s.doneflag = true
+  } else if (s.y >= 0) {
+    s.x += dir * lib.movespeed
+    if ((dir > 0 ? s.x > s.move.x2 : s.x < s.move.x2) || s.y > s.move.y2) s.doneflag = true
+  }
+  s.x2 = s.x + s.width - 1
+  s.y2 = s.y + s.height - 1
+}
+
+function flyShip(w: World, s: Ship): void {
+  switch (s.lib.flighttype) {
+    case F_REPEAT:
+      flyRepeat(s)
+      break
+    case F_KAMI:
+      flyKami(w, s)
+      break
+    case F_LINEAR:
+      flyLinear(s)
+      break
+    case F_GROUND:
+      flyGround(w, s, 0)
+      break
+    case F_GROUNDRIGHT:
+      flyGround(w, s, 1)
+      break
+    case F_GROUNDLEFT:
+      flyGround(w, s, -1)
+      break
+  }
+}
+
+/** ENEMY_Think: fire the guns while `shoot_on`. */
+function shootShip(w: World, s: Ship): void {
+  const lib = s.lib
+  switch (s.shootagain) {
+    case NORM_SHOOT:
+      s.shootflag--
+      if (s.shootflag >= 0) break
+      s.shootflag = lib.shotspace
+      if (!s.shoot_disable) for (let g = 0; g < lib.numguns; g++) eshotShoot(w, s, g)
+      s.shootcount--
+      if (s.shootcount < 1) s.shootagain = lib.shootframe
+      break
+    case START_SHOOT:
+      s.shootagain = NORM_SHOOT
+      s.shootcount = lib.shootcnt
+      s.shootflag = lib.shotspace
+      break
+    default:
+      s.shootagain--
+      break
+  }
+}
+
+/** ENEMY_Think: ramming a ship hurts both sides. */
+function ramPlayer(w: World, s: Ship): void {
+  if (w.player_cx > s.x && w.player_cx < s.x2 && w.player_cy > s.y && w.player_cy < s.y2) {
+    s.hits -= PLAYERWIDTH / 2
+    const suben = Math.max(s.width, s.height)
+    w.subEnergy(suben >> 2)
+    const x = w.player_cx + (w.rng.random(8) - 4)
+    const y = w.player_cy + (w.rng.random(8) - 4)
+    w.startAnim(Anim.SMALL_AIR_EXPLO, x, y)
+    w.sfx("CRASH")
+  }
+}
+
+/** ENEMY_Think: a destroyed ship pays out, explodes and may drop a bonus. */
+function killShip(w: World, s: Ship): void {
+  const lib = s.lib
+  w.plr.score += lib.money
+  w.sfx3d("AIREXPLO", s.x + s.hlx)
+  explodeShip(w, s)
+  if (lib.bonus !== EMPTY) w.bonusAdd(lib.bonus as ObjType, s.x, s.y)
+  w.kills.push({
+    id: s.id,
+    x: s.x + s.hlx,
+    y: s.y + s.hly,
+    w: s.width,
+    h: s.height,
+    ground: s.groundflag,
+  })
+}
+
 /** ENEMY_Think */
 export function enemyThink(w: World): void {
   const e = w.enemies
-  const t = w.tiles
   if (e.boss_sound) w.bossLoop = true
 
-  e.tiley = Math.trunc(t.tilepos / MAP_COLS) - 3
-
-  if (!e.end_waveflag) {
-    while (e.cur < e.spawns.length && (e.spawns[e.cur] as Spawn).y === e.tiley) {
-      for (;;) {
-        const old = e.spawns[e.cur] as Spawn
-        if (old.level !== EB_NOT_USED) add(w, old)
-        if (e.cur === e.spawns.length - 1) {
-          e.end_waveflag = true
-          break
-        }
-        e.cur++
-        if (old.link === EMPTY || old.link === 1) break
-      }
-      if (e.end_waveflag) break
-    }
-  }
-
+  e.tiley = Math.trunc(w.tiles.tilepos / MAP_COLS) - 3
+  spawnRow(w)
   e.onscreen = []
 
   for (let i = 0; i < e.ships.length; i++) {
     const s = e.ships[i] as Ship
-    const lib = s.lib
-
-    if (lib.num_frames > 1) {
-      if (s.frame_rate < 1) {
-        s.frame_rate = lib.frame_rate
-        if (s.anim_on) {
-          s.curframe++
-          if (s.curframe >= s.num_frames) {
-            s.curframe -= lib.rewind
-            if (lib.animtype === GANIM_SHOOT) {
-              s.anim_on = false
-              s.shoot_on = true
-            } else if (lib.animtype === GANIM_MULTI) {
-              if (s.multi === MULTI_START) {
-                s.num_frames = lib.num_frames
-                s.multi = MULTI_END
-              } else if (s.multi === MULTI_END) s.shoot_on = true
-            }
-          }
-        }
-      } else s.frame_rate--
-
-      if (s.countdown < 1) {
-        if (lib.animtype === GANIM_SHOOT) s.anim_on = true
-        else if (lib.animtype === GANIM_MULTI) {
-          if (s.multi === MULTI_OFF) s.multi = MULTI_START
-        } else s.shoot_on = true
-      } else s.countdown -= lib.movespeed
-    } else if (s.countdown < 1) {
-      s.countdown = -1
-      s.shoot_on = true
-    } else s.countdown -= lib.movespeed
-
-    switch (lib.flighttype) {
-      case F_REPEAT: {
-        setPos(s)
-        const speed = moveEobj(s.move, lib.movespeed)
-        if (s.move.done) {
-          retarget(
-            s,
-            s.sx + (lib.flightx[s.movepos] ?? 0),
-            s.sy + (lib.flighty[s.movepos] ?? 0),
-            speed,
-          )
-          if (!s.backward) {
-            s.movepos++
-            if (s.movepos >= lib.numflight) {
-              s.backward = true
-              s.movepos = lib.numflight - 1
-            }
-          } else {
-            s.movepos--
-            if (s.movepos <= lib.repos) {
-              s.backward = false
-              s.movepos = lib.repos
-            }
-          }
-        }
-        break
-      }
-      case F_KAMI: {
-        setPos(s)
-        const speed = moveEobj(s.move, lib.movespeed)
-        if (s.kami === KAMI_END) {
-          if (s.move.y > 201) s.doneflag = true
-          if (s.move.x > 320 + s.hlx) s.doneflag = true
-          if (s.move.y + s.width < 0) s.doneflag = true
-          if (s.move.x + s.width < 0) s.doneflag = true
-        }
-        if (s.move.done && s.kami !== KAMI_END) {
-          s.x2 = s.x + s.width - 1
-          s.y2 = s.y + s.height - 1
-          if (s.kami === KAMI_CHASE) {
-            retarget(s, w.player_cx, w.player_cy, speed)
-            s.kami = KAMI_END
-          } else {
-            retarget(
-              s,
-              s.sx + (lib.flightx[s.movepos] ?? 0),
-              s.sy + (lib.flighty[s.movepos] ?? 0),
-              speed,
-            )
-          }
-          if (s.movepos < lib.numflight - 1) s.movepos++
-          else if (s.kami === KAMI_FLY) s.kami = KAMI_CHASE
-        }
-        break
-      }
-      case F_LINEAR: {
-        setPos(s)
-        const speed = moveEobj(s.move, lib.movespeed)
-        if (s.move.done) {
-          retarget(
-            s,
-            s.sx + (lib.flightx[s.movepos] ?? 0),
-            s.sy + (lib.flighty[s.movepos] ?? 0),
-            speed,
-          )
-          s.movepos++
-          if (s.movepos > lib.numflight) s.doneflag = true
-        }
-        break
-      }
-      case F_GROUND:
-        if (t.scroll_flag) s.y++
-        if (s.y > s.move.y2) s.doneflag = true
-        s.x2 = s.x + s.width - 1
-        s.y2 = s.y + s.height - 1
-        break
-      case F_GROUNDRIGHT:
-        if (t.scroll_flag) s.y++
-        if (s.y >= 0) {
-          s.x += lib.movespeed
-          if (s.x > s.move.x2) s.doneflag = true
-          else if (s.y > s.move.y2) s.doneflag = true
-        }
-        s.x2 = s.x + s.width - 1
-        s.y2 = s.y + s.height - 1
-        break
-      case F_GROUNDLEFT:
-        if (t.scroll_flag) s.y++
-        if (s.y >= 0) {
-          s.x -= lib.movespeed
-          if (s.x < s.move.x2) s.doneflag = true
-          else if (s.y > s.move.y2) s.doneflag = true
-        }
-        s.x2 = s.x + s.width - 1
-        s.y2 = s.y + s.height - 1
-        break
-    }
-
-    if (s.shoot_on) {
-      switch (s.shootagain) {
-        case NORM_SHOOT:
-          s.shootflag--
-          if (s.shootflag >= 0) break
-          s.shootflag = lib.shotspace
-          if (!s.shoot_disable) for (let g = 0; g < lib.numguns; g++) eshotShoot(w, s, g)
-          s.shootcount--
-          if (s.shootcount < 1) s.shootagain = lib.shootframe
-          break
-        case START_SHOOT:
-          s.shootagain = NORM_SHOOT
-          s.shootcount = lib.shootcnt
-          s.shootflag = lib.shotspace
-          break
-        default:
-          s.shootagain--
-          break
-      }
-    }
-
-    if (s.doneflag) {
-      remove(w, i--)
-      continue
-    }
-
-    if (lib.bossflag && s.hits < 50 && w.gl_cnt & 2) {
-      const x = s.x + w.rng.random(s.width)
-      const y = s.y + w.rng.random(s.height)
-      w.startAnim(Anim.SMALL_AIR_EXPLO, x, y)
-    }
-
-    if (!s.groundflag) {
-      if (w.player_cx > s.x && w.player_cx < s.x2 && w.player_cy > s.y && w.player_cy < s.y2) {
-        s.hits -= PLAYERWIDTH / 2
-        const suben = s.width > s.height ? s.width : s.height
-        w.subEnergy(suben >> 2)
-        const x = w.player_cx + (w.rng.random(8) - 4)
-        const y = w.player_cy + (w.rng.random(8) - 4)
-        w.startAnim(Anim.SMALL_AIR_EXPLO, x, y)
-        w.sfx("CRASH")
-      }
-    }
-
-    if (s.hits <= 0) {
-      w.plr.score += lib.money
-      w.sfx3d("AIREXPLO", s.x + s.hlx)
-      explodeShip(w, s)
-      if (lib.bonus !== EMPTY) w.bonusAdd(lib.bonus as ObjType, s.x, s.y)
-      w.kills.push({
-        id: s.id,
-        x: s.x + s.hlx,
-        y: s.y + s.hly,
-        w: s.width,
-        h: s.height,
-        ground: s.groundflag,
-      })
-      remove(w, i--)
-      continue
-    }
-
-    const y = s.y + s.height
-    if (y > 0 && s.y < 200) {
-      const x = s.x + s.width
-      if (x > 0 && s.x < 320) e.onscreen.push(s)
-    }
+    if (stepShip(w, s)) remove(w, i--)
   }
+}
+
+/** ENEMY_Think: per-ship update; returns true once the ship should be removed. */
+function stepShip(w: World, s: Ship): boolean {
+  const lib = s.lib
+
+  animateShip(s)
+  flyShip(w, s)
+  if (s.shoot_on) shootShip(w, s)
+
+  if (s.doneflag) return true
+
+  if (lib.bossflag && s.hits < 50 && w.gl_cnt & 2) {
+    const x = s.x + w.rng.random(s.width)
+    const y = s.y + w.rng.random(s.height)
+    w.startAnim(Anim.SMALL_AIR_EXPLO, x, y)
+  }
+
+  if (!s.groundflag) ramPlayer(w, s)
+
+  if (s.hits <= 0) {
+    killShip(w, s)
+    return true
+  }
+
+  if (s.y + s.height > 0 && s.y < 200 && s.x + s.width > 0 && s.x < 320) w.enemies.onscreen.push(s)
+  return false
 }
 
 function explodeShip(w: World, s: Ship): void {
   const cx = s.x + s.hlx
   const cy = s.y + s.hly
-  const r = w.rng
-  const area = (s.width >> 4) * (s.height >> 4)
   switch (s.lib.exptype) {
     case EXP_ENERGY:
       w.startAnim(Anim.ENERGY_AIR_EXPLO, cx, cy)
@@ -573,37 +595,16 @@ function explodeShip(w: World, s: Ship): void {
       break
     case EXP_AIRLARGE:
       w.startAnim(Anim.LARGE_AIR_EXPLO, cx, cy)
-      for (let loop = 0; loop < area; loop++) {
-        const x = s.x + r.random(s.width)
-        const y = s.y + r.random(s.height)
+      for (let loop = 0; loop < explosionArea(s); loop++) {
+        const [x, y] = randomSpot(w, s)
         if (loop & 1) w.startAnim(Anim.MED_AIR_EXPLO, x, y)
         else w.startAAnim(Anim.MED_AIR_EXPLO2, x, y)
       }
       break
-    case EXP_GRDSMALL:
-      w.startAnim(Anim.SMALL_GROUND_EXPLO, cx, cy)
-      break
-    case EXP_GRDMED: {
-      const x = s.x + r.random(s.width)
-      const y = s.y + r.random(s.height)
-      w.startAnim(r.random(2) === 0 ? Anim.GROUND_SPARKLE : Anim.GROUND_FLARE, x, y)
-      w.startAnim(Anim.LARGE_GROUND_EXPLO1, cx, cy)
-      break
-    }
-    case EXP_GRDLARGE:
-      w.startAnim(Anim.LARGE_GROUND_EXPLO1, cx, cy)
-      for (let loop = 0; loop < area; loop++) {
-        const x = s.x + r.random(s.width)
-        const y = s.y + r.random(s.height)
-        w.startAnim(r.random(2) === 0 ? Anim.GROUND_FLARE : Anim.GROUND_SPARKLE, x, y)
-        w.startAnim(Anim.SMALL_GROUND_EXPLO, x, y)
-      }
-      break
     case EXP_BOSS:
       w.startAnim(Anim.LARGE_AIR_EXPLO, cx, cy)
-      for (let loop = 0; loop < area; loop++) {
-        const x = s.x + r.random(s.width)
-        const y = s.y + r.random(s.height)
+      for (let loop = 0; loop < explosionArea(s); loop++) {
+        const [x, y] = randomSpot(w, s)
         w.startAAnim(Anim.GROUND_FLARE, x, y)
         if (loop & 1) w.startAnim(Anim.LARGE_AIR_EXPLO, x, y)
         else w.startAnim(Anim.MED_AIR_EXPLO2, x, y)
@@ -614,6 +615,38 @@ function explodeShip(w: World, s: Ship): void {
       break
     case EXP_PLATOON:
       w.startAnim(Anim.PLATOON, cx, cy)
+      break
+    default:
+      explodeGround(w, s, cx, cy)
+  }
+}
+
+const explosionArea = (s: Ship): number => (s.width >> 4) * (s.height >> 4)
+
+function randomSpot(w: World, s: Ship): [number, number] {
+  const x = s.x + w.rng.random(s.width)
+  const y = s.y + w.rng.random(s.height)
+  return [x, y]
+}
+
+function explodeGround(w: World, s: Ship, cx: number, cy: number): void {
+  switch (s.lib.exptype) {
+    case EXP_GRDSMALL:
+      w.startAnim(Anim.SMALL_GROUND_EXPLO, cx, cy)
+      break
+    case EXP_GRDMED: {
+      const [x, y] = randomSpot(w, s)
+      w.startAnim(w.rng.random(2) === 0 ? Anim.GROUND_SPARKLE : Anim.GROUND_FLARE, x, y)
+      w.startAnim(Anim.LARGE_GROUND_EXPLO1, cx, cy)
+      break
+    }
+    case EXP_GRDLARGE:
+      w.startAnim(Anim.LARGE_GROUND_EXPLO1, cx, cy)
+      for (let loop = 0; loop < explosionArea(s); loop++) {
+        const [x, y] = randomSpot(w, s)
+        w.startAnim(w.rng.random(2) === 0 ? Anim.GROUND_FLARE : Anim.GROUND_SPARKLE, x, y)
+        w.startAnim(Anim.SMALL_GROUND_EXPLO, x, y)
+      }
       break
   }
 }

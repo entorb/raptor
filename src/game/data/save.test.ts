@@ -38,7 +38,12 @@ it("drops invalid entries (localStorage is untrusted)", () => {
 })
 
 it("moves old training pilots (diff 0) to Rookie, keeping their training progress", () => {
-  const old = { ...newPilotSave("T", 0), wave: 2, stats: { b0: { n: "x", top: [] } } }
+  const old = {
+    ...newPilotSave("T", 0),
+    wave: 2,
+    sector: "bravo" as const,
+    stats: { b0: { n: "x", top: [] } },
+  }
   store.set("raptor.pilots.v1", JSON.stringify([old]))
   const [p] = loadPilots()
   expect([p?.diff, p?.wave, p?.train, p?.sector, p?.stats]).toEqual([1, 0, 2, "bravo", {}])

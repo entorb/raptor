@@ -109,126 +109,177 @@ export class Menu extends Scene {
 
   private show(mode: Mode): void {
     this.mode = mode
-    const items: MenuItem[] = []
-    const pilots = loadPilots()
     this.stats.setText(mode === "main" ? this.statsLabel() : "")
     this.actions.setVisible(mode === "main")
     this.closeNameInput()
     this.info.setText("")
-    const fly = (p: PilotSave) => () => {
-      setPilot(p, false)
+    let items: MenuItem[]
+    switch (mode) {
+      case "main":
+        items = this.mainItems()
+        break
+      case "pilots":
+        items = this.pilotsItems()
+        break
+      case "pilot":
+      case "delete":
+        if (!this.picked) {
+          this.show("pilots")
+          return
+        }
+        items = this.pilotItems(this.picked, mode)
+        break
+      case "name":
+        items = this.nameItems()
+        break
+      case "new":
+        items = this.newItems()
+        break
+      case "install":
+        items = this.installItems()
+        break
+      default:
+        items = this.optionsItems()
+    }
+    this.menu.setItems(items, mode === "options")
+  }
+
+  private mainItems(): MenuItem[] {
+    const items: MenuItem[] = [
+      { label: "Play", action: () => this.show("pilots") },
+      { label: "Options", action: () => this.show("options") },
+    ]
+    if (this.scale.fullscreen.available)
+      items.push({
+        label: this.scale.isFullscreen ? "Exit Fullscreen" : "Fullscreen",
+        action: () => {
+          toggleFullscreen(this)
+          this.time.delayedCall(300, () => this.show("main"))
+        },
+      })
+    return items
+  }
+
+  private pilotsItems(): MenuItem[] {
+    // most recently played first (savePilot keeps the list in that order)
+    const items: MenuItem[] = loadPilots().map((p) => ({
+      label: `${DIFF_NAMES[p.diff]} ${p.name}`,
+      action: () => {
+        this.picked = p
+        this.show("pilot")
+      },
+    }))
+    items.push(
+      { label: "New Pilot", action: () => this.show("name") },
+      { label: "Back", action: () => this.show("main") },
+    )
+    return items
+  }
+
+  private pilotItems(p: PilotSave, mode: "pilot" | "delete"): MenuItem[] {
+    const items: MenuItem[] = []
+    if (mode === "pilot") {
+      this.info.setText(`${DIFF_NAMES[p.diff]} ${p.name}: ${p.score} CR`)
+      items.push(
+        {
+          label: "Fly",
+          action: () => {
+            setPilot(p, false)
+            this.scene.start("Hangar")
+          },
+        },
+        { label: "Delete Pilot", action: () => this.show("delete") },
+      )
+    } else {
+      this.info.setText(`Delete pilot ${p.name}? This cannot be undone.`)
+      items.push({
+        label: "Yes, delete",
+        action: () => {
+          deletePilot(p.name)
+          this.show("pilots")
+        },
+      })
+    }
+    items.push({ label: "Back", action: () => this.show("pilots") })
+    return items
+  }
+
+  private nameItems(): MenuItem[] {
+    const input = this.openNameInput()
+    // row 0 lies under the <input>: activating it (keyboard) focuses the field
+    return [
+      { label: "", action: () => input.focus() },
+      { label: "OK", action: () => this.submitName() },
+      { label: "Back", action: () => this.show("pilots") },
+    ]
+  }
+
+  private newItems(): MenuItem[] {
+    this.info.setText(`New pilot: ${this.newName}`)
+    const start = (d: number) => () => {
+      const p = newPilotSave(this.newName, d)
+      setPilot(withLoadout(p, loadout(p)))
       this.scene.start("Hangar")
     }
-    if (mode === "main") {
-      items.push({ label: "Play", action: () => this.show("pilots") })
-      items.push({ label: "Options", action: () => this.show("options") })
-      if (this.scale.fullscreen.available)
-        items.push({
-          label: this.scale.isFullscreen ? "Exit Fullscreen" : "Fullscreen",
-          action: () => {
-            toggleFullscreen(this)
-            this.time.delayedCall(300, () => this.show("main"))
-          },
-        })
-    } else if (mode === "pilots") {
-      // most recently played first (savePilot keeps the list in that order)
-      for (const p of pilots)
-        items.push({
-          label: `${DIFF_NAMES[p.diff]} ${p.name}`,
-          action: () => {
-            this.picked = p
-            this.show("pilot")
-          },
-        })
-      items.push({ label: "New Pilot", action: () => this.show("name") })
-      items.push({ label: "Back", action: () => this.show("main") })
-    } else if (mode === "pilot" || mode === "delete") {
-      const p = this.picked
-      if (!p) {
-        this.show("pilots")
-        return
-      }
-      if (mode === "pilot") {
-        this.info.setText(`${DIFF_NAMES[p.diff]} ${p.name}: ${p.score} CR`)
-        items.push({ label: "Fly", action: fly(p) })
-        items.push({ label: "Delete Pilot", action: () => this.show("delete") })
-      } else {
-        this.info.setText(`Delete pilot ${p.name}? This cannot be undone.`)
-        items.push({
-          label: "Yes, delete",
-          action: () => {
-            deletePilot(p.name)
-            this.show("pilots")
-          },
-        })
-      }
-      items.push({ label: "Back", action: () => this.show("pilots") })
-    } else if (mode === "name") {
-      const input = this.openNameInput()
-      // row 0 lies under the <input>: activating it (keyboard) focuses the field
-      items.push({ label: "", action: () => input.focus() })
-      items.push({ label: "OK", action: () => this.submitName() })
-      items.push({ label: "Back", action: () => this.show("pilots") })
-    } else if (mode === "new") {
-      this.info.setText(`New pilot: ${this.newName}`)
-      const start = (d: number) => () => {
-        const p = newPilotSave(this.newName, d)
-        setPilot(withLoadout(p, loadout(p)))
-        this.scene.start("Hangar")
-      }
-      items.push({ label: "Rookie", detail: "easy", action: start(DIFF_EASY) })
-      items.push({ label: "Veteran", detail: "normal", action: start(DIFF_NORMAL) })
-      items.push({ label: "Elite", detail: "hard", action: start(DIFF_HARD) })
-      items.push({ label: "Back", action: () => this.show("name") })
-    } else if (mode === "install") {
-      this.info.setText(
-        'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
-      )
-      items.push({ label: "Back", action: () => this.show("main") })
-    } else {
-      const s = loadSettings()
-      const pct = (v: number) => `${Math.round(v * 100)}%`
-      const step = (v: number, d = 1) => Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
-      const cycle = (v: number) => (v >= 0.99 ? 0 : step(v))
-      this.info.setText("")
-      const setMusic = (v: number) => {
-        s.music = v
-        saveSettings(s)
-        getAudio().setMusicVolume(v)
-        this.show("options")
-      }
-      const setSfx = (v: number) => {
-        s.sfx = v
-        saveSettings(s)
-        getAudio().sfxVolume = v
-        this.show("options")
-      }
-      const setAutoFire = (v: boolean) => {
-        s.autoFire = v
-        saveSettings(s)
-        this.show("options")
-      }
-      items.push({
+    return [
+      { label: "Rookie", detail: "easy", action: start(DIFF_EASY) },
+      { label: "Veteran", detail: "normal", action: start(DIFF_NORMAL) },
+      { label: "Elite", detail: "hard", action: start(DIFF_HARD) },
+      { label: "Back", action: () => this.show("name") },
+    ]
+  }
+
+  private installItems(): MenuItem[] {
+    this.info.setText(
+      'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
+    )
+    return [{ label: "Back", action: () => this.show("main") }]
+  }
+
+  private optionsItems(): MenuItem[] {
+    this.info.setText("Shield only recharges while not firing: Auto-Fire blocks regen")
+    const s = loadSettings()
+    const pct = (v: number) => `${Math.round(v * 100)}%`
+    const step = (v: number, d = 1) => Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
+    const cycle = (v: number) => (v >= 0.99 ? 0 : step(v))
+    const setMusic = (v: number) => {
+      s.music = v
+      saveSettings(s)
+      getAudio().setMusicVolume(v)
+      this.show("options")
+    }
+    const setSfx = (v: number) => {
+      s.sfx = v
+      saveSettings(s)
+      getAudio().sfxVolume = v
+      this.show("options")
+    }
+    const setAutoFire = (v: boolean) => {
+      s.autoFire = v
+      saveSettings(s)
+      this.show("options")
+    }
+    return [
+      {
         label: "Music",
         detail: pct(s.music),
         action: () => setMusic(cycle(s.music)),
         adjust: (d) => setMusic(step(s.music, d)),
-      })
-      items.push({
+      },
+      {
         label: "Sound Effects",
         detail: pct(s.sfx),
         action: () => setSfx(cycle(s.sfx)),
         adjust: (d) => setSfx(step(s.sfx, d)),
-      })
-      items.push({
+      },
+      {
         label: "Auto-Fire",
         detail: s.autoFire ? "ON" : "OFF",
         action: () => setAutoFire(!s.autoFire),
         adjust: () => setAutoFire(!s.autoFire),
-      })
-      items.push({ label: "Back", action: () => this.show("main") })
-    }
-    this.menu.setItems(items, mode === "options")
+      },
+      { label: "Back", action: () => this.show("main") },
+    ]
   }
 
   /** Phaser DOM <input> (opens the on-screen keyboard); the menu keys are off while typing. */
@@ -268,7 +319,9 @@ export class Menu extends Scene {
 
   private submitName(): void {
     const name = ((this.nameInput?.node as HTMLInputElement | undefined)?.value ?? "").trim()
-    const err = !name ? "Enter a name" : pilotNameTaken(name) ? "Name already taken" : ""
+    let err = ""
+    if (!name) err = "Enter a name"
+    else if (pilotNameTaken(name)) err = "Name already taken"
     if (err) {
       this.info.setText(err)
       return

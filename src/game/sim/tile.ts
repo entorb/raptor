@@ -103,8 +103,8 @@ function explode(w: World, tsIndex: number, delay: number): void {
   }
 }
 
-/** TILE_Think */
-export function tileThink(w: World): void {
+/** TILE_Think: refresh the visible tile spots and blow up destroyed structures. */
+function thinkSpots(w: World): void {
   const t = w.tiles
   let y = t.tileyoff
   let mapspot = t.tilepos
@@ -127,37 +127,48 @@ export function tileThink(w: World): void {
       }
     }
   }
+}
 
+/** TILE_Think: a burning structure's delayed damage, sparks and final item swap. */
+function thinkDelays(w: World): void {
+  const t = w.tiles
   for (let i = 0; i < t.delays.length; i++) {
     const td = t.delays[i] as TileDelay
     if (td.mapspot - t.tilepos > MAP_ONSCREEN * MAP_COLS) {
       t.delays.splice(i--, 1)
-      continue
-    }
-    if (td.frames < 0) {
-      const src = t.tspots[td.ts] as TileSpot
-      const tx = src.x + 8 + w.rng.random(8)
-      const ty = src.y + 16 + 10
-      doDamage(w, td.mapspot, 20)
-      t.spark_delay++
-      t.flare_delay++
-      if (t.spark_delay > 2) {
-        w.startAnim(Anim.GROUND_SPARKLE, tx, ty)
-        t.spark_delay = 0
-      }
-      if (t.flare_delay > 4) {
-        w.startAnim(Anim.GROUND_FLARE, tx, ty)
-        t.flare_delay = 0
-      }
-      const ts = t.tspots[td.mapspot - t.tilepos]
-      const spot = ts ? ts.mapspot : td.mapspot
-      t.titems[spot] = td.item
-      t.eitems[spot] = td.item
+    } else if (td.frames < 0) {
+      finishDelay(w, td)
       t.delays.splice(i--, 1)
-      continue
-    }
-    td.frames--
+    } else td.frames--
   }
+}
+
+function finishDelay(w: World, td: TileDelay): void {
+  const t = w.tiles
+  const src = t.tspots[td.ts] as TileSpot
+  const tx = src.x + 8 + w.rng.random(8)
+  const ty = src.y + 16 + 10
+  doDamage(w, td.mapspot, 20)
+  t.spark_delay++
+  t.flare_delay++
+  if (t.spark_delay > 2) {
+    w.startAnim(Anim.GROUND_SPARKLE, tx, ty)
+    t.spark_delay = 0
+  }
+  if (t.flare_delay > 4) {
+    w.startAnim(Anim.GROUND_FLARE, tx, ty)
+    t.flare_delay = 0
+  }
+  const ts = t.tspots[td.mapspot - t.tilepos]
+  const spot = ts ? ts.mapspot : td.mapspot
+  t.titems[spot] = td.item
+  t.eitems[spot] = td.item
+}
+
+/** TILE_Think */
+export function tileThink(w: World): void {
+  thinkSpots(w)
+  thinkDelays(w)
 }
 
 /** Scroll part of TILE_Display (runs after all Think calls, before the next frame). */
