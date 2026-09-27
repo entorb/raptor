@@ -1,0 +1,5 @@
+---
+minimumReleaseAge: 7200  # 5 days (in minutes)
+allowBuilds:
+  esbuild: true
+  ffmpeg-static: true
