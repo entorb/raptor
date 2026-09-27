@@ -142,7 +142,7 @@ export class Menu extends Scene {
   }
 
   private statsLabel(): string {
-    return `Total Missions Globally: ${this.globalGames ?? "—"}`
+    return `Global Missions: ${this.globalGames ?? "—"}`
   }
 
   private show(mode: Mode): void {

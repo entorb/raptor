@@ -16,7 +16,6 @@ export class Boot extends Scene {
       bar.width = 400 * v
     })
     for (const f of SFX_FILES) this.load.audio(`sfx-${f}`, `assets/sfx/${f}.ogg`)
-    this.load.audio("music-mainmenu", "assets/music/mainmenu.ogg")
   }
 
   create(): void {
