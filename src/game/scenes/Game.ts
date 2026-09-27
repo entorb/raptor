@@ -12,9 +12,10 @@ import {
   SECTOR_NAMES,
   sectorDiff,
   type WaveResult,
+  waveMap,
   withLoadout,
 } from "../campaign"
-import { DEMOS, MAPS } from "../data/ep1"
+import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import type { Sector } from "../data/save"
 import { toggleFullscreen } from "../input/fullscreen"
@@ -98,6 +99,8 @@ export class Game extends Scene {
   private fx!: Effects
   private acc = 0
   private wave = 0
+  /** DOS map index of `wave` (seed, terrain, song) */
+  private mapWave = 0
   private sector: Sector = "bravo"
   private unitPrefix = "u-"
   private demo = -1
@@ -178,7 +181,10 @@ export class Game extends Scene {
       diff = sectorDiff(p, this.sector)
     }
     this.startScore = this.lo.plr.score
-    this.world = new World(this.wave, this.lo.plr, this.lo.inv, diff)
+    // demos fly bravo maps; the sector wave may differ from the DOS map (training beginner wave)
+    const { index, map } = waveMap(frames ? "bravo" : this.sector, this.wave)
+    this.mapWave = index
+    this.world = new World(index, this.lo.plr, this.lo.inv, diff, map)
     if (frames) this.world.playDemo(frames)
     else this.world.god = godMode()
 
@@ -188,8 +194,7 @@ export class Game extends Scene {
     this.unitPrefix = sim ? "ut-" : "u-"
     const bgs = sim ? ["sim-floor", "sim-dots", "sim-grid"] : ["nebula", "stars-far", "stars-near"]
     this.stars = bgs.map((k) => this.add.tileSprite(480, 300, 960, 600, k).setDepth(D.stars))
-    const map = MAPS[this.wave]
-    this.terrain = new TerrainView(this, this.wave, map?.flats ?? [], D.terrain, sim)
+    this.terrain = new TerrainView(this, index, map?.flats ?? [], D.terrain, sim)
     this.scroll = this.prevScroll = this.scrollY()
     this.terrain.prepare(this.scroll)
     this.fx = new Effects(this, D.groundAnim, D.airAnim, sim)
@@ -228,7 +233,7 @@ export class Game extends Scene {
       this.input.on("pointerdown", () => this.finishDemo())
       kb?.on("keydown", () => this.finishDemo())
     }
-    getAudio().playSong(this, WAVE_SONGS[this.wave] ?? "rap8")
+    getAudio().playSong(this, WAVE_SONGS[this.mapWave] ?? "rap8")
     this.game.events.on("blur", this.autoPause, this)
     this.events.once("shutdown", () => {
       this.game.events.off("blur", this.autoPause, this)

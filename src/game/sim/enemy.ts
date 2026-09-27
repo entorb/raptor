@@ -197,6 +197,11 @@ function add(w: World, sp: Spawn): void {
     n.hits = n.hits - (n.hits >> 1)
     n.shootcount = n.shootcount - (n.shootcount >> 2)
   }
+  // web: the training beginner wave halves the boss once more
+  if (lib.bossflag && w.easyBoss) {
+    n.hits >>= 1
+    n.shootcount -= n.shootcount >> 1
+  }
 
   switch (lib.animtype) {
     case GANIM_SHOOT:

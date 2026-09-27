@@ -1,5 +1,8 @@
 // Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
+import { MAPS } from "./data/ep1"
 import type { PilotSave, Sector } from "./data/save"
+import { BEGINNER_MAP } from "./data/training"
+import type { WaveMap } from "./data/types"
 import { DIFF_TRAIN, DIFF_WRAP, Obj } from "./sim/consts"
 import { Inventory, newPilotObjs } from "./sim/objects"
 
@@ -22,10 +25,11 @@ export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
 }
 
 export const SECTOR_NAMES: Record<Sector, string> = { bravo: "BRAVO SECTOR", train: "TRAINING" }
-const TRAIN_WAVES = DIFF_WRAP[DIFF_TRAIN] ?? 4
+// web: training opens with the beginner wave, then flies the DOS training maps 0..3
+const TRAIN_WAVES = (DIFF_WRAP[DIFF_TRAIN] ?? 4) + 1
 const TOP = 10
 
-/** Waves in this difficulty's campaign (training ends after 4). */
+/** Waves in this difficulty's campaign. */
 export function wavesFor(diff: number): number {
   return DIFF_WRAP[diff] ?? 9
 }
@@ -37,6 +41,13 @@ export function sectorWaves(p: PilotSave, sector: Sector): number {
 /** Difficulty the sim runs with: training always flies DIFF_TRAIN. */
 export function sectorDiff(p: PilotSave, sector: Sector): number {
   return sector === "train" ? DIFF_TRAIN : p.diff
+}
+
+/** DOS map (index = sim seed / terrain / song) a sector wave flies. */
+export function waveMap(sector: Sector, wave: number): { index: number; map: WaveMap | undefined } {
+  if (sector === "bravo") return { index: wave, map: MAPS[wave] }
+  if (wave === 0) return { index: 0, map: BEGINNER_MAP }
+  return { index: wave - 1, map: MAPS[wave - 1] }
 }
 
 /** Next campaign wave of a sector, null when the sector is finished. */
@@ -136,7 +147,11 @@ export function runCampaignSelfCheck(): void {
   const t1 = afterWave(base, "complete", "train")
   assert(t1.pilot.train === 1 && t1.pilot.wave === 0, "training advances separately")
   const t4 = afterWave({ ...base, train: 3 }, "complete", "train")
-  assert(t4.outcome === "trainingComplete" && nextWave(t4.pilot, "train") === null, "training end")
+  assert(t4.outcome === "landing" && nextWave(t4.pilot, "train") === 4, "training has 5 waves")
+  const t5 = afterWave({ ...base, train: 4 }, "complete", "train")
+  assert(t5.outcome === "trainingComplete" && nextWave(t5.pilot, "train") === null, "training end")
+  assert(waveMap("train", 0).map === BEGINNER_MAP, "training starts with the beginner wave")
+  assert(waveMap("train", 4).index === 3 && waveMap("bravo", 4).index === 4, "wave -> DOS map")
   let q = base
   for (let i = 1; i <= 12; i++) q = recordRun(q, "b0", i * 100).pilot
   const r = recordRun(q, "b0", 450)

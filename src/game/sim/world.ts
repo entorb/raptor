@@ -1,6 +1,7 @@
 // Port of dosraptor/SOURCE/RAP.C Do_Game (one call of `step` = one DOS frame, FRAME_MS) plus
 // the player movement of INPUT.C and the in-game logic of RAP_DisplayStats.
 import { MAPS } from "../data/ep1"
+import type { WaveMap } from "../data/types"
 import { type AnimObj, animsThink, startAAnim, startAnim, startEAnim, startGAnim } from "./anims"
 import { type Bonus, Bonuses, bonusAdd, bonusThink } from "./bonus"
 import {
@@ -127,6 +128,8 @@ export class World {
   inv: Inventory
   curplr_diff: number
   god = false
+  /** web: weaker boss (training beginner wave, `WaveMap.easyBoss`) */
+  easyBoss: boolean
 
   tiles = new Tiles()
   enemies = new Enemies()
@@ -185,6 +188,7 @@ export class World {
     player: PlayerState,
     inv: Inventory,
     diff: number,
+    map: WaveMap | undefined = MAPS[wave],
   ) {
     this.plr = player
     this.inv = inv
@@ -193,8 +197,8 @@ export class World {
     inv.onAdd = () => {
       this.g_oldshield = EMPTY
     }
-    const map = MAPS[wave]
     if (!map) throw new Error(`no map for wave ${wave}`)
+    this.easyBoss = map.easyBoss ?? false
     // Do_Game: srand(1024 * game_wave[cur_game])
     this.rng.srand(1024 * wave)
     this.tiles.load(map.flats)
