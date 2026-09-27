@@ -74,7 +74,6 @@ export const Obj = {
 } as const
 export type ObjType = (typeof Obj)[keyof typeof Obj]
 export const LAST_WEAPON = Obj.DEATH_RAY
-export const FIRST_SPECIAL = Obj.DUMB_MISSLE
 
 /** ANIMS.H handles (registration order in ANIMS_Init). */
 export const Anim = {
