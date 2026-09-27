@@ -29,8 +29,12 @@ export class TerrainView {
   private job: { ci: number; job: ChunkJob } | null = null
   private readonly ready = new Map<number, HTMLCanvasElement>()
 
-  constructor(scene: Scene, wave: number, flats: number[], depth: number) {
+  /** training sector: simulator deck terrain and target pads */
+  private readonly train: boolean
+
+  constructor(scene: Scene, wave: number, flats: number[], depth: number, train = false) {
     this.scene = scene
+    this.train = train
     this.wave = wave
     this.depth = depth
     this.field = buildField(flats)
@@ -38,7 +42,7 @@ export class TerrainView {
   }
 
   private key(ci: number): string {
-    return `terrain-${this.wave}-${ci}`
+    return `terrain-${this.train ? "t" : "b"}${this.wave}-${ci}`
   }
 
   private ensure(ci: number): void {
@@ -52,7 +56,10 @@ export class TerrainView {
         this.job = null
       }
       this.ready.delete(ci)
-      this.scene.textures.addCanvas(key, canvas ?? renderChunk(this.field, ci, 17 + this.wave))
+      this.scene.textures.addCanvas(
+        key,
+        canvas ?? renderChunk(this.field, ci, 17 + this.wave, this.train),
+      )
     }
     const img = this.scene.add
       .image(0, 0, key)
@@ -111,7 +118,8 @@ export class TerrainView {
   /** The sprite of one structure spot, created on demand, showing the structure or its wreck. */
   private structImage(spot: number, tiles: Tiles): GameObjects.Image {
     const alive = tiles.eitems[spot] !== tiles.titems[spot]
-    const tex = alive ? `struct-${spot % STRUCT_KINDS}` : `wreck-${spot % WRECK_KINDS}`
+    const pre = this.train ? "t" : ""
+    const tex = alive ? `${pre}struct-${spot % STRUCT_KINDS}` : `${pre}wreck-${spot % WRECK_KINDS}`
     let img = this.structs.get(spot)
     if (!img) {
       img = this.scene.add.image(0, 0, tex).setDepth(this.depth + 1)
@@ -125,7 +133,7 @@ export class TerrainView {
     if (!this.job) {
       for (const ci of [first - 1, first - 2]) {
         if (ci < 0 || this.chunks.has(ci) || this.ready.has(ci)) continue
-        this.job = { ci, job: new ChunkJob(this.field, ci, 17 + this.wave) }
+        this.job = { ci, job: new ChunkJob(this.field, ci, 17 + this.wave, this.train) }
         break
       }
     }

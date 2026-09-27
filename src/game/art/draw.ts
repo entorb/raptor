@@ -131,3 +131,16 @@ export function makeCanvas(w: number, h: number): { c: HTMLCanvasElement; ctx: C
   if (!ctx) throw new Error("no 2d context")
   return { c, ctx }
 }
+
+/** Training target marker: alternating rings with a bright center. */
+export function bullseye(ctx: Ctx, x: number, y: number, r: number, ring = "#ffae2e"): void {
+  ctx.save()
+  for (let i = 3; i > 0; i--) {
+    ctx.beginPath()
+    ctx.arc(x, y, (r * i) / 3, 0, Math.PI * 2)
+    ctx.fillStyle = i % 2 ? ring : "rgba(8,12,20,0.85)"
+    ctx.fill()
+  }
+  ctx.restore()
+  glow(ctx, x, y, r * 0.45, ring, "#fff6d0")
+}

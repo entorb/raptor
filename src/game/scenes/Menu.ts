@@ -23,6 +23,10 @@ export const DIFF_NAMES = ["Training", "Rookie", "Veteran", "Elite"]
 type Mode = "main" | "pilots" | "pilot" | "delete" | "name" | "new" | "options" | "install"
 
 const CONTACT_URL = "https://entorb.net/contact.php?origin=raptor"
+const SOURCE_URL = "https://github.com/entorb/raptor"
+const HOME_URL = "https://entorb.net/games/"
+/** UI.gold as a number, for the Rectangle pill behind the focused link. */
+const GOLD = 0xffd23d
 
 function isInstalled(): boolean {
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -38,6 +42,12 @@ export class Menu extends Scene {
   private stats!: GameObjects.Text
   private globalGames: number | null = null
   private actions!: GameObjects.Container
+  private actionTexts: GameObjects.Text[] = []
+  private actionPills: GameObjects.Rectangle[] = []
+  private actionActs: ((t: GameObjects.Text) => void)[] = []
+  private actionIndex = 0
+  private actionFocused = false
+  private actionHover: number | null = null
   private nameInput: GameObjects.DOMElement | null = null
   /** pilot picked in the "pilots" list, name typed in "name" mode */
   private picked: PilotSave | null = null
@@ -107,6 +117,18 @@ export class Menu extends Scene {
       else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
       else if (this.mode !== "main") this.show("main")
     }
+    // The link row is its own row: DOWN off the last menu item enters it,
+    // UP leaves, LEFT/RIGHT pick a link, ENTER/SPACE opens it.
+    this.menu.onDownFromEnd = () => this.setActionFocus(true)
+    const kb = this.input.keyboard
+    kb?.on("keydown-UP", () => this.setActionFocus(false))
+    kb?.on("keydown-W", () => this.setActionFocus(false))
+    kb?.on("keydown-LEFT", () => this.moveAction(-1))
+    kb?.on("keydown-A", () => this.moveAction(-1))
+    kb?.on("keydown-RIGHT", () => this.moveAction(1))
+    kb?.on("keydown-D", () => this.moveAction(1))
+    kb?.on("keydown-ENTER", () => this.activateAction())
+    kb?.on("keydown-SPACE", () => this.activateAction())
     getAudio().playSong(this, "mainmenu")
     this.show("main")
   }
@@ -123,6 +145,7 @@ export class Menu extends Scene {
     this.mode = mode
     this.stats.setText(mode === "main" ? this.statsLabel() : "")
     this.actions.setVisible(mode === "main")
+    this.setActionFocus(false)
     this.closeNameInput()
     this.info.setText("")
     this.body.setText("")
@@ -344,7 +367,11 @@ export class Menu extends Scene {
     this.show("new")
   }
 
-  /** Install / Share / Contact row under the main menu (like ../last-eichhof). */
+  /**
+   * Install / Share / Contact / Home / Source row under the main menu (like
+   * ../last-eichhof). Keyboard-reachable via DOWN off the last menu item, then
+   * LEFT/RIGHT; the focused link is gold on a tinted pill.
+   */
   private actionRow(x: number, y: number): GameObjects.Container {
     const style = { fontFamily: UI.font, fontSize: "18px", color: UI.accent }
     const defs: [string, (t: GameObjects.Text) => void][] = [
@@ -352,16 +379,20 @@ export class Menu extends Scene {
         ? []
         : [[`${ICON.install} Install App`, () => this.install()] as [string, () => void]]),
       [`${ICON.share} Share`, (t) => this.share(t)],
-      [`${ICON.contact} Contact`, () => window.open(CONTACT_URL, "_blank", "noopener")],
+      [`${ICON.contact} Contact`, () => this.open(CONTACT_URL)],
+      [`${ICON.home} Home`, () => this.open(HOME_URL)],
+      [`${ICON.source} Source`, () => this.open(SOURCE_URL)],
     ]
-    const texts = defs.map(([label, act]) => {
+    this.actionActs = defs.map(([, act]) => act)
+    this.actionTexts = defs.map(([label, act], i) => {
       const t = this.add.text(0, 0, label, style).setOrigin(0, 0.5).setPadding(8, 6, 8, 6)
       t.setInteractive({ useHandCursor: true })
-      t.on("pointerover", () => t.setColor("#ffffff"))
-      t.on("pointerout", () => t.setColor(UI.accent))
+      t.on("pointerover", () => this.hoverAction(i, true))
+      t.on("pointerout", () => this.hoverAction(i, false))
       t.on("pointerup", () => act(t))
       return t
     })
+    const texts = this.actionTexts
     const gap = 28
     const total = texts.reduce((w, t) => w + t.width, 0) + gap * (texts.length - 1)
     let cx = -total / 2
@@ -369,7 +400,60 @@ export class Menu extends Scene {
       t.x = cx
       cx += t.width + gap
     }
-    return this.add.container(x, y, texts)
+    // Pills go in first so the labels draw on top of them.
+    this.actionPills = texts.map((t) =>
+      this.add
+        .rectangle(t.x + t.width / 2, 0, t.width, t.height, GOLD, 0)
+        .setOrigin(0.5)
+        .setStrokeStyle(1, GOLD, 0),
+    )
+    return this.add.container(x, y, [...this.actionPills, ...texts])
+  }
+
+  /** Move keyboard focus between the vertical menu and the link row below it. */
+  private setActionFocus(on: boolean): void {
+    if (on === this.actionFocused) return
+    if (on && this.mode !== "main") return
+    this.actionFocused = on
+    this.menu.enabled = !on
+    this.refreshActions()
+  }
+
+  private moveAction(dir: number): void {
+    if (!this.actionFocused) return
+    const last = this.actionTexts.length - 1
+    if (last < 0) return
+    this.actionIndex = Math.max(0, Math.min(last, this.actionIndex + dir))
+    this.refreshActions()
+  }
+
+  private activateAction(): void {
+    if (!this.actionFocused) return
+    const act = this.actionActs[this.actionIndex]
+    const text = this.actionTexts[this.actionIndex]
+    if (act && text) act(text)
+  }
+
+  private hoverAction(index: number, on: boolean): void {
+    this.actionHover = on ? index : null
+    this.refreshActions()
+  }
+
+  /** Focused link: gold text on a tinted pill. Hovered: white. Rest: cyan. */
+  private refreshActions(): void {
+    this.actionTexts.forEach((t, i) => {
+      const focused = this.actionFocused && i === this.actionIndex
+      this.actionPills[i]?.setFillStyle(GOLD, focused ? 0.18 : 0)
+      this.actionPills[i]?.setStrokeStyle(1, GOLD, focused ? 0.8 : 0)
+      let color = UI.accent
+      if (focused) color = UI.gold
+      else if (this.actionHover === i) color = "#ffffff"
+      t.setColor(color)
+    })
+  }
+
+  private open(url: string): void {
+    window.open(url, "_blank", "noopener")
   }
 
   private install(): void {

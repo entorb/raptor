@@ -1,5 +1,5 @@
 // Vertical text menu: keyboard (up/down/left/right/enter/space/esc) + pointer (tap = select and activate).
-import type { GameObjects, Scene } from "phaser"
+import type { GameObjects, Input, Scene } from "phaser"
 
 export interface MenuItem {
   label: string
@@ -38,6 +38,8 @@ export const ICON = {
   install: "⬇",
   share: "↗",
   contact: "✉",
+  home: "⌂",
+  source: "</>",
 }
 
 export class TextMenu {
@@ -50,22 +52,48 @@ export class TextMenu {
   private cursor = 0
   private readonly visible: number
   private scroll = 0
+  private readonly moreUp: GameObjects.Text
+  private readonly moreDown: GameObjects.Text
+  /** true once a pointer drag has scrolled past the tap threshold, to swallow the matching pointerup */
+  private dragged = false
+  private dragY = 0
+  private dragScroll = 0
   onBack: (() => void) | null = null
   onMove: ((index: number) => void) | null = null
+  /**
+   * Fired instead of wrapping when DOWN/S is pressed on the last item, so the
+   * start screen can step down into its link row. Left null, DOWN keeps
+   * wrapping to the first item.
+   */
+  onDownFromEnd: (() => void) | null = null
+  /**
+   * Fired instead of wrapping when UP/W is pressed on the first item, so a
+   * screen can step up into a control above the list (e.g. a back icon).
+   * Left null, UP keeps wrapping to the last item.
+   */
+  onUpFromStart: (() => void) | null = null
+  /** False while another row owns the arrow/confirm keys (the link row does). */
+  enabled = true
 
   constructor(scene: Scene, x: number, y: number, w: number, rowH = 44, visible = 9) {
     this.visible = visible
     const kb = scene.input.keyboard
-    kb?.on("keydown-UP", () => this.move(-1))
-    kb?.on("keydown-W", () => this.move(-1))
-    kb?.on("keydown-DOWN", () => this.move(1))
-    kb?.on("keydown-S", () => this.move(1))
-    kb?.on("keydown-LEFT", () => this.items[this.cursor]?.adjust?.(-1))
-    kb?.on("keydown-A", () => this.items[this.cursor]?.adjust?.(-1))
-    kb?.on("keydown-RIGHT", () => this.items[this.cursor]?.adjust?.(1))
-    kb?.on("keydown-D", () => this.items[this.cursor]?.adjust?.(1))
-    kb?.on("keydown-ENTER", () => this.activate())
-    kb?.on("keydown-SPACE", () => this.activate())
+    if (kb) {
+      const bind = (key: string, fn: () => void) =>
+        kb.on(key, () => {
+          if (this.enabled) fn()
+        })
+      bind("keydown-UP", () => this.move(-1))
+      bind("keydown-W", () => this.move(-1))
+      bind("keydown-DOWN", () => this.move(1))
+      bind("keydown-S", () => this.move(1))
+      bind("keydown-LEFT", () => this.items[this.cursor]?.adjust?.(-1))
+      bind("keydown-A", () => this.items[this.cursor]?.adjust?.(-1))
+      bind("keydown-RIGHT", () => this.items[this.cursor]?.adjust?.(1))
+      bind("keydown-D", () => this.items[this.cursor]?.adjust?.(1))
+      bind("keydown-ENTER", () => this.activate())
+      bind("keydown-SPACE", () => this.activate())
+    }
     kb?.on("keydown-ESC", () => this.onBack?.())
     kb?.on("keydown-BACKSPACE", () => this.onBack?.())
     for (let i = 0; i < visible; i++) {
@@ -82,7 +110,16 @@ export class TextMenu {
           this.onMove?.(idx)
         }
       })
+      bg.on("pointerdown", (pointer: Input.Pointer) => {
+        this.dragY = pointer.y
+        this.dragScroll = this.scroll
+        this.dragged = false
+      })
       bg.on("pointerup", () => {
+        if (this.dragged) {
+          this.dragged = false
+          return
+        }
         const idx = this.scroll + i
         if (idx >= this.items.length) return
         this.cursor = idx
@@ -102,6 +139,43 @@ export class TextMenu {
       detail.setOrigin(1, 0.5)
       this.rows.push({ bg, label, detail })
     }
+
+    // Drag-to-scroll and wheel: rows beyond the visible window have no keyboard
+    // affordance on touch (no ESC), so an item past `visible` (e.g. a shop's
+    // "Done" row after many weapons) would otherwise be unreachable.
+    const top = y
+    const bottom = y + visible * rowH
+    const inBounds = (py: number) => py >= top && py <= bottom
+    scene.input.on("pointermove", (pointer: Input.Pointer) => {
+      if (!pointer.isDown || !inBounds(this.dragY)) return
+      const deltaRows = (pointer.y - this.dragY) / rowH
+      if (Math.abs(pointer.y - this.dragY) > 6) this.dragged = true
+      const max = Math.max(0, this.items.length - this.visible)
+      const next = Math.round(this.dragScroll - deltaRows)
+      const clamped = Math.max(0, Math.min(max, next))
+      if (clamped !== this.scroll) {
+        this.scroll = clamped
+        this.refresh()
+      }
+    })
+    scene.input.on("pointerup", () => {
+      this.dragged = false
+    })
+    scene.input.on("wheel", (pointer: Input.Pointer, _over: unknown, _dx: number, dy: number) => {
+      if (!inBounds(pointer.y) || pointer.x < x || pointer.x > x + w) return
+      const max = Math.max(0, this.items.length - this.visible)
+      this.scroll = Math.max(0, Math.min(max, this.scroll + Math.sign(dy)))
+      this.refresh()
+    })
+
+    this.moreUp = scene.add
+      .text(x + w / 2, y - 14, "▲", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .setOrigin(0.5)
+      .setVisible(false)
+    this.moreDown = scene.add
+      .text(x + w / 2, bottom + 14, "▼", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .setOrigin(0.5)
+      .setVisible(false)
   }
 
   get index(): number {
@@ -117,6 +191,14 @@ export class TextMenu {
 
   private move(d: number): void {
     if (!this.items.length) return
+    if (d > 0 && this.cursor === this.items.length - 1 && this.onDownFromEnd) {
+      this.onDownFromEnd()
+      return
+    }
+    if (d < 0 && this.cursor === 0 && this.onUpFromStart) {
+      this.onUpFromStart()
+      return
+    }
     this.cursor = (this.cursor + d + this.items.length) % this.items.length
     this.refresh()
     this.onMove?.(this.cursor)
@@ -144,6 +226,8 @@ export class TextMenu {
       r.bg.setStrokeStyle(1, 0x39d0ff, it && sel ? 0.8 : 0)
       if (r.bg.input) r.bg.input.enabled = !!it
     })
+    this.moreUp.setVisible(this.scroll > 0)
+    this.moreDown.setVisible(this.scroll + this.visible < this.items.length)
   }
 }
 

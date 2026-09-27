@@ -5,6 +5,8 @@
 //   pickup-<type>    bonus icons (48 px), hud-<type> for the HUD
 //   struct-<k>, wreck-<k>  destructible map structures (96 px)
 //   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg (960x600)
+// Training sector (buildTrainingTextures, on the first training mission):
+//   ut-<PICNAME>, tstruct-<k>, twreck-<k>, sim-floor, sim-grid, sim-dots
 import type { Scene } from "phaser"
 import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
@@ -80,8 +82,8 @@ function stars(
   }
 }
 
-export function buildTextures(scene: Scene): void {
-  // units: one sheet per picture name, frames = max num_frames used by any library entry
+/** Units: one sheet per picture name, frames = max num_frames used by any library entry. */
+function buildUnits(scene: Scene, prefix: string, train: boolean): void {
   const units = new Map<string, { w: number; h: number; frames: number }>()
   for (const e of ENEMY_LIB) {
     if (!e.w) continue
@@ -90,9 +92,49 @@ export function buildTextures(scene: Scene): void {
     units.set(e.iname, { w: e.w, h: e.h, frames })
   }
   for (const [name, u] of units)
-    addFrames(scene, `u-${name}`, u.w * SCALE, u.h * SCALE, u.frames, (ctx, f) =>
-      drawUnit(ctx, name, u.w * SCALE, u.h * SCALE, f, u.frames),
+    addFrames(scene, `${prefix}${name}`, u.w * SCALE, u.h * SCALE, u.frames, (ctx, f) =>
+      drawUnit(ctx, name, u.w * SCALE, u.h * SCALE, f, u.frames, train),
     )
+}
+
+/** Sim grid lines every `step` px (tileable at 512). */
+function grid(ctx: CanvasRenderingContext2D, step: number, color: string, width: number): void {
+  ctx.strokeStyle = color
+  ctx.lineWidth = width
+  ctx.beginPath()
+  for (let p = step / 2; p < 512; p += step) {
+    ctx.moveTo(p, 0)
+    ctx.lineTo(p, 512)
+    ctx.moveTo(0, p)
+    ctx.lineTo(512, p)
+  }
+  ctx.stroke()
+}
+
+/** Holographic training range: target drones, target pads, grid backdrop. */
+export function buildTrainingTextures(scene: Scene): void {
+  buildUnits(scene, "ut-", true)
+  for (let k = 0; k < STRUCT_KINDS; k++)
+    single(scene, `tstruct-${k}`, 96, 96, (ctx) => drawStructure(ctx, k, 96, true))
+  for (let k = 0; k < WRECK_KINDS; k++)
+    single(scene, `twreck-${k}`, 96, 96, (ctx) => drawWreck(ctx, 96, 11 + k, true))
+  single(scene, "sim-floor", 512, 512, (ctx) => {
+    ctx.fillStyle = "#04070f"
+    ctx.fillRect(0, 0, 512, 512)
+    grid(ctx, 32, "rgba(60,160,255,0.10)", 1)
+  })
+  single(scene, "sim-grid", 512, 512, (ctx) => grid(ctx, 128, "rgba(93,255,200,0.22)", 2))
+  single(scene, "sim-dots", 512, 512, (ctx) => {
+    const r = seeded(5)
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = `rgba(93,255,200,${0.2 + r() * 0.5})`
+      ctx.fillRect(Math.floor(r() * 16) * 32 + 15, Math.floor(r() * 16) * 32 + 15, 3, 3)
+    }
+  })
+}
+
+export function buildTextures(scene: Scene): void {
+  buildUnits(scene, "u-", false)
 
   addFrames(scene, "player", 32 * SCALE, 32 * SCALE, 7, (ctx, f) =>
     drawPlayer(ctx, 32 * SCALE, 32 * SCALE, 3 - f),

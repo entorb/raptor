@@ -1,6 +1,7 @@
 // Gameplay: runs the DOS-exact sim at its fixed rate (FRAME_MS) and renders it with the new art,
 // interpolating positions between sim frames.
 import { type GameObjects, Scene } from "phaser"
+import { buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
 import {
   afterWave,
@@ -98,6 +99,7 @@ export class Game extends Scene {
   private acc = 0
   private wave = 0
   private sector: Sector = "bravo"
+  private unitPrefix = "u-"
   private demo = -1
   private startScore = 0
   private prevScroll = 0
@@ -180,16 +182,17 @@ export class Game extends Scene {
     if (frames) this.world.playDemo(frames)
     else this.world.god = godMode()
 
-    this.stars = [
-      this.add.tileSprite(480, 300, 960, 600, "nebula").setDepth(D.stars),
-      this.add.tileSprite(480, 300, 960, 600, "stars-far").setDepth(D.stars),
-      this.add.tileSprite(480, 300, 960, 600, "stars-near").setDepth(D.stars),
-    ]
+    // training: a holographic simulator (target drones, grid deck) instead of a real fight
+    const sim = this.sector === "train" && !frames
+    if (sim) buildTrainingTextures(this)
+    this.unitPrefix = sim ? "ut-" : "u-"
+    const bgs = sim ? ["sim-floor", "sim-dots", "sim-grid"] : ["nebula", "stars-far", "stars-near"]
+    this.stars = bgs.map((k) => this.add.tileSprite(480, 300, 960, 600, k).setDepth(D.stars))
     const map = MAPS[this.wave]
-    this.terrain = new TerrainView(this, this.wave, map?.flats ?? [], D.terrain)
+    this.terrain = new TerrainView(this, this.wave, map?.flats ?? [], D.terrain, sim)
     this.scroll = this.prevScroll = this.scrollY()
     this.terrain.prepare(this.scroll)
-    this.fx = new Effects(this, D.groundAnim, D.airAnim)
+    this.fx = new Effects(this, D.groundAnim, D.airAnim, sim)
     this.beams = this.add.graphics().setDepth(D.shots).setBlendMode("ADD")
     this.playerGlow = this.add
       .image(0, 0, "dot")
@@ -236,6 +239,10 @@ export class Game extends Scene {
 
   private autoPause(): void {
     if (!this.paused && !this.ended && this.demo < 0) this.togglePause()
+  }
+
+  private sectorTitle(): string {
+    return this.sector === "train" ? "TRAINING SIMULATION" : SECTOR_NAMES[this.sector]
   }
 
   private scrollY(): number {
@@ -398,7 +405,7 @@ export class Game extends Scene {
     const frames = Math.max(1, s.lib.num_frames)
     const t = this.track(
       `e${s.id}`,
-      `u-${s.lib.iname}`,
+      `${this.unitPrefix}${s.lib.iname}`,
       s.curframe % frames,
       s.x + s.width / 2,
       s.y + s.height / 2,
@@ -488,7 +495,7 @@ export class Game extends Scene {
       .setOrigin(0.5)
       .setDepth(D.hud)
     const banner = this.add
-      .text(480, 110, `${SECTOR_NAMES[this.sector]}\nWAVE ${this.wave + 1}`, {
+      .text(480, 110, `${this.sectorTitle()}\nWAVE ${this.wave + 1}`, {
         fontFamily: UI.font,
         fontSize: "40px",
         color: "#ffffff",
@@ -838,12 +845,16 @@ export class Game extends Scene {
     replay: boolean,
     earned: number,
   ): { text: string; next: () => void } {
+    const sim = this.sector === "train"
     if (outcome === "death") {
       getAudio().playSong(this, "rap5", false)
       reloadPilot()
       return {
-        text: "SHIP DESTROYED",
-        next: () => this.scene.start("Hangar", { message: "Ship destroyed. Last save restored." }),
+        text: sim ? "SIMULATION FAILED" : "SHIP DESTROYED",
+        next: () =>
+          this.scene.start("Hangar", {
+            message: `${sim ? "Simulation failed" : "Ship destroyed"}. Last save restored.`,
+          }),
       }
     }
     setPilot(pilot)
@@ -856,7 +867,7 @@ export class Game extends Scene {
       if (replay && result === "complete")
         data.result = { key: levelKey(this.sector, this.wave), wave: this.wave, earned, rank }
       return {
-        text: aborted ? "MISSION ABORTED" : "WAVE COMPLETE",
+        text: aborted ? "MISSION ABORTED" : `${sim ? "SIMULATION" : "WAVE"} COMPLETE`,
         next: () => this.scene.start("Hangar", data),
       }
     }

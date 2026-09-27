@@ -2,6 +2,8 @@
 // 8x8 DOS px each): water became open space (transparent, the starfield shows through), land
 // became asteroid rock, grey roads/buildings became station hull and vegetation became glowing
 // alien lichen. Chunks blur the cell grid, distort it with noise and light it with a relief map.
+// The training sector (`train`) renders the same map as a simulator deck: flat gridded floor
+// plates, lit hull panels and hazard stripes instead of lichen.
 import { TILE_CELLS } from "../data/ep1"
 import { MAP_COLS, MAP_ROWS } from "../sim/consts"
 import { makeCanvas } from "./draw"
@@ -130,6 +132,7 @@ export class ChunkJob {
     private readonly field: TerrainField,
     ci: number,
     private readonly seed: number,
+    private readonly train = false,
   ) {
     const { c, ctx } = makeCanvas(this.W, this.H)
     this.canvas = c
@@ -161,7 +164,8 @@ export class ChunkJob {
       const rock = fbm(dx / 22, dy / 22, seed + 5) * 1.4
       const crater = vnoise(dx / 16, dy / 16, seed + 9)
       const bowl = crater > 0.7 ? -(crater - 0.7) * 2.5 : 0
-      this.hgt[i] = bevel * 2.2 + (1 - Math.min(1, m * 2)) * (rock + bowl) * bevel
+      const rough = this.train ? 0.15 : 1
+      this.hgt[i] = bevel * 2.2 + (1 - Math.min(1, m * 2)) * (rock + bowl) * bevel * rough
     }
   }
 
@@ -173,6 +177,10 @@ export class ChunkJob {
     const gy = (this.hgt[i + SW] as number) - (this.hgt[i] as number)
     const shade = Math.max(0.35, Math.min(1.5, 1 - (gx + gy) * 6))
     const m = this.met[i] as number
+    if (this.train) {
+      this.simColor(m, shade, dx, dy)
+      return
+    }
     if (m > 0.5) {
       const plate = 0.8 + hash2(Math.floor(dx / 16), Math.floor(dy / 16), seed + 7) * 0.25
       const seam = dx % 16 < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
@@ -189,6 +197,28 @@ export class ChunkJob {
     rgb[2] = (84 - tone * 6) * shade
     const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
     if (lic > 0.35) this.tintLichen(lic, dx, dy)
+  }
+
+  /** Simulator deck: gridded floor, lit panels (hull) and hazard stripes (lichen). */
+  private simColor(m: number, shade: number, dx: number, dy: number): void {
+    const { rgb } = this
+    const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
+    if (m > 0.5) {
+      const seam = dx % 16 < 0.8 || dy % 16 < 0.8
+      rgb[0] = (seam ? 60 : 44) * shade
+      rgb[1] = (seam ? 230 : 62) * shade
+      rgb[2] = (seam ? 190 : 78) * shade
+    } else if (lic > 0.45) {
+      const stripe = (dx + dy) % 24 < 5
+      rgb[0] = (stripe ? 150 : 30) * shade
+      rgb[1] = (stripe ? 120 : 36) * shade
+      rgb[2] = (stripe ? 30 : 48) * shade
+    } else {
+      const grid = dx % 32 < 0.8 || dy % 32 < 0.8
+      rgb[0] = (grid ? 40 : 20) * shade
+      rgb[1] = (grid ? 150 : 30) * shade
+      rgb[2] = (grid ? 210 : 44) * shade
+    }
   }
 
   /** Glowing lichen patches (cyan / violet) on top of `this.rgb`. */
@@ -249,8 +279,13 @@ export class ChunkJob {
 }
 
 /** Render a whole chunk synchronously. */
-export function renderChunk(field: TerrainField, ci: number, seed: number): HTMLCanvasElement {
-  const job = new ChunkJob(field, ci, seed)
+export function renderChunk(
+  field: TerrainField,
+  ci: number,
+  seed: number,
+  train = false,
+): HTMLCanvasElement {
+  const job = new ChunkJob(field, ci, seed, train)
   job.step(Number.POSITIVE_INFINITY)
   return job.canvas
 }
