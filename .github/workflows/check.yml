@@ -1,0 +1,94 @@
+---
+name: Check Code
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1  # latest only
+
+      - name: Run prek pre-commit
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+
+      - name: Run CSpell
+        uses: streetsidesoftware/cspell-action@e0668cf020899e887ee8ad4d173c31738a79eae8  # v9.0.1
+        with:
+          files: '**/*'
+          incremental_files_only: false
+
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1  # latest only
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86  # v6.0.10
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: "pnpm"
+
+      - name: Prepare
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run js format Biome
+        run: pnpm exec biome ci .
+
+      - name: Run js test Vitest
+        run: pnpm exec vitest run
+
+      - name: Run js type check
+        run: pnpm exec tsc --noEmit
+
+      - name: Run js build
+        run: pnpm run build
+
+      - name: Run js dead code Knip
+        run: pnpm knip
+
+      - name: Run js audit
+        run: pnpm audit --prod
+
+  all-checks-passed:
+    if: always()
+    needs: [core, node]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All required jobs passed."
