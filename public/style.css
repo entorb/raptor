@@ -1,0 +1,105 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0f0f0f;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+/* No flexbox here: Phaser's autoCenter CENTER_BOTH does the centering.
+   100vh is the fallback; 100svh (small viewport = toolbars always expanded)
+   keeps the FIT canvas inside the visible area on iOS Safari, where 100vh is
+   the large viewport and would push the bottom behind the toolbar after a
+   portrait→landscape rotation. Avoid 100dvh + flex (stale height on Chrome
+   Android). iOS < 15.4 has no svh: main.ts `fitViewport()` patches it. */
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: 100svh fallback overrides 100vh on browsers that support it */
+  height: 100svh;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app canvas {
+  display: block;
+  touch-action: none;
+}
+
+#rotate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  background: #05060d;
+  font-family: monospace;
+  text-align: center;
+}
+
+/* CSS-only phone outline that turns to landscape (rotation hint). */
+.rotate-phone {
+  width: 70px;
+  height: 120px;
+  border: 4px solid #39d0ff;
+  border-radius: 14px;
+  box-shadow: 0 0 18px #39d0ff;
+  animation: phone-turn 2.6s ease-in-out infinite;
+}
+
+@keyframes phone-turn {
+  0%,
+  15% {
+    transform: rotate(0deg);
+  }
+
+  55%,
+  80% {
+    transform: rotate(-90deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotate-phone {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
+
+.rotate-title {
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: #39d0ff;
+}
+
+.rotate-sub {
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: #8b90a6;
+}
+
+@media (orientation: portrait) {
+  #rotate {
+    display: flex;
+  }
+}

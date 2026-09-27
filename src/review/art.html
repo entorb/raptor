@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raptor Art Review</title>
+    <link rel="stylesheet" href="./review.css">
+</head>
+
+<body>
+    <header>
+        <h1>Raptor: Call of the Void · art review</h1>
+        <p>Dev-only page: every sprite is drawn live by <code>src/game/art/</code>, at game size (3x DOS).
+            Where <code>tmp/ref/</code> exists (<code>node original_game/scripts/extract-glb.mjs --data --ref</code>) the
+            original picture is shown next to it at the same scale, for size and shape only.</p>
+        <nav id="nav"></nav>
+    </header>
+    <main id="main"></main>
+    <script type="module" src="./art.ts"></script>
+</body>
+</html>
