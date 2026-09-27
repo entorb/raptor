@@ -1,6 +1,6 @@
 // Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
 import { MAPS } from "./data/ep1"
-import type { PilotSave, Sector } from "./data/save"
+import type { PilotSave, Sector, TopRun } from "./data/save"
 import { BEGINNER_MAP } from "./data/training"
 import type { WaveMap } from "./data/types"
 import { DIFF_TRAIN, DIFF_WRAP, Obj } from "./sim/consts"
@@ -58,6 +58,7 @@ export function nextWave(p: PilotSave, sector: Sector): number | null {
 
 /** Waves this pilot has finished at least once in a sector (replayable). */
 export function doneWaves(p: PilotSave, sector: Sector): number {
+  // TODO: delete after 1.10.2026 (`done` missing in old saves: fall back to `wave`)
   return sector === "train" ? (p.train ?? 0) : Math.max(p.done ?? 0, p.wave)
 }
 
@@ -73,18 +74,26 @@ export function playable(p: PilotSave, sector: Sector, w: number): boolean {
 
 export const levelKey = (sector: Sector, wave: number) => `${sector === "train" ? "t" : "b"}${wave}`
 
-/** Count a finished run and keep the level's top-10 earnings; rank is 1-based or null. */
+/** Count a finished run and keep the level's top-10 runs by earnings; rank is 1-based or null. */
 export function recordRun(
   p: PilotSave,
   key: string,
   earned: number,
+  pct?: number,
 ): { pilot: PilotSave; rank: number | null } {
   const old = p.stats?.[key] ?? { n: 0, top: [] }
-  const top = [...old.top, earned].sort((a, b) => b - a).slice(0, TOP)
-  // ties: the new run ranks below equal older runs
-  const idx = top.lastIndexOf(earned)
-  const rank = idx < 0 || old.top.filter((v) => v >= earned).length >= TOP ? null : idx + 1
+  const run: TopRun = pct === undefined ? { cr: earned } : { cr: earned, pct }
+  // stable sort: on ties the new run ranks below equal older runs
+  const top = [...old.top, run].sort((a, b) => b.cr - a.cr).slice(0, TOP)
+  const idx = top.indexOf(run)
+  const rank = idx < 0 ? null : idx + 1
   return { pilot: { ...p, stats: { ...p.stats, [key]: { n: old.n + 1, top } } }, rank }
+}
+
+/** One top-10 row: rank, credits and enemy kill percent (`-` for runs without it). */
+export function topRunLine(i: number, r: TopRun): string {
+  const pct = r.pct === undefined ? "-" : `${r.pct}%`
+  return `${String(i + 1).padStart(2)}.  ${String(r.cr).padStart(8)} CR  ${pct.padStart(4)} kills`
 }
 
 export type WaveResult = "complete" | "dead" | "abort"
@@ -103,10 +112,11 @@ export function afterWave(
   sector: Sector = "bravo",
   wave = nextWave(p, sector) ?? 0,
   earned = 0,
+  pct?: number,
 ): { pilot: PilotSave; outcome: Outcome; rank: number | null } {
   if (result === "dead") return { pilot: p, outcome: "death", rank: null }
   if (result === "abort") return { pilot: p, outcome: "landing", rank: null }
-  const { pilot, rank } = recordRun(p, levelKey(sector, wave), earned)
+  const { pilot, rank } = recordRun(p, levelKey(sector, wave), earned, pct)
   if (wave !== nextWave(p, sector)) return { pilot, outcome: "landing", rank }
   if (sector === "train") {
     const train = wave + 1
@@ -172,4 +182,5 @@ export function runCampaignSelfCheck(): void {
   const r = recordRun(q, "b0", 450)
   assert(r.rank === 9 && r.pilot.stats?.b0?.top.length === 10, "top 10 rank")
   assert(recordRun(q, "b0", 100).rank === null, "below top 10")
+  assert(recordRun(q, "b0", 1300, 87).pilot.stats?.b0?.top[0]?.pct === 87, "stores enemy percent")
 }

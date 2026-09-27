@@ -11,6 +11,7 @@ import {
   nextWave,
   SECTOR_NAMES,
   sectorDiff,
+  topRunLine,
   type WaveResult,
   waveMap,
   withLoadout,
@@ -137,6 +138,10 @@ export class Game extends Scene {
   private ended = false
   private shakeAmt = 0
   private briefing: GameObjects.Container | null = null
+  /** The sim holds until the briefing is confirmed (web change: DOS starts right away). */
+  private waiting = false
+  /** A start key went down in this scene (the Hangar's Enter must not confirm on its keyup). */
+  private startArmed = false
 
   constructor() {
     super("Game")
@@ -154,6 +159,8 @@ export class Game extends Scene {
     this.seenAnims = new Set()
     this.shakeAmt = 0
     this.briefing = null
+    this.waiting = false
+    this.startArmed = false
     this.weaponBar = { sig: "", items: [] }
   }
 
@@ -229,6 +236,11 @@ export class Game extends Scene {
     kb?.on("keydown-S", () => this.pauseMove(1))
     kb?.on("keydown-ENTER", () => this.pauseActivate())
     kb?.on("keydown-SPACE", () => this.pauseActivate())
+    // start on keyup: a held Enter/Space would fire a nova bomb or shots in the first frame
+    for (const k of ["ENTER", "SPACE"]) {
+      kb?.on(`keydown-${k}`, () => (this.startArmed = this.waiting))
+      kb?.on(`keyup-${k}`, () => this.startArmed && this.startMission())
+    }
     if (this.demo >= 0) {
       this.input.on("pointerdown", () => this.finishDemo())
       kb?.on("keydown", () => this.finishDemo())
@@ -262,6 +274,10 @@ export class Game extends Scene {
     this.stars[1]?.setTilePosition(0, -bg * 0.3)
     this.stars[2]?.setTilePosition(0, -bg * 0.6)
     if (this.paused) return
+    if (this.waiting) {
+      this.render(0)
+      return
+    }
     this.acc += Math.min(delta, 250)
     while (this.acc >= FRAME_MS && !this.ended) {
       this.acc -= FRAME_MS
@@ -401,7 +417,8 @@ export class Game extends Scene {
         b.by + 8,
         D.bonus,
       )
-      t.obj.setAlpha(b.dflag ? b.countdown / 50 : 1)
+      // collected crystal: the sim keeps it 50 frames (BONUS countdown), the art fades in 15
+      t.obj.setAlpha(b.dflag ? Math.max(0, (b.countdown - 35) / 15) : 1)
       t.obj.setScale(0.75 + 0.08 * Math.sin(w.frame * 0.4))
     }
   }
@@ -511,22 +528,10 @@ export class Game extends Scene {
       .setDepth(D.overlay)
       .setShadow(0, 0, UI.accent, 20, true, true)
     if (this.demo >= 0) banner.setText("DEMO\ntap or press any key").setY(250)
-    this.tweens.add({ targets: banner, alpha: 0, delay: 5200, duration: 800 })
     if (this.demo < 0) {
-      const help = this.controlsPanel(300).setDepth(D.overlay)
-      this.briefing = help
-      this.tweens.add({
-        targets: help,
-        alpha: 0,
-        delay: 6000,
-        duration: 800,
-        onComplete: () => {
-          if (this.briefing !== help) return
-          help.destroy()
-          this.briefing = null
-        },
-      })
-    }
+      this.briefing = this.controlsPanel(160).setDepth(D.overlay)
+      this.waiting = true
+    } else this.tweens.add({ targets: banner, alpha: 0, delay: 5200, duration: 800 })
     this.input2.onAutoFire = (on) => this.toast(`AUTO-FIRE ${on ? "ON" : "OFF"}`)
     this.input2.onGod = () => this.toggleGod()
     const weaponName = this.add
@@ -595,7 +600,8 @@ export class Game extends Scene {
     return lines
   }
 
-  private controlsPanel(y: number): GameObjects.Container {
+  /** Briefing panel with the start button, its top at `top` (below the banner) when it fits. */
+  private controlsPanel(top: number): GameObjects.Container {
     const text = this.add
       .text(0, 0, this.controlsLines().join("\n"), {
         fontFamily: UI.mono,
@@ -604,18 +610,52 @@ export class Game extends Scene {
         lineSpacing: 5,
       })
       .setOrigin(0.5)
+    const btn = this.add
+      .text(0, text.height / 2 + 34, this.isTouch() ? "▶ START" : "▶ START  [Enter]", {
+        fontFamily: UI.font,
+        fontSize: "26px",
+        color: "#ffffff",
+        backgroundColor: "#1d3a5c",
+      })
+      .setOrigin(0.5)
+      .setPadding(28, 8, 28, 8)
+      .setInteractive({ useHandCursor: true })
+    btn.on("pointerup", () => this.startMission())
+    text.setY(-30)
+    btn.setY(btn.y - 30)
+    const h = text.height + 92
     const bg = this.add
-      .rectangle(0, 0, text.width + 48, text.height + 32, 0x05060d, 0.72)
+      .rectangle(0, 0, text.width + 48, h, 0x05060d, 0.72)
       .setStrokeStyle(1, 0x39d0ff, 0.6)
-    return this.add.container(480, y, [bg, text])
+    return this.add.container(480, Math.min(top + h / 2, 595 - h / 2), [bg, text, btn])
+  }
+
+  /** Briefing confirmed: run the sim, fade the briefing and the wave banner. */
+  private startMission(): void {
+    if (!this.waiting || this.paused || this.ended) return
+    this.waiting = false
+    this.startArmed = false
+    this.acc = 0
+    const help = this.briefing
+    this.tweens.add({ targets: this.hud.banner, alpha: 0, delay: 600, duration: 800 })
+    if (!help) return
+    this.tweens.add({
+      targets: help,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => {
+        help.destroy()
+        if (this.briefing === help) this.briefing = null
+      },
+    })
   }
 
   /**
-   * Hidden god mode (key G): invulnerable (World.god, DOS godmode) and +$10000000 on activation.
-   * It stays on for the next missions (session.godMode).
+   * Hidden god mode (key G, dev builds only): invulnerable (World.god, DOS godmode) and
+   * +$10000000 on activation. It stays on for the next missions (session.godMode).
    */
   private toggleGod(): void {
-    if (this.demo >= 0 || this.ended) return
+    if (!import.meta.env.DEV || this.demo >= 0 || this.ended) return
     const w = this.world
     w.god = !w.god
     setGodMode(w.god)
@@ -666,7 +706,7 @@ export class Game extends Scene {
     g.clear()
     this.bar(24, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD, 0x46e0ff, 0x46a0ff)
     this.bar(936, inv.getAmt(Obj.ENERGY), MAX_SHIELD, 0x2effb4, 0xffd23d)
-    this.hud.score.setText(`${w.plr.score} CR`)
+    this.hud.score.setText(`${w.plr.score - this.startScore} CR`)
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)
     if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
@@ -767,7 +807,7 @@ export class Game extends Scene {
   }
 
   private togglePause(): void {
-    if (this.ended) return
+    if (this.ended || this.waiting) return
     this.paused = !this.paused
     this.pauseLayer?.destroy()
     this.pauseLayer = null
@@ -850,7 +890,7 @@ export class Game extends Scene {
 
   /** Banner text and scene switch after a wave (also plays the death jingle / stores the pilot). */
   private endTarget(
-    { pilot, outcome, rank }: ReturnType<typeof afterWave>,
+    { pilot, outcome }: ReturnType<typeof afterWave>,
     result: WaveResult,
     replay: boolean,
     earned: number,
@@ -867,21 +907,15 @@ export class Game extends Scene {
           }),
       }
     }
-    setPilot(pilot)
+    // web change: an abort also restores the saved loadout (weapons lost in flight come back)
+    if (result === "abort") reloadPilot()
+    else setPilot(pilot)
     if (outcome === "landing") {
       const aborted = result === "abort"
       const verb = replay ? "replayed" : "complete"
       const data: HangarData = {
         message: aborted ? "Mission aborted." : `Wave ${this.wave + 1} ${verb}: +${earned} CR`,
       }
-      if (replay && result === "complete")
-        data.result = {
-          key: levelKey(this.sector, this.wave),
-          sector: this.sector,
-          wave: this.wave,
-          earned,
-          rank,
-        }
       return {
         text: aborted ? "MISSION ABORTED" : `${sim ? "SIMULATION" : "WAVE"} COMPLETE`,
         next: () => this.scene.start("Hangar", data),
@@ -915,8 +949,20 @@ export class Game extends Scene {
     if (result === "complete" && shield) shield.num = Math.max(shield.num, MAX_SHIELD / 2)
     const earned = this.lo.plr.score - this.startScore
     const replay = this.wave !== nextWave(p, this.sector)
-    const after = afterWave(withLoadout(p, this.lo), result, this.sector, this.wave, earned)
+    const pct = this.world.destroyedPct
+    const after = afterWave(
+      withLoadout(p, this.lo),
+      result,
+      this.sector,
+      this.wave,
+      earned,
+      pct.enemies ?? undefined,
+    )
     const { text, next } = this.endTarget(after, result, replay, earned)
+    if (result === "complete") {
+      this.showResults(text, pct, after, earned, next)
+      return
+    }
     const t = this.add
       .text(480, 280, text, {
         fontFamily: UI.font,
@@ -931,5 +977,60 @@ export class Game extends Scene {
     this.tweens.add({ targets: t, alpha: 1, duration: 500 })
     this.cameras.main.fadeOut(2600, 0, 0, 0)
     this.time.delayedCall(2800, next)
+  }
+
+  /** Completed wave: destroyed percentages and the level's top 10 (this run in gold), then Continue. */
+  private showResults(
+    title: string,
+    pct: World["destroyedPct"],
+    { pilot, rank }: ReturnType<typeof afterWave>,
+    earned: number,
+    next: () => void,
+  ): void {
+    const fmt = (v: number | null) => (v === null ? "-" : `${v}%`)
+    const st = pilot.stats?.[levelKey(this.sector, this.wave)]
+    const top = st?.top ?? []
+    const txt = (y: number, s: string, size: number, color: string, font = UI.font) =>
+      this.add.text(0, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
+    const items: GameObjects.GameObject[] = [
+      this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
+      txt(-200, title, 44, "#ffffff")
+        .setFontStyle("bold")
+        .setShadow(0, 0, UI.accent, 24, true, true),
+      txt(-150, `+${earned} CR`, 24, UI.gold),
+      txt(
+        -116,
+        `Enemies ${fmt(pct.enemies)}  ·  Buildings ${fmt(pct.buildings)} destroyed`,
+        20,
+        UI.text,
+      ),
+      txt(-78, `WAVE ${this.wave + 1}  ·  TOP 10  ·  ${st?.n ?? 0}x flown`, 19, UI.accent, UI.mono),
+      ...top.map((r, i) =>
+        txt(-52 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
+      ),
+    ]
+    if (rank === null)
+      items.push(txt(-48 + top.length * 21, "This run is not in the top 10", 18, UI.warn))
+    let done = false
+    const go = () => {
+      if (done) return
+      done = true
+      this.cameras.main.fadeOut(400, 0, 0, 0)
+      this.time.delayedCall(450, next)
+    }
+    const btn = txt(208, this.isTouch() ? "CONTINUE" : "CONTINUE  [Enter]", 26, "#ffffff")
+      .setBackgroundColor("#1d3a5c")
+      .setPadding(28, 8, 28, 8)
+      .setInteractive({ useHandCursor: true })
+    btn.on("pointerup", go)
+    items.push(btn)
+    // continue on keyup of a key pressed now: a key still held from the fight must not skip this
+    let armed = false
+    for (const k of ["ENTER", "SPACE"]) {
+      this.input.keyboard?.on(`keydown-${k}`, () => (armed = true))
+      this.input.keyboard?.on(`keyup-${k}`, () => armed && go())
+    }
+    const panel = this.add.container(480, 300, items).setDepth(D.overlay).setAlpha(0)
+    this.tweens.add({ targets: panel, alpha: 1, duration: 500 })
   }
 }

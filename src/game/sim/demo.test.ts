@@ -48,6 +48,11 @@ describe("demo playback", () => {
         `demo ${n + 1}: frames ${frames} score ${w.plr.score} shield ${w.shield} min ${minShield} tilepos ${w.tiles.tilepos}`,
       )
       expect(frames).toBeGreaterThan(100)
+      const e = w.enemies
+      expect(e.spawned).toBeGreaterThan(0)
+      expect(e.killed).toBeGreaterThan(0)
+      expect(e.killed).toBeLessThanOrEqual(e.spawned)
+      expect(w.tiles.destroyed).toBeLessThanOrEqual(w.tiles.structs)
     })
   }
 })

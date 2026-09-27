@@ -348,6 +348,8 @@ export class Inventory {
     const cur = this.p_objs[type]
     const lib = OBJ_LIB[type]
     if (type >= Obj.LAST_OBJECT || !cur || !lib) return false
+    // web change: the Twin Blasters stay on board (DOS lets you sell your only gun)
+    if (type === Obj.FORWARD_GUNS) return false
     if (lib.onlyflag && type === Obj.ENERGY && cur.num <= lib.start_cnt) return false
     return cur.num >= lib.start_cnt
   }

@@ -263,6 +263,15 @@ export class World {
     return this.shield <= 0
   }
 
+  /** web: percent of spawned enemies / map structures destroyed (null = none in this wave) */
+  get destroyedPct(): { enemies: number | null; buildings: number | null } {
+    const pct = (n: number, of: number) => (of ? Math.floor((n * 100) / of) : null)
+    return {
+      enemies: pct(this.enemies.killed, this.enemies.spawned),
+      buildings: pct(this.tiles.destroyed, this.tiles.structs),
+    }
+  }
+
   /** OBJS_SubEnergy */
   subEnergy(amt: number): number {
     if (this.god) return 0

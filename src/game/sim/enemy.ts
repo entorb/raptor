@@ -114,6 +114,9 @@ export class Enemies {
   boss_sound = false
   onscreen: Ship[] = []
   tiley = 0
+  /** web: ships spawned / destroyed this wave (mission stats) */
+  spawned = 0
+  killed = 0
   private nextId = 1
 
   /** ENEMY_LoadSprites + ENEMY_Clear */
@@ -123,6 +126,8 @@ export class Enemies {
     this.end_waveflag = false
     this.boss_sound = false
     this.cur = 0
+    this.spawned = 0
+    this.killed = 0
     this.spawns = spawns.map(([link, slib, x, y, _game, level]) => {
       const lib = ENEMY_LIB[slib ?? 0]
       let bit = LEVEL_BITS[level ?? -1] ?? EB_NOT_USED
@@ -252,6 +257,7 @@ function add(w: World, sp: Spawn): void {
   n.suckagain = lib.hits >> 4
   if (lib.song !== EMPTY) e.boss_sound = true
   e.ships.push(n)
+  e.spawned++
 }
 
 /** ENEMY_GetRandom */
@@ -526,6 +532,7 @@ function ramPlayer(w: World, s: Ship): void {
 function killShip(w: World, s: Ship): void {
   const lib = s.lib
   w.plr.score += lib.money
+  w.enemies.killed++
   w.sfx3d("AIREXPLO", s.x + s.hlx)
   explodeShip(w, s)
   if (lib.bonus !== EMPTY) w.bonusAdd(lib.bonus as ObjType, s.x, s.y)
