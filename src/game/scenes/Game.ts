@@ -1,6 +1,7 @@
 // Gameplay: runs the DOS-exact sim at its fixed rate (FRAME_MS) and renders it with the new art,
 // interpolating positions between sim frames.
 import { type GameObjects, Scene } from "phaser"
+import { HUD_BAR } from "../art/fx"
 import { buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
 import {
@@ -117,6 +118,8 @@ export class Game extends Scene {
   private seenAnims = new Set<number>()
   private hud!: {
     g: GameObjects.Graphics
+    /** shield bars: dim frame above, lit segments below the fill level (cropped images) */
+    bars: { off: GameObjects.Image; on: GameObjects.Image }[]
     score: GameObjects.Text
     special: GameObjects.Image
     warn: GameObjects.Text
@@ -496,6 +499,14 @@ export class Game extends Scene {
 
   private createHud(): void {
     const g = this.add.graphics().setDepth(D.hud)
+    const bars = (["hudbar-shield", "hudbar-energy"] as const).map((tex, i) => {
+      const img = (key: string) =>
+        this.add
+          .image(i ? 927 : 15, 56, key)
+          .setOrigin(0)
+          .setDepth(D.hud)
+      return { off: img("hudbar-off"), on: img(tex) }
+    })
     const score = this.add
       .text(72, 36, "", {
         fontFamily: UI.mono,
@@ -549,7 +560,7 @@ export class Game extends Scene {
     const novas = Array.from({ length: 5 }, (_, i) =>
       this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
     )
-    this.hud = { g, score, special, warn, banner, weaponName, novas }
+    this.hud = { g, bars, score, special, warn, banner, weaponName, novas }
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
@@ -682,21 +693,15 @@ export class Game extends Scene {
     })
   }
 
-  private bar(x: number, value: number, max: number, c1: number, c2: number): void {
-    const g = this.hud.g
-    const top = 60
-    const h = 480
-    g.fillStyle(0x05060d, 0.6).fillRoundedRect(x - 9, top - 4, 18, h + 8, 6)
-    const f = Math.max(0, Math.min(1, value / max))
-    const n = 25
-    for (let i = 0; i < n; i++) {
-      const on = i / n < f
-      const y = top + h - ((i + 1) * h) / n + 2
-      let c = c1
-      if (i / n < 0.25) c = 0xff4050
-      else if (i / n < 0.5) c = c2
-      g.fillStyle(on ? c : 0x1a2030, on ? 0.95 : 0.8).fillRoundedRect(x - 6, y, 12, h / n - 4, 2)
-    }
+  /** Segments i with i / segs < value / max are lit; the split runs through the gap above them. */
+  private bar(i: number, value: number, max: number): void {
+    const b = this.hud.bars[i]
+    if (!b) return
+    const { w, h, segs, step } = HUD_BAR
+    const lit = Math.ceil(Math.max(0, Math.min(1, value / max)) * segs)
+    const split = Math.round(h - 4 - lit * step)
+    b.off.setCrop(0, 0, w, split)
+    b.on.setCrop(0, split, w, h - split)
   }
 
   private updateHud(): void {
@@ -704,8 +709,8 @@ export class Game extends Scene {
     const inv = w.inv
     const g = this.hud.g
     g.clear()
-    this.bar(24, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD, 0x46e0ff, 0x46a0ff)
-    this.bar(936, inv.getAmt(Obj.ENERGY), MAX_SHIELD, 0x2effb4, 0xffd23d)
+    this.bar(0, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD)
+    this.bar(1, inv.getAmt(Obj.ENERGY), MAX_SHIELD)
     this.hud.score.setText(`${w.plr.score - this.startScore} CR`)
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)

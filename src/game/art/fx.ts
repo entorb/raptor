@@ -201,6 +201,26 @@ function drawShotArt(ctx: Ctx, key: string, w: number, h: number): void {
   }
 }
 
+/** HUD shield bar: `segs` segments, `step` px apart from the bottom, inside a w x h frame. */
+export const HUD_BAR = { w: 18, h: 488, segs: 25, step: 19.2 }
+
+/** HUD shield bar with every segment lit (`lit` = low, mid, high colors) or dim (null). */
+export function drawHudBar(ctx: Ctx, lit: [string, string, string] | null): void {
+  const { w, h, segs, step } = HUD_BAR
+  ctx.globalAlpha = 0.6
+  ctx.fillStyle = "#05060d"
+  roundRect(ctx, 0, 0, w, h, 6)
+  ctx.fill()
+  for (let i = 0; i < segs; i++) {
+    let c = "#1a2030"
+    if (lit) c = lit[i / segs < 0.25 ? 0 : i / segs < 0.5 ? 1 : 2]
+    ctx.globalAlpha = lit ? 0.95 : 0.8
+    ctx.fillStyle = c
+    roundRect(ctx, 3, h - 2 - (i + 1) * step, 12, step - 4, 2)
+    ctx.fill()
+  }
+}
+
 export function drawDot(ctx: Ctx, s: number): void {
   const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
   g.addColorStop(0, "rgba(255,255,255,1)")

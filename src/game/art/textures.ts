@@ -2,7 +2,8 @@
 //   u-<PICNAME>      enemy/unit frames "0".."n-1" (3x original size)
 //   player           frames "0".."6" (DOS playerpic, 3 = level)
 //   shot-<PICNAME>   shots (3x original size)
-//   pickup-<type>    bonus icons (48 px), hud-<type> for the HUD
+//   pickup-<type>    bonus icons (48 px)
+//   hudbar-off, hudbar-shield, hudbar-energy  HUD shield bars (dim / all lit)
 //   struct-<k>, wreck-<k>  destructible map structures (96 px)
 //   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg (960x600)
 // Training sector (buildTrainingTextures, on the first training mission):
@@ -12,7 +13,17 @@ import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import { Obj } from "../sim/consts"
 import { makeCanvas, seeded } from "./draw"
-import { drawDot, drawPickup, drawShard, drawShot, drawSmoke, drawStructure, drawWreck } from "./fx"
+import {
+  drawDot,
+  drawHudBar,
+  drawPickup,
+  drawShard,
+  drawShot,
+  drawSmoke,
+  drawStructure,
+  drawWreck,
+  HUD_BAR,
+} from "./fx"
 import { drawHangar } from "./hangar"
 import { drawPlayer, drawUnit } from "./ships"
 
@@ -153,6 +164,11 @@ export function buildTextures(scene: Scene): void {
     single(scene, `struct-${k}`, 96, 96, (ctx) => drawStructure(ctx, k, 96))
   for (let k = 0; k < WRECK_KINDS; k++)
     single(scene, `wreck-${k}`, 96, 96, (ctx) => drawWreck(ctx, 96, 11 + k))
+
+  const { w, h } = HUD_BAR
+  single(scene, "hudbar-off", w, h, (ctx) => drawHudBar(ctx, null))
+  single(scene, "hudbar-shield", w, h, (ctx) => drawHudBar(ctx, ["#ff4050", "#46a0ff", "#46e0ff"]))
+  single(scene, "hudbar-energy", w, h, (ctx) => drawHudBar(ctx, ["#ff4050", "#ffd23d", "#2effb4"]))
 
   single(scene, "dot", 32, 32, (ctx) => drawDot(ctx, 32))
   single(scene, "smoke", 48, 48, (ctx) => drawSmoke(ctx, 48))
