@@ -23,6 +23,23 @@ export const UI = {
   gold: "#ffd23d",
 }
 
+/** Glyph prefixes for common menu actions, prepended to the label text. */
+export const ICON = {
+  back: "←",
+  play: "▶",
+  buy: "+",
+  sell: "−",
+  add: "+",
+  delete: "✕",
+  confirm: "✓",
+  replay: "↻",
+  options: "⚙",
+  fullscreen: "⛶",
+  install: "⬇",
+  share: "↗",
+  contact: "✉",
+}
+
 export class TextMenu {
   private items: MenuItem[] = []
   private readonly rows: {
