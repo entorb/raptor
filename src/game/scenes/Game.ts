@@ -10,6 +10,8 @@ import {
   levelKey,
   loadout,
   nextWave,
+  recordFail,
+  recordStart,
   SECTOR_NAMES,
   sectorDiff,
   topRunLine,
@@ -19,7 +21,7 @@ import {
 } from "../campaign"
 import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
-import type { Sector } from "../data/save"
+import { loadPilots, type Sector, savePilot } from "../data/save"
 import { toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
 import { Effects } from "../render/effects"
@@ -126,6 +128,7 @@ export class Game extends Scene {
     banner: GameObjects.Text
     weaponName: GameObjects.Text
     novas: GameObjects.Image[]
+    killPct: GameObjects.Text
   }
   /** Bottom strip: special weapons on board with their keys (tap to select on touch). */
   private weaponBar: {
@@ -560,7 +563,16 @@ export class Game extends Scene {
     const novas = Array.from({ length: 5 }, (_, i) =>
       this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
     )
-    this.hud = { g, bars, score, special, warn, banner, weaponName, novas }
+    const killPct = this.add
+      .text(945, 10, "", {
+        fontFamily: UI.mono,
+        fontSize: "18px",
+        color: "#ffffff",
+      })
+      .setOrigin(1, 0)
+      .setDepth(D.hud)
+      .setShadow(0, 0, UI.accent, 8, true, true)
+    this.hud = { g, bars, score, special, warn, banner, weaponName, novas, killPct }
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
@@ -647,6 +659,11 @@ export class Game extends Scene {
     this.waiting = false
     this.startArmed = false
     this.acc = 0
+    if (this.demo < 0) {
+      const p = currentPilot()
+      const saved = p && loadPilots().find((q) => q.name === p.name)
+      if (saved) savePilot(recordStart(saved, levelKey(this.sector, this.wave)))
+    }
     const help = this.briefing
     this.tweens.add({ targets: this.hud.banner, alpha: 0, delay: 600, duration: 800 })
     if (!help) return
@@ -712,6 +729,8 @@ export class Game extends Scene {
     this.bar(0, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD)
     this.bar(1, inv.getAmt(Obj.ENERGY), MAX_SHIELD)
     this.hud.score.setText(`${w.plr.score - this.startScore} CR`)
+    const { enemies } = w.destroyedPct
+    this.hud.killPct.setText(enemies === null ? "" : `${enemies}%`)
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)
     if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
@@ -903,6 +922,9 @@ export class Game extends Scene {
     const sim = this.sector === "train"
     if (outcome === "death") {
       getAudio().playSong(this, "rap5", false)
+      // count the death against the last save (the flight's own score/loadout is discarded)
+      const saved = loadPilots().find((q) => q.name === pilot.name)
+      if (saved) savePilot(recordFail(saved, levelKey(this.sector, this.wave)))
       reloadPilot()
       return {
         text: sim ? "SIMULATION FAILED" : "SHIP DESTROYED",

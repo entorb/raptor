@@ -215,6 +215,7 @@ export class Menu extends Scene {
           this.time.delayedCall(300, () => this.show("main"))
         },
       })
+    items.push({ label: `${ICON.exit} Exit`, action: () => window.close() })
     return items
   }
 

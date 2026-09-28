@@ -631,7 +631,12 @@ export class Hangar extends Scene {
           .text(640, y, text, { fontFamily: UI.mono, fontSize: `${size}px`, color })
           .setOrigin(0.5),
       )
-    line(272, `WAVE ${this.selWave + 1}  ·  TOP 10  ·  ${st?.n ?? 0}x flown`, UI.accent, 19)
+    line(
+      272,
+      `WAVE ${this.selWave + 1}  ·  TOP 10  ·  ${st?.s ?? st?.n ?? 0}x started  ·  ${st?.n ?? 0}x won`,
+      UI.accent,
+      19,
+    )
     if (!top.length) line(300, "No runs yet", UI.dim)
     top.forEach((v, i) => {
       line(296 + i * 21, topRunLine(i, v), UI.text)
