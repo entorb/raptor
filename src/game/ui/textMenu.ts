@@ -40,6 +40,7 @@ export const ICON = {
   contact: "✉",
   home: "⌂",
   source: "</>",
+  exit: "⏻",
 }
 
 export class TextMenu {

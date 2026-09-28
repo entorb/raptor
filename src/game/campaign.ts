@@ -90,6 +90,18 @@ export function recordRun(
   return { pilot: { ...p, stats: { ...p.stats, [key]: { n: old.n + 1, top } } }, rank }
 }
 
+/** Count a mission start on this level (wins, deaths and aborts all count as a start). */
+export function recordStart(p: PilotSave, key: string): PilotSave {
+  const old = p.stats?.[key] ?? { n: 0, top: [] }
+  return { ...p, stats: { ...p.stats, [key]: { ...old, s: (old.s ?? 0) + 1 } } }
+}
+
+/** Count a death on this level (kept even though the loadout/score of the run is discarded). */
+export function recordFail(p: PilotSave, key: string): PilotSave {
+  const old = p.stats?.[key] ?? { n: 0, top: [] }
+  return { ...p, stats: { ...p.stats, [key]: { ...old, f: (old.f ?? 0) + 1 } } }
+}
+
 /** One top-10 row: rank, credits and enemy kill percent (`-` for runs without it). */
 export function topRunLine(i: number, r: TopRun): string {
   const pct = r.pct === undefined ? "-" : `${r.pct}%`
@@ -183,4 +195,6 @@ export function runCampaignSelfCheck(): void {
   assert(r.rank === 9 && r.pilot.stats?.b0?.top.length === 10, "top 10 rank")
   assert(recordRun(q, "b0", 100).rank === null, "below top 10")
   assert(recordRun(q, "b0", 1300, 87).pilot.stats?.b0?.top[0]?.pct === 87, "stores enemy percent")
+  assert(recordFail(recordFail(base, "b0"), "b0").stats?.b0?.f === 2, "counts deaths")
+  assert(recordStart(recordStart(base, "b0"), "b0").stats?.b0?.s === 2, "counts starts")
 }

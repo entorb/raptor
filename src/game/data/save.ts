@@ -27,6 +27,10 @@ export type Sector = (typeof SECTORS)[number]
 
 export interface LevelStats {
   n: number
+  /** mission starts on this level, wins + fails + aborts (missing in old saves) */
+  s?: number
+  /** deaths on this level (missing in old saves) */
+  f?: number
   top: TopRun[]
 }
 
@@ -116,7 +120,15 @@ function normalize(p: PilotSave): PilotSave {
   const stats = Object.fromEntries(
     Object.entries(typeof p.stats === "object" && p.stats ? p.stats : {})
       .filter(([, v]) => isStats(v))
-      .map(([k, v]) => [k, { n: v.n, top: topRuns(v.top) }]),
+      .map(([k, v]) => [
+        k,
+        {
+          n: v.n,
+          top: topRuns(v.top),
+          ...(Number.isInteger(v.s) ? { s: v.s } : {}),
+          ...(Number.isInteger(v.f) ? { f: v.f } : {}),
+        },
+      ]),
   )
   const q: PilotSave = {
     ...p,
