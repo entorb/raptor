@@ -917,27 +917,37 @@ export class Game extends Scene {
     { pilot, outcome }: ReturnType<typeof afterWave>,
     result: WaveResult,
     replay: boolean,
-    earned: number,
+    payout: number,
   ): { text: string; next: () => void } {
     const sim = this.sector === "train"
+    const cr = payout > 0 ? ` +${payout} CR` : ""
     if (outcome === "death") {
       getAudio().playSong(this, "rap5", false)
-      // count the death against the last save (the flight's own score/loadout is discarded)
+      // count the death against the last save (the flight's own score/loadout is discarded,
+      // half the credits earned this run are kept)
       const saved = loadPilots().find((q) => q.name === pilot.name)
-      if (saved) savePilot(recordFail(saved, levelKey(this.sector, this.wave)))
+      if (saved)
+        savePilot({
+          ...recordFail(saved, levelKey(this.sector, this.wave)),
+          score: saved.score + payout,
+        })
       reloadPilot()
       return {
         text: sim ? "SIMULATION FAILED" : "SHIP DESTROYED",
         next: () =>
           this.scene.start("Hangar", {
-            message: `${sim ? "Simulation failed" : "Ship destroyed"}. Last save restored.`,
+            message: `${sim ? "Simulation failed" : "Ship destroyed"}. Last save restored.${cr}`,
           }),
       }
     }
-    // web change: an abort also restores the saved loadout (weapons lost in flight come back)
-    if (result === "abort") reloadPilot()
-    else setPilot(pilot)
-    if (outcome === "landing") return this.landingTarget(sim, result, replay, earned)
+    // web change: an abort also restores the saved loadout (weapons lost in flight come back),
+    // but keeps half the credits earned this run
+    if (result === "abort") {
+      const saved = loadPilots().find((q) => q.name === pilot.name)
+      if (saved && payout > 0) savePilot({ ...saved, score: saved.score + payout })
+      reloadPilot()
+    } else setPilot(pilot)
+    if (outcome === "landing") return this.landingTarget(sim, result, replay, payout)
     const training = outcome === "trainingComplete"
     const message = training
       ? "Training complete. Missions can be replayed."
@@ -952,12 +962,14 @@ export class Game extends Scene {
     sim: boolean,
     result: WaveResult,
     replay: boolean,
-    earned: number,
+    payout: number,
   ): { text: string; next: () => void } {
     const aborted = result === "abort"
     const verb = replay ? "replayed" : "complete"
     const data: HangarData = {
-      message: aborted ? "Mission aborted." : `Wave ${this.wave + 1} ${verb}: +${earned} CR`,
+      message: aborted
+        ? `Mission aborted.${payout > 0 ? ` +${payout} CR` : ""}`
+        : `Wave ${this.wave + 1} ${verb}: +${payout} CR`,
     }
     const completeText = `${sim ? "SIMULATION" : "WAVE"} COMPLETE`
     return {
@@ -978,11 +990,12 @@ export class Game extends Scene {
     const result: WaveResult = forced ?? (this.world.dead ? "dead" : "complete")
     const p = currentPilot()
     if (!p) return
-    if (result === "abort") this.lo.plr.score = this.startScore // Do_Game: plr.score = start_score
     // web change: a completed wave refills the shield to at least 50%
     const shield = this.lo.inv.p_objs[Obj.ENERGY]
     if (result === "complete" && shield) shield.num = Math.max(shield.num, MAX_SHIELD / 2)
     const earned = this.lo.plr.score - this.startScore
+    // web change: a death or abort still keeps half the credits earned in flight
+    const payout = result === "complete" ? earned : Math.floor(earned / 2)
     const replay = this.wave !== nextWave(p, this.sector)
     const pct = this.world.destroyedPct
     const after = afterWave(
@@ -993,7 +1006,7 @@ export class Game extends Scene {
       earned,
       pct.enemies ?? undefined,
     )
-    const { text, next } = this.endTarget(after, result, replay, earned)
+    const { text, next } = this.endTarget(after, result, replay, payout)
     if (result === "complete") {
       this.showResults(text, pct, after, earned, next)
       return
