@@ -125,7 +125,7 @@ export class Hangar extends Scene {
       .text(640, 514, "", {
         fontFamily: UI.font,
         fontSize: "15px",
-        color: UI.dim,
+        color: UI.text,
         align: "center",
         wordWrap: { width: 340 },
       })
@@ -320,7 +320,9 @@ export class Hangar extends Scene {
       this.desc.setText("")
       return
     }
-    this.desc.setText(DESC[t] ?? "")
+    const hint = this.menu.tapToSelect && this.sys.game.device.input.touch
+    const again = hint ? `\nTap again to ${this.buying ? "buy" : "sell"}` : ""
+    this.desc.setText((DESC[t] ?? "") + again)
   }
 
   private updateStatus(): void {
@@ -355,6 +357,7 @@ export class Hangar extends Scene {
       if (o.input) o.input.enabled = launch
     }
     this.menu.enabled = !launch && !this.backFocused
+    this.menu.tapToSelect = mode === "shop"
     let items: MenuItem[] = []
     if (mode === "hangar") items = this.hangarItems()
     else if (mode === "shop") items = this.shopItems()

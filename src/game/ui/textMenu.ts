@@ -73,6 +73,8 @@ export class TextMenu {
    * Left null, UP keeps wrapping to the last item.
    */
   onUpFromStart: (() => void) | null = null
+  /** Touch: the first tap only selects (shows the description), a tap on the selected row activates. */
+  tapToSelect = false
   /** False while another row owns the arrow/confirm keys (the link row does). */
   enabled = true
 
@@ -103,7 +105,9 @@ export class TextMenu {
         .rectangle(x + w / 2, cy + rowH / 2, w, rowH - 6, 0x39d0ff, 0)
         .setStrokeStyle(1, 0x39d0ff, 0)
         .setInteractive({ useHandCursor: true })
-      bg.on("pointerover", () => {
+      bg.on("pointerover", (pointer: Input.Pointer) => {
+        // touch "over" fires on touchstart: it would pre-select and make the first tap activate
+        if (pointer.wasTouch && this.tapToSelect) return
         const idx = this.scroll + i
         if (idx < this.items.length && idx !== this.cursor) {
           this.cursor = idx
@@ -116,13 +120,20 @@ export class TextMenu {
         this.dragScroll = this.scroll
         this.dragged = false
       })
-      bg.on("pointerup", () => {
-        if (this.dragged) {
+      bg.on("pointerup", (pointer: Input.Pointer) => {
+        // a swipe that ends on a row never activates it, even when the list can't scroll
+        if (this.dragged || pointer.getDistance() > 10) {
           this.dragged = false
           return
         }
         const idx = this.scroll + i
         if (idx >= this.items.length) return
+        if (pointer.wasTouch && this.tapToSelect && idx !== this.cursor) {
+          this.cursor = idx
+          this.refresh()
+          this.onMove?.(idx)
+          return
+        }
         this.cursor = idx
         this.activate()
       })
