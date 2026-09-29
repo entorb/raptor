@@ -891,7 +891,7 @@ export class Game extends Scene {
     this.hud.banner.setAlpha(0)
     const bg = this.add.rectangle(480, 300, 960, 600, 0x000000, 0.6)
     const title = this.add
-      .text(480, 150, "PAUSED", {
+      .text(480, 110, "PAUSED", {
         fontFamily: UI.font,
         fontSize: "48px",
         color: "#ffffff",
@@ -932,19 +932,54 @@ export class Game extends Scene {
     }
     items.push(mk(0, "Abort Mission", () => this.end("abort")))
     items.forEach((t, i) => {
-      t.setY(230 + i * 70)
+      t.setY(180 + i * 62)
     })
     this.pauseCursor = 0
     this.pauseHighlight()
+    const extras = this.pauseWeapons(180 + items.length * 62 + 10)
     const hint = this.add
-      .text(480, 230 + items.length * 70, this.isTouch() ? "" : "Arrows + Enter, Esc/P resume", {
+      .text(480, 500, this.isTouch() ? "" : "Arrows + Enter, Esc/P resume", {
         fontFamily: UI.font,
         fontSize: "16px",
         color: UI.dim,
       })
       .setOrigin(0.5)
-    this.pauseLayer = this.add.container(0, 0, [bg, title, ...items, hint]).setDepth(D.overlay + 10)
+    this.pauseLayer = this.add
+      .container(0, 0, [bg, title, ...items, ...extras, hint])
+      .setDepth(D.overlay + 10)
     this.pauseLayer.setScrollFactor(0)
+  }
+
+  /** Pause menu: tappable icons of the special weapons on board (the current one is framed). */
+  private pauseWeapons(y: number): GameObjects.GameObject[] {
+    const list = SPECIAL_KEYS.filter(([, , t]) => this.world.inv.isEquip(t))
+    if (!list.length) return []
+    let cur = this.world.plr.sweapon
+    const out: GameObjects.GameObject[] = [
+      this.add
+        .text(480, y, "SPECIAL WEAPON", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+        .setOrigin(0.5),
+    ]
+    const frames: [number, GameObjects.Rectangle][] = []
+    for (const [i, [, key, t]] of list.entries()) {
+      const x = 480 + (i - (list.length - 1) / 2) * 76
+      const frame = this.add
+        .rectangle(x, y + 46, 68, 68, 0x10182a)
+        .setStrokeStyle(3, 0x39d0ff, t === cur ? 1 : 0)
+        .setInteractive({ useHandCursor: true })
+      frame.on("pointerup", () => {
+        this.input2.selectWeapon(t)
+        cur = t
+        for (const [ft, fr] of frames) fr.setStrokeStyle(3, 0x39d0ff, ft === cur ? 1 : 0)
+      })
+      frames.push([t, frame])
+      const icon = this.add.image(x, y + 42, `pickup-${t}`)
+      const label = this.add
+        .text(x, y + 68, key, { fontFamily: UI.mono, fontSize: "14px", color: "#ffffff" })
+        .setOrigin(0.5)
+      out.push(frame, icon, label)
+    }
+    return out
   }
 
   private finishDemo(): void {
