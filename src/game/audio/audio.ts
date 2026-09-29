@@ -36,6 +36,7 @@ export const SONG_FILES = [
   "rap6",
   "rap7",
   "rap8",
+  "fanfare",
 ] as const
 export type Song = (typeof SONG_FILES)[number]
 

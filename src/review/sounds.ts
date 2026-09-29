@@ -92,6 +92,7 @@ const waveRows: [HTMLElement, number[]][] = []
     mainmenu: "Main menu",
     hangar: "Hangar / shop",
     rap5: "Ship destroyed (plays once)",
+    fanfare: "Mission won (plays once)",
   }
   for (const s of SONG_FILES) {
     const waves = WAVE_SONGS.flatMap((w, i) => (w === s ? [i + 1] : []))
