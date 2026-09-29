@@ -38,8 +38,8 @@ export const STRINGS = {
   "hud.nova": e("NOVA", "NOVA"),
 
   "menu.credit": e(
-    "A remake of Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)",
-    "Ein Remake von Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)",
+    "Remake of Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)",
+    "Remake von Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)",
   ),
   "menu.globalMissions": e("Global Missions: {n}", "Missionen weltweit: {n}"),
   "menu.play": e("Play", "Spielen"),
@@ -187,16 +187,15 @@ export const STRINGS = {
   ),
   "ctl.touchPause": e("PAUSE        ❚❚ button", "PAUSE        ❚❚ Knopf"),
   "ctl.move": e("MOVE         Arrows / WASD", "BEWEGEN      Pfeile / WASD"),
-  "ctl.fire": e("FIRE         Space / Ctrl", "FEUER        Leertaste / Strg"),
   "ctl.special": e(
-    "SPECIAL      Shift / Alt: next weapon",
-    "SONDERWAFFE  Shift / Alt: nächste Waffe",
+    "SPECIAL      Shift / Alt: next / prev weapon",
+    "SONDERWAFFE  Shift / Alt: nächste / vorige Waffe",
   ),
-  "ctl.nova": e("NOVA BOMB    B / Enter", "NOVA-BOMBE   B / Enter"),
+  "ctl.nova": e("NOVA BOMB    Enter", "NOVA-BOMBE   Enter"),
   "ctl.pause": e("PAUSE        P / Esc", "PAUSE        P / Esc"),
   "ctl.autoFire": e(
-    "AUTO-FIRE    F: on/off (now {state})",
-    "AUTOFEUER    F: an/aus (jetzt {state})",
+    "AUTO-FIRE    Space: on/off (now {state})",
+    "AUTOFEUER    Leertaste: an/aus (jetzt {state})",
   ),
   "ctl.recharge": e(
     "             not firing recharges the shield",

@@ -54,8 +54,8 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   `strings.ts` is excluded from cspell.
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
-  (`Settings.autoFire`, default on) fires continuously; toggles: Options menu, pause menu, F key.
-  When off, fire = Space/Ctrl or a finger on the screen. Note: like DOS `OBJS_Think`,
+  (`Settings.autoFire`, default on) fires continuously; toggles: Options menu, pause menu, Space key (in flight, not while paused/waiting).
+  When off, fire = a finger on the screen (no single-shot key on desktop). Note: like DOS `OBJS_Think`,
   the shield only recharges while not firing, so auto-fire means no recharge. Web change: +1
   per `CHARGE_SHIELD` = 48 idle frames (DOS 96), firing pauses the counter (DOS reset it).
   `SPECIAL_KEYS` = number keys for special weapons in shop order (by price, not DOS order; also
