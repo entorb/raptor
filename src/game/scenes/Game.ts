@@ -148,6 +148,7 @@ export class Game extends Scene {
   private waiting = false
   /** A start key went down in this scene (the Hangar's Enter must not confirm on its keyup). */
   private startArmed = false
+  private shownKills = 0
 
   constructor() {
     super("Game")
@@ -167,6 +168,7 @@ export class Game extends Scene {
     this.briefing = null
     this.waiting = false
     this.startArmed = false
+    this.shownKills = 0
     this.weaponBar = { sig: "", items: [] }
   }
 
@@ -511,7 +513,8 @@ export class Game extends Scene {
       return { off: img("hudbar-off"), on: img(tex) }
     })
     const score = this.add
-      .text(72, 36, "", {
+      .text(57, 21, "", {
+        // x/y minus the glow padding
         fontFamily: UI.mono,
         fontSize: "26px",
         color: "#ffffff",
@@ -519,7 +522,9 @@ export class Game extends Scene {
       .setOrigin(0, 0)
       .setDepth(D.hud)
       .setShadow(0, 0, UI.accent, 10, true, true)
-    const special = this.add.image(900, 34, "pickup-3").setDepth(D.hud).setScale(0.9)
+      .setPadding(15)
+    // below the kill counter, right-aligned with it
+    const special = this.add.image(868, 96, "pickup-3").setDepth(D.hud).setScale(0.9)
     const warn = this.add
       .text(480, MAP_BOTTOM * SCALE, "", {
         fontFamily: UI.font,
@@ -541,6 +546,7 @@ export class Game extends Scene {
       .setOrigin(0.5)
       .setDepth(D.overlay)
       .setShadow(0, 0, UI.accent, 20, true, true)
+      .setPadding(30)
     if (this.demo >= 0) banner.setText("DEMO\ntap or press any key").setY(250)
     if (this.demo < 0) {
       this.briefing = this.controlsPanel(160).setDepth(D.overlay)
@@ -558,25 +564,28 @@ export class Game extends Scene {
       .setOrigin(0.5)
       .setDepth(D.hud)
       .setShadow(0, 0, UI.accent, 12, true, true)
+      .setPadding(18)
       .setAlpha(0)
     this.lastWeapon = this.world.plr.sweapon
     const novas = Array.from({ length: 5 }, (_, i) =>
       this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
     )
     const killPct = this.add
-      .text(945, 10, "", {
+      .text(903, 21, "", {
+        // mirrors the credits (57, 21): glyphs end at x 888 = 960 - 72
         fontFamily: UI.mono,
-        fontSize: "18px",
+        fontSize: "26px",
         color: "#ffffff",
       })
       .setOrigin(1, 0)
       .setDepth(D.hud)
-      .setShadow(0, 0, UI.accent, 8, true, true)
+      .setShadow(0, 0, UI.accent, 10, true, true)
+      .setPadding(15)
     this.hud = { g, bars, score, special, warn, banner, weaponName, novas, killPct }
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
-        { id: "mega", x: 70, y: 530, r: 64 },
+        { id: "mega", x: 890, y: 400, r: 64 }, // right thumb: above the weapon cycle, left thumb steers
         { id: "cycle", x: 890, y: 530, r: 64 },
       ]
     }
@@ -597,7 +606,7 @@ export class Game extends Scene {
       ? [
           "STEER        drag anywhere (also beside the game)",
           `FIRE         ${this.input2.autoFire ? "automatic" : "while touching"}`,
-          "SPECIAL      ▶ button: next · tap icon at bottom",
+          ...(specials.length ? ["SPECIAL      ▶ button: next · tap icon at bottom"] : []),
           "NOVA BOMB    ● button",
           "PAUSE        ❚❚ button",
           `AUTO-FIRE    ${fire} · toggle in pause menu`,
@@ -719,6 +728,10 @@ export class Game extends Scene {
     const split = Math.round(h - 4 - lit * step)
     b.off.setCrop(0, 0, w, split)
     b.on.setCrop(0, split, w, h - split)
+    // an empty phase-shield bar (i 0) is unexplained clutter: show it once one is on board
+    const shown = i !== 0 || value > 0
+    b.off.setVisible(shown)
+    b.on.setVisible(shown)
   }
 
   private updateHud(): void {
@@ -729,8 +742,11 @@ export class Game extends Scene {
     this.bar(0, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD)
     this.bar(1, inv.getAmt(Obj.ENERGY), MAX_SHIELD)
     this.hud.score.setText(`${w.plr.score - this.startScore} CR`)
-    const { enemies } = w.destroyedPct
-    this.hud.killPct.setText(enemies === null ? "" : `${enemies}%`)
+    // refresh on kills only: newly seen enemies would otherwise make the value creep down constantly
+    if (w.enemies.killed !== this.shownKills) {
+      this.shownKills = w.enemies.killed
+      this.hud.killPct.setText(`KILLS ${w.destroyedPct.enemies ?? 0}%`)
+    }
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)
     if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
@@ -756,11 +772,12 @@ export class Game extends Scene {
   }
 
   private drawTouchButtons(g: GameObjects.Graphics): void {
-    g.lineStyle(2, 0xffe066, 0.5).strokeCircle(70, 530, 44)
+    g.lineStyle(2, 0xffe066, 0.5).strokeCircle(890, 400, 44)
     g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 530, 44)
-    g.lineStyle(2, 0xffffff, 0.4).strokeRoundedRect(20, 20, 40, 40, 8)
-    g.fillStyle(0xffffff, 0.5).fillRect(33, 30, 5, 20).fillRect(43, 30, 5, 20)
-    g.fillStyle(0xffe066, 0.8).fillCircle(70, 530, 12)
+    // pause: drawn at the size of its hit zone (r 44), 40 px read as ~24 CSS px on phones
+    g.lineStyle(2, 0xffffff, 0.4).strokeRoundedRect(12, 12, 56, 56, 10)
+    g.fillStyle(0xffffff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
+    g.fillStyle(0xffe066, 0.8).fillCircle(890, 400, 12)
     g.fillStyle(0x39d0ff, 0.8).fillTriangle(878, 520, 878, 540, 902, 530)
   }
 
@@ -896,7 +913,7 @@ export class Game extends Scene {
     this.pauseCursor = 0
     this.pauseHighlight()
     const hint = this.add
-      .text(480, 230 + items.length * 70, "Arrows + Enter, Esc/P resume", {
+      .text(480, 230 + items.length * 70, this.isTouch() ? "" : "Arrows + Enter, Esc/P resume", {
         fontFamily: UI.font,
         fontSize: "16px",
         color: UI.dim,
@@ -1022,6 +1039,7 @@ export class Game extends Scene {
       .setDepth(D.overlay)
       .setAlpha(0)
       .setShadow(0, 0, after.outcome === "death" ? UI.warn : UI.accent, 24, true, true)
+      .setPadding(36)
     this.tweens.add({ targets: t, alpha: 1, duration: 500 })
     this.cameras.main.fadeOut(2600, 0, 0, 0)
     this.time.delayedCall(2800, next)
@@ -1044,7 +1062,8 @@ export class Game extends Scene {
       this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
       txt(-200, title, 44, "#ffffff")
         .setFontStyle("bold")
-        .setShadow(0, 0, UI.accent, 24, true, true),
+        .setShadow(0, 0, UI.accent, 24, true, true)
+        .setPadding(36),
       txt(-150, `+${earned} CR`, 24, UI.gold),
       txt(
         -116,

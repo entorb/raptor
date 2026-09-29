@@ -9,7 +9,6 @@ import {
   levelKey,
   nextWave,
   playable,
-  SECTOR_NAMES,
   sectorWaves,
   topRunLine,
   withLoadout,
@@ -20,7 +19,7 @@ import { reportMissionStart } from "../data/stats"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
 import { Buy, OBJ_LIB } from "../sim/objects"
-import { backdrop, header, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
+import { backdrop, header, ICON, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
 import { pilotTitle } from "./Menu"
 
 type Mode = "hangar" | "shop" | "launch"
@@ -72,7 +71,6 @@ export class Hangar extends Scene {
   private msg!: GameObjects.Text
   private tick: () => void = () => {}
   private message = ""
-  private sub!: GameObjects.Text
   private panel!: GameObjects.Rectangle
   private table: GameObjects.Text[] = []
   private backBg!: GameObjects.Rectangle
@@ -114,22 +112,20 @@ export class Hangar extends Scene {
     this.add
       .text(480, 96, pilotTitle(p), { fontFamily: UI.font, fontSize: "22px", color: UI.text })
       .setOrigin(0.5)
-    this.sub = this.add
-      .text(480, 122, "", { fontFamily: UI.font, fontSize: "18px", color: UI.accent })
-      .setOrigin(0.5)
     this.status = this.add
       .text(480, 578, "", { fontFamily: UI.mono, fontSize: "19px", color: UI.text })
       .setOrigin(0.5)
       .setShadow(0, 0, "#000000", 6, true, true)
+      .setPadding(9)
     this.desc = this.add
-      .text(640, 514, "", {
+      .text(640, TOUCH ? 462 : 514, "", {
         fontFamily: UI.font,
-        fontSize: "15px",
+        fontSize: TOUCH ? "20px" : "15px",
         color: UI.text,
         align: "center",
         wordWrap: { width: 340 },
       })
-      .setOrigin(0.5)
+      .setOrigin(0.5, TOUCH ? 0 : 0.5)
     this.msg = this.add
       .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
@@ -137,7 +133,7 @@ export class Hangar extends Scene {
     // launch keys before the menu's and the back icon's: a key that switches modes (menu Launch,
     // back icon DOWN) must not also act on the launch screen within the same keypress
     this.bindLaunchKeys()
-    this.menu = new TextMenu(this, 470, 164, 340, 36, 9)
+    this.menu = new TextMenu(this, 470, 164, 340, TOUCH ? 46 : 36, TOUCH ? 6 : 9)
     this.menu.onBack = () => this.backAction()
     this.menu.onMove = () => this.describe()
     this.menu.onUpFromStart = () => {
@@ -320,7 +316,7 @@ export class Hangar extends Scene {
       this.desc.setText("")
       return
     }
-    const hint = this.menu.tapToSelect && this.sys.game.device.input.touch
+    const hint = this.menu.tapToSelect && TOUCH
     const again = hint ? `\nTap again to ${this.buying ? "buy" : "sell"}` : ""
     this.desc.setText((DESC[t] ?? "") + again)
   }
@@ -362,22 +358,13 @@ export class Hangar extends Scene {
     if (mode === "hangar") items = this.hangarItems()
     else if (mode === "shop") items = this.shopItems()
     else this.refreshLaunch()
-    this.sub.setText(this.subtitle(p, launch ? this.selSector : (p.sector ?? "bravo")))
     // panel fits the rows (the shop adds a description line, launch its boxes and top-10 table)
-    const h = Math.min(items.length, 9) * 36 + (mode === "shop" ? 60 : 16)
+    const { rowH, visible } = this.menu
+    const h = Math.min(items.length, visible) * rowH + (mode === "shop" ? (TOUCH ? 116 : 60) : 16)
     this.panel.setSize(360, launch ? 404 : h)
     this.menu.setItems(items, keep)
     this.updateStatus()
     this.describe()
-  }
-
-  private subtitle(p: PilotSave, sector: Sector): string {
-    const total = sectorWaves(p, sector)
-    const next = nextWave(p, sector)
-    let wave = "COMPLETE"
-    if (next !== null)
-      wave = next === total - 1 ? `FINAL WAVE ${next + 1}` : `WAVE ${next + 1} of ${total}`
-    return `${SECTOR_NAMES[sector]}  ·  ${wave}`
   }
 
   private hangarItems(): MenuItem[] {
@@ -431,13 +418,13 @@ export class Hangar extends Scene {
     const waves = Math.max(...SECTORS.map((s) => sectorWaves(p, s)))
     for (let w = 0; w < waves; w++)
       this.waveBoxes.push(
-        box(0, 232, WAVE_STEP - 4, 36, 18, () => {
+        box(0, 232, WAVE_STEP - 4, TOUCH ? 48 : 36, 18, () => {
           this.focusRow = ROW_WAVE
           this.selWave = w
           this.refreshLaunch()
         }),
       )
-    this.launchBox = box(640, 536, 356, 40, 19, () => this.launch())
+    this.launchBox = box(640, 536, 356, TOUCH ? 48 : 40, 19, () => this.launch())
   }
 
   private openLaunch(sector: Sector, wave: number): void {
@@ -596,7 +583,7 @@ export class Hangar extends Scene {
     const lib = OBJ_LIB[t]
     const n = lib?.onlyflag ? inv.getAmt(t) : inv.getTotal(t)
     if (!n) return ""
-    return t === Obj.ENERGY ? `  (${n}%)` : `  (${n})`
+    return t === Obj.ENERGY ? ` (${n}%)` : ` (${n})`
   }
 
   private trade(t: ObjType, buy: boolean): void {
@@ -636,9 +623,9 @@ export class Hangar extends Scene {
       )
     line(
       272,
-      `WAVE ${this.selWave + 1}  ·  TOP 10  ·  ${st?.s ?? st?.n ?? 0}x started  ·  ${st?.n ?? 0}x won`,
+      `WAVE ${this.selWave + 1} · TOP 10 · ${st?.s ?? st?.n ?? 0} flown · ${st?.n ?? 0} won`,
       UI.accent,
-      19,
+      17,
     )
     if (!top.length) line(300, "No runs yet", UI.dim)
     top.forEach((v, i) => {

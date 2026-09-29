@@ -13,6 +13,9 @@ export interface MenuItem {
   adjust?: (dir: number) => void
 }
 
+/** Coarse pointer (phone/tablet): the 960x600 game renders at ~0.6x there, so menus grow. */
+export const TOUCH = globalThis.matchMedia?.("(pointer: coarse)").matches === true
+
 export const UI = {
   font: "'Segoe UI', system-ui, sans-serif",
   mono: "ui-monospace, 'SFMono-Regular', Menlo, monospace",
@@ -51,7 +54,8 @@ export class TextMenu {
     detail: GameObjects.Text
   }[] = []
   private cursor = 0
-  private readonly visible: number
+  readonly visible: number
+  readonly rowH: number
   private scroll = 0
   private readonly moreUp: GameObjects.Text
   private readonly moreDown: GameObjects.Text
@@ -80,6 +84,7 @@ export class TextMenu {
 
   constructor(scene: Scene, x: number, y: number, w: number, rowH = 44, visible = 9) {
     this.visible = visible
+    this.rowH = rowH
     const kb = scene.input.keyboard
     if (kb) {
       const bind = (key: string, fn: () => void) =>
@@ -139,13 +144,13 @@ export class TextMenu {
       })
       const label = scene.add.text(x + 18, cy + rowH / 2, "", {
         fontFamily: UI.font,
-        fontSize: `${Math.round(rowH * 0.5)}px`,
+        fontSize: `${Math.round(rowH * (TOUCH ? 0.44 : 0.5))}px`,
         color: UI.text,
       })
       label.setOrigin(0, 0.5)
       const detail = scene.add.text(x + w - 18, cy + rowH / 2, "", {
         fontFamily: UI.mono,
-        fontSize: `${Math.round(rowH * 0.42)}px`,
+        fontSize: `${Math.round(rowH * (TOUCH ? 0.4 : 0.42))}px`,
         color: UI.gold,
       })
       detail.setOrigin(1, 0.5)
@@ -253,8 +258,8 @@ export function header(scene: Scene, title: string, sub?: string): void {
       fontStyle: "bold",
     })
     .setOrigin(0.5)
-    .setPadding(30, 20, 30, 20)
     .setShadow(0, 0, UI.accent, 16, true, true)
+    .setPadding(24)
   if (sub)
     scene.add
       .text(480, 100, sub, { fontFamily: UI.font, fontSize: "20px", color: UI.accent })

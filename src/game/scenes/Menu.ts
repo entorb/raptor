@@ -16,7 +16,7 @@ import { toggleFullscreen } from "../input/fullscreen"
 import { applyUpdate, checkForUpdate, hasInstallPrompt, promptInstall } from "../pwa"
 import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
-import { backdrop, ICON, type MenuItem, TextMenu, UI } from "../ui/textMenu"
+import { backdrop, ICON, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
 
 /** Pilot titles by difficulty, from DIFF_EASY (training is a sector, not a difficulty). */
 const DIFF_NAMES = ["Rookie", "Veteran", "Elite"]
@@ -83,8 +83,8 @@ export class Menu extends Scene {
         color: "#ffffff",
       })
       .setOrigin(0.5)
-      .setPadding(40, 30, 40, 30)
       .setShadow(0, 0, UI.accent, 28, true, true)
+      .setPadding(42)
     this.tweens.add({ targets: title, alpha: 0.85, yoyo: true, repeat: -1, duration: 1800 })
     this.add
       .text(480, 158, "CALL OF THE VOID", {
@@ -126,7 +126,7 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.actions = this.actionRow(480, 506)
-    this.menu = new TextMenu(this, 280, 214, 400, 46, 6)
+    this.menu = new TextMenu(this, 280, 214, 400, TOUCH ? 54 : 46, TOUCH ? 5 : 6)
     this.menu.onBack = () => {
       if (this.mode === "new") this.show("name")
       else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
@@ -411,7 +411,7 @@ export class Menu extends Scene {
    * LEFT/RIGHT; the focused link is gold on a tinted pill.
    */
   private actionRow(x: number, y: number): GameObjects.Container {
-    const style = { fontFamily: UI.font, fontSize: "18px", color: UI.accent }
+    const style = { fontFamily: UI.font, fontSize: TOUCH ? "22px" : "18px", color: UI.accent }
     const defs: [string, (t: GameObjects.Text) => void][] = [
       ...(isInstalled()
         ? []
@@ -423,7 +423,10 @@ export class Menu extends Scene {
     ]
     this.actionActs = defs.map(([, act]) => act)
     this.actionTexts = defs.map(([label, act], i) => {
-      const t = this.add.text(0, 0, label, style).setOrigin(0, 0.5).setPadding(8, 6, 8, 6)
+      const t = this.add
+        .text(0, 0, label, style)
+        .setOrigin(0, 0.5)
+        .setPadding(8, TOUCH ? 22 : 6, 8, TOUCH ? 22 : 6)
       t.setInteractive({ useHandCursor: true })
       t.on("pointerover", () => this.hoverAction(i, true))
       t.on("pointerout", () => this.hoverAction(i, false))
@@ -431,7 +434,7 @@ export class Menu extends Scene {
       return t
     })
     const texts = this.actionTexts
-    const gap = 28
+    const gap = TOUCH ? 12 : 28
     const total = texts.reduce((w, t) => w + t.width, 0) + gap * (texts.length - 1)
     let cx = -total / 2
     for (const t of texts) {
