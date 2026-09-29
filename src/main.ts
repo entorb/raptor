@@ -1,4 +1,5 @@
 import type { Game as PhaserGame } from "phaser"
+import { applyDocumentLang } from "./game/i18n/i18n"
 import StartGame from "./game/main"
 import { captureInstallPrompt } from "./game/pwa"
 
@@ -20,6 +21,7 @@ function fitViewport(game: PhaserGame): void {
 
 document.addEventListener("DOMContentLoaded", () => {
   captureInstallPrompt()
+  applyDocumentLang()
   const game = StartGame("game-container")
   fitViewport(game)
   // Dev-only handle for browser debugging (Playwright `page.evaluate`).

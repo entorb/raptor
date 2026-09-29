@@ -21,7 +21,7 @@ export interface PilotSave {
   stats?: Record<string, LevelStats>
 }
 
-/** Sectors in Hangar toggle order (a new sector also needs SECTOR_NAMES and its waves). */
+/** Sectors in Hangar toggle order (a new sector also needs `sector.*` strings and its waves). */
 export const SECTORS = ["train", "bravo"] as const
 export type Sector = (typeof SECTORS)[number]
 

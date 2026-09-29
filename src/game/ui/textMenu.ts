@@ -46,6 +46,7 @@ export const ICON = {
   home: "⌂",
   source: "</>",
   exit: "⏻",
+  language: "🌐",
 }
 
 export class TextMenu {

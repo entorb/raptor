@@ -3,6 +3,7 @@ import { MAPS } from "./data/ep1"
 import type { PilotSave, Sector, TopRun } from "./data/save"
 import { BEGINNER_MAP } from "./data/training"
 import type { WaveMap } from "./data/types"
+import { t } from "./i18n/i18n"
 import { DIFF_TRAIN, DIFF_WRAP, Obj } from "./sim/consts"
 import { Inventory, newPilotObjs } from "./sim/objects"
 
@@ -24,7 +25,6 @@ export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
   return { ...p, score: l.plr.score, sweapon: l.plr.sweapon, objs: l.inv.save() }
 }
 
-export const SECTOR_NAMES: Record<Sector, string> = { bravo: "BRAVO SECTOR", train: "TRAINING" }
 // web: training opens with the beginner wave, then flies the DOS training maps 0..3
 const TRAIN_WAVES = (DIFF_WRAP[DIFF_TRAIN] ?? 4) + 1
 const TOP = 10
@@ -105,7 +105,7 @@ export function recordFail(p: PilotSave, key: string): PilotSave {
 /** One top-10 row: rank, credits and enemy kill percent (`-` for runs without it). */
 export function topRunLine(i: number, r: TopRun): string {
   const pct = r.pct === undefined ? "-" : `${r.pct}%`
-  return `${String(i + 1).padStart(2)}.  ${String(r.cr).padStart(8)} CR  ${pct.padStart(4)} kills`
+  return `${String(i + 1).padStart(2)}.  ${String(r.cr).padStart(8)} CR  ${pct.padStart(4)} ${t("kills")}`
 }
 
 export type WaveResult = "complete" | "dead" | "abort"

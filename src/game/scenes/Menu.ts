@@ -12,6 +12,8 @@ import {
   saveSettings,
 } from "../data/save"
 import { readGlobalMissions } from "../data/stats"
+import { getLang, setLang, t } from "../i18n/i18n"
+import type { StringKey } from "../i18n/strings"
 import { toggleFullscreen } from "../input/fullscreen"
 import { applyUpdate, checkForUpdate, hasInstallPrompt, promptInstall } from "../pwa"
 import { setPilot } from "../session"
@@ -19,10 +21,15 @@ import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
 import { backdrop, ICON, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
 
 /** Pilot titles by difficulty, from DIFF_EASY (training is a sector, not a difficulty). */
-const DIFF_NAMES = ["Rookie", "Veteran", "Elite"]
+const DIFF_NAMES: StringKey[] = ["diff.rookie", "diff.veteran", "diff.elite"]
+
+const diffName = (diff: number) => {
+  const key = DIFF_NAMES[diff - DIFF_EASY]
+  return key ? t(key) : ""
+}
 
 /** "Veteran Name": the pilot's title (difficulty) and name. */
-export const pilotTitle = (p: PilotSave) => `${DIFF_NAMES[p.diff - DIFF_EASY] ?? ""} ${p.name}`
+export const pilotTitle = (p: PilotSave) => `${diffName(p.diff)} ${p.name}`
 
 type Mode =
   | "main"
@@ -76,7 +83,7 @@ export class Menu extends Scene {
     this.mode = "main"
     this.tick = backdrop(this)
     const title = this.add
-      .text(480, 92, "RAPTOR", {
+      .text(480, 78, "RAPTOR", {
         fontFamily: UI.font,
         fontSize: "96px",
         fontStyle: "900",
@@ -87,7 +94,7 @@ export class Menu extends Scene {
       .setPadding(42)
     this.tweens.add({ targets: title, alpha: 0.85, yoyo: true, repeat: -1, duration: 1800 })
     this.add
-      .text(480, 158, "CALL OF THE VOID", {
+      .text(480, 140, "CALL OF THE VOID", {
         fontFamily: UI.font,
         fontSize: "24px",
         color: UI.accent,
@@ -95,10 +102,10 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.add
-      .text(480, 188, "by Torben", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .text(480, 168, "by Torben", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
       .setOrigin(0.5)
     this.stats = this.add
-      .text(480, 540, "", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .text(480, TOUCH ? 556 : 542, "", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
       .setOrigin(0.5)
     void readGlobalMissions().then((n) => {
       this.globalGames = n
@@ -119,14 +126,14 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.add
-      .text(480, 588, "A remake of Raptor: Call of the Shadows (1994, Cygnus Studios / Apogee)", {
+      .text(480, 588, t("menu.credit"), {
         fontFamily: UI.font,
         fontSize: "13px",
         color: UI.dim,
       })
       .setOrigin(0.5)
-    this.actions = this.actionRow(480, 506)
-    this.menu = new TextMenu(this, 280, 214, 400, TOUCH ? 66 : 58, TOUCH ? 5 : 6)
+    this.actions = this.actionRow(480, TOUCH ? 522 : 506)
+    this.menu = new TextMenu(this, 280, 194, 400, TOUCH ? 60 : 52, TOUCH ? 5 : 6)
     this.menu.onBack = () => {
       if (this.mode === "new") this.show("name")
       else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
@@ -157,7 +164,7 @@ export class Menu extends Scene {
   }
 
   private statsLabel(): string {
-    return `Global Missions: ${this.globalGames ?? "—"}`
+    return t("menu.globalMissions", { n: this.globalGames ?? "—" })
   }
 
   private show(mode: Mode): void {
@@ -204,19 +211,29 @@ export class Menu extends Scene {
 
   private mainItems(): MenuItem[] {
     const items: MenuItem[] = [
-      { label: `${ICON.play} Play`, action: () => this.show("pilots") },
-      { label: `${ICON.options} Options`, action: () => this.show("options") },
+      { label: `${ICON.play} ${t("menu.play")}`, action: () => this.show("pilots") },
     ]
     if (this.scale.fullscreen.available)
       items.push({
-        label: `${ICON.fullscreen} ${this.scale.isFullscreen ? "Exit Fullscreen" : "Fullscreen"}`,
+        label: `${ICON.fullscreen} ${t(this.scale.isFullscreen ? "menu.exitFullscreen" : "menu.fullscreen")}`,
         action: () => {
           toggleFullscreen(this)
           this.time.delayedCall(300, () => this.show("main"))
         },
       })
-    items.push({ label: `${ICON.exit} Exit`, action: () => window.close() })
+    items.push(
+      { label: `${ICON.language} ${t("lang.other")}`, action: () => this.toggleLang() },
+      { label: `${ICON.options} ${t("menu.options")}`, action: () => this.show("options") },
+    )
+    items.push({ label: `${ICON.exit} ${t("menu.exit")}`, action: () => this.exit() })
     return items
+  }
+
+  // window.close() is ignored for pages not opened by script (PWA, fullscreen): leave to home
+  private exit(): void {
+    if (this.scale.isFullscreen) this.scale.stopFullscreen()
+    window.close()
+    window.setTimeout(() => window.location.assign(HOME_URL), 100)
   }
 
   private pilotsItems(): MenuItem[] {
@@ -229,8 +246,8 @@ export class Menu extends Scene {
       },
     }))
     items.push(
-      { label: `${ICON.add} New Pilot`, action: () => this.show("name") },
-      { label: `${ICON.back} Back`, action: () => this.show("main") },
+      { label: `${ICON.add} ${t("menu.newPilot")}`, action: () => this.show("name") },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     )
     return items
   }
@@ -241,25 +258,25 @@ export class Menu extends Scene {
       this.info.setText(`${pilotTitle(p)}: ${p.score} CR`)
       items.push(
         {
-          label: `${ICON.play} Fly`,
+          label: `${ICON.play} ${t("menu.fly")}`,
           action: () => {
             setPilot(p, false)
             this.scene.start("Hangar")
           },
         },
-        { label: `${ICON.delete} Delete Pilot`, action: () => this.show("delete") },
+        { label: `${ICON.delete} ${t("menu.deletePilot")}`, action: () => this.show("delete") },
       )
     } else {
-      this.info.setText(`Delete pilot ${p.name}? This cannot be undone.`)
+      this.info.setText(t("menu.deleteConfirm", { name: p.name }))
       items.push({
-        label: `${ICON.delete} Yes, delete`,
+        label: `${ICON.delete} ${t("menu.yesDelete")}`,
         action: () => {
           deletePilot(p.name)
           this.show("pilots")
         },
       })
     }
-    items.push({ label: `${ICON.back} Back`, action: () => this.show("pilots") })
+    items.push({ label: `${ICON.back} ${t("back")}`, action: () => this.show("pilots") })
     return items
   }
 
@@ -268,50 +285,48 @@ export class Menu extends Scene {
     // row 0 lies under the <input>: activating it (keyboard) focuses the field
     return [
       { label: "", action: () => input.focus() },
-      { label: `${ICON.confirm} OK`, action: () => this.submitName() },
-      { label: `${ICON.back} Back`, action: () => this.show("pilots") },
+      { label: `${ICON.confirm} ${t("ok")}`, action: () => this.submitName() },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.show("pilots") },
     ]
   }
 
   private newItems(): MenuItem[] {
-    this.info.setText(`New pilot: ${this.newName}`)
+    this.info.setText(t("menu.newPilotInfo", { name: this.newName }))
     const start = (d: number) => () => {
       const p = newPilotSave(this.newName, d)
       setPilot(withLoadout(p, loadout(p)))
       this.scene.start("Hangar")
     }
     return [
-      { label: "Rookie", detail: "easy", action: start(DIFF_EASY) },
-      { label: "Veteran", detail: "normal", action: start(DIFF_NORMAL) },
-      { label: "Elite", detail: "hard", action: start(DIFF_HARD) },
-      { label: `${ICON.back} Back`, action: () => this.show("name") },
+      { label: t("diff.rookie"), detail: t("diff.easy"), action: start(DIFF_EASY) },
+      { label: t("diff.veteran"), detail: t("diff.normal"), action: start(DIFF_NORMAL) },
+      { label: t("diff.elite"), detail: t("diff.hard"), action: start(DIFF_HARD) },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.show("name") },
     ]
   }
 
   private installItems(): MenuItem[] {
-    this.body.setText(
-      'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
-    )
-    return [{ label: `${ICON.back} Back`, action: () => this.show("main") }]
+    this.body.setText(t("menu.installHelp"))
+    return [{ label: `${ICON.back} ${t("back")}`, action: () => this.show("main") }]
   }
 
   private updateItems(): MenuItem[] {
-    this.body.setText("A new version of Raptor is available.")
+    this.body.setText(t("menu.updateAvailable"))
     const sw = this.waitingSw
     return [
       {
-        label: `${ICON.install} Update`,
+        label: `${ICON.install} ${t("menu.update")}`,
         action: () => {
-          this.body.setText("Updating…")
+          this.body.setText(t("menu.updating"))
           if (sw) applyUpdate(sw)
         },
       },
-      { label: `${ICON.back} Skip`, action: () => this.show("main") },
+      { label: `${ICON.back} ${t("menu.skip")}`, action: () => this.show("main") },
     ]
   }
 
   private optionsItems(): MenuItem[] {
-    this.info.setText("Shield only recharges while not firing: Auto-Fire blocks regen")
+    this.info.setText(t("menu.shieldInfo"))
     const s = loadSettings()
     const pct = (v: number) => `${Math.round(v * 100)}%`
     const step = (v: number, d = 1) => Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
@@ -330,18 +345,18 @@ export class Menu extends Scene {
     }
     return [
       {
-        label: "Music",
+        label: t("menu.music"),
         detail: pct(s.music),
         action: () => setMusic(cycle(s.music)),
         adjust: (d) => setMusic(step(s.music, d)),
       },
       {
-        label: "Sound Effects",
+        label: t("menu.sfx"),
         detail: pct(s.sfx),
         action: () => setSfx(cycle(s.sfx)),
         adjust: (d) => setSfx(step(s.sfx, d)),
       },
-      { label: `${ICON.back} Back`, action: () => this.show("main") },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     ]
   }
 
@@ -350,7 +365,7 @@ export class Menu extends Scene {
     const el = document.createElement("input")
     el.type = "text"
     el.maxLength = MAX_NAME
-    el.placeholder = "Pilot name"
+    el.placeholder = t("menu.pilotName")
     el.value = this.newName
     el.autocomplete = "off"
     el.style.cssText =
@@ -363,7 +378,7 @@ export class Menu extends Scene {
     })
     el.addEventListener("focus", () => this.setMenuKeys(false))
     el.addEventListener("blur", () => this.setMenuKeys(true))
-    this.nameInput = this.add.dom(480, 237, el)
+    this.nameInput = this.add.dom(480, TOUCH ? 224 : 220, el)
     this.time.delayedCall(0, () => el.focus())
     return el
   }
@@ -383,8 +398,8 @@ export class Menu extends Scene {
   private submitName(): void {
     const name = ((this.nameInput?.node as HTMLInputElement | undefined)?.value ?? "").trim()
     let err = ""
-    if (!name) err = "Enter a name"
-    else if (pilotNameTaken(name)) err = "Name already taken"
+    if (!name) err = t("menu.enterName")
+    else if (pilotNameTaken(name)) err = t("menu.nameTaken")
     if (err) {
       this.info.setText(err)
       return
@@ -401,39 +416,44 @@ export class Menu extends Scene {
    */
   private actionRow(x: number, y: number): GameObjects.Container {
     const style = { fontFamily: UI.font, fontSize: TOUCH ? "22px" : "18px", color: UI.accent }
-    const defs: [string, (t: GameObjects.Text) => void][] = [
+    const defs: [string, (tx: GameObjects.Text) => void][] = [
       ...(isInstalled()
         ? []
-        : [[`${ICON.install} Install App`, () => this.install()] as [string, () => void]]),
-      [`${ICON.share} Share`, (t) => this.share(t)],
-      [`${ICON.contact} Contact`, () => this.open(CONTACT_URL)],
-      [`${ICON.home} Home`, () => this.open(HOME_URL)],
-      [`${ICON.source} Source`, () => this.open(SOURCE_URL)],
+        : [
+            [`${ICON.install} ${t("menu.installApp")}`, () => this.install()] as [
+              string,
+              () => void,
+            ],
+          ]),
+      [`${ICON.share} ${t("menu.share")}`, (tx) => this.share(tx)],
+      [`${ICON.contact} ${t("menu.contact")}`, () => this.open(CONTACT_URL)],
+      [`${ICON.home} ${t("menu.home")}`, () => this.open(HOME_URL)],
+      [`${ICON.source} ${t("menu.source")}`, () => this.open(SOURCE_URL)],
     ]
     this.actionActs = defs.map(([, act]) => act)
     this.actionTexts = defs.map(([label, act], i) => {
-      const t = this.add
+      const tx = this.add
         .text(0, 0, label, style)
         .setOrigin(0, 0.5)
         .setPadding(8, TOUCH ? 22 : 6, 8, TOUCH ? 22 : 6)
-      t.setInteractive({ useHandCursor: true })
-      t.on("pointerover", () => this.hoverAction(i, true))
-      t.on("pointerout", () => this.hoverAction(i, false))
-      t.on("pointerup", () => act(t))
-      return t
+      tx.setInteractive({ useHandCursor: true })
+      tx.on("pointerover", () => this.hoverAction(i, true))
+      tx.on("pointerout", () => this.hoverAction(i, false))
+      tx.on("pointerup", () => act(tx))
+      return tx
     })
     const texts = this.actionTexts
     const gap = TOUCH ? 12 : 28
-    const total = texts.reduce((w, t) => w + t.width, 0) + gap * (texts.length - 1)
+    const total = texts.reduce((w, tx) => w + tx.width, 0) + gap * (texts.length - 1)
     let cx = -total / 2
-    for (const t of texts) {
-      t.x = cx
-      cx += t.width + gap
+    for (const tx of texts) {
+      tx.x = cx
+      cx += tx.width + gap
     }
     // Pills go in first so the labels draw on top of them.
-    this.actionPills = texts.map((t) =>
+    this.actionPills = texts.map((tx) =>
       this.add
-        .rectangle(t.x + t.width / 2, 0, t.width, t.height, GOLD, 0)
+        .rectangle(tx.x + tx.width / 2, 0, tx.width, tx.height, GOLD, 0)
         .setOrigin(0.5)
         .setStrokeStyle(1, GOLD, 0),
     )
@@ -471,14 +491,14 @@ export class Menu extends Scene {
 
   /** Focused link: gold text on a tinted pill. Hovered: white. Rest: cyan. */
   private refreshActions(): void {
-    this.actionTexts.forEach((t, i) => {
+    this.actionTexts.forEach((tx, i) => {
       const focused = this.actionFocused && i === this.actionIndex
       this.actionPills[i]?.setFillStyle(GOLD, focused ? 0.18 : 0)
       this.actionPills[i]?.setStrokeStyle(1, GOLD, focused ? 0.8 : 0)
       let color = UI.accent
       if (focused) color = UI.gold
       else if (this.actionHover === i) color = "#ffffff"
-      t.setColor(color)
+      tx.setColor(color)
     })
   }
 
@@ -491,7 +511,12 @@ export class Menu extends Scene {
     else this.show("install")
   }
 
-  private share(t: GameObjects.Text): void {
+  private toggleLang(): void {
+    setLang(getLang() === "en" ? "de" : "en")
+    this.scene.restart()
+  }
+
+  private share(tx: GameObjects.Text): void {
     const url = window.location.href
     if (typeof navigator.share === "function") {
       void navigator.share({ title: "Raptor: Call of the Void", url }).catch(() => {})
@@ -500,9 +525,9 @@ export class Menu extends Scene {
     void navigator.clipboard
       ?.writeText(url)
       .then(() => {
-        t.setText("Link copied")
+        tx.setText(t("menu.linkCopied"))
         this.time.delayedCall(1500, () => {
-          if (t.active) t.setText(`${ICON.share} Share`)
+          if (tx.active) tx.setText(`${ICON.share} ${t("menu.share")}`)
         })
       })
       .catch(() => {})

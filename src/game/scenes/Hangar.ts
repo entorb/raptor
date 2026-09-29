@@ -16,6 +16,7 @@ import {
 import { ENEMY_LIB } from "../data/ep1"
 import { type PilotSave, SECTORS, type Sector } from "../data/save"
 import { reportMissionStart } from "../data/stats"
+import { t } from "../i18n/i18n"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj } from "../sim/consts"
 import {
@@ -277,9 +278,9 @@ export class Hangar extends Scene {
     const shield = inv.getAmt(Obj.ENERGY)
     const phase = inv.getAmt(Obj.SUPER_SHIELD)
     this.status.setText(
-      `CREDITS ${this.lo.plr.score}   SHIELD ${Math.round((shield / MAX_SHIELD) * 100)}%` +
-        (phase ? `   PHASE ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
-        `   NOVA ${inv.getAmt(Obj.MEGA_BOMB)}`,
+      `${t("hud.credits")} ${this.lo.plr.score}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
+        (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
+        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`,
     )
   }
 
@@ -325,13 +326,13 @@ export class Hangar extends Scene {
         },
       },
       {
-        label: `${ICON.buy} Shop`,
+        label: `${ICON.buy} ${t("hangar.shop")}`,
         action: () => {
           this.save()
           this.scene.start("Shop")
         },
       },
-      { label: `${ICON.back} Exit to Main Menu`, action: () => this.exit() },
+      { label: `${ICON.back} ${t("hangar.exit")}`, action: () => this.exit() },
     ]
     return items
   }
@@ -455,7 +456,7 @@ export class Hangar extends Scene {
     SECTORS.forEach((sec, i) => {
       const b = this.sectorBoxes[i]
       if (!b) return
-      b.label.setText(sec === "train" ? "TRAINING" : "BRAVO")
+      b.label.setText(t(sec === "train" ? "sector.train" : "sector.bravo"))
       this.paint(b, sec === s, row === ROW_SECTOR && sec === s)
     })
     const n = sectorWaves(p, s)
@@ -477,14 +478,14 @@ export class Hangar extends Scene {
     })
     const replay = this.selWave !== next
     this.launchBox.label.setText(
-      `${replay ? ICON.replay : ICON.play} ${replay ? "REPLAY" : "LAUNCH"}  ·  WAVE ${this.selWave + 1}`,
+      `${replay ? ICON.replay : ICON.play} ${t(replay ? "hangar.replay" : "hangar.launch")}  ·  ${t("wave")} ${this.selWave + 1}`,
     )
     this.paint(this.launchBox, row === ROW_LAUNCH, row === ROW_LAUNCH)
     this.showTop(p)
   }
 
   private clearTable(): void {
-    for (const t of this.table) t.destroy()
+    for (const tx of this.table) tx.destroy()
     this.table = []
   }
 
@@ -502,11 +503,11 @@ export class Hangar extends Scene {
       )
     line(
       272,
-      `WAVE ${this.selWave + 1} · TOP 10 · ${st?.s ?? st?.n ?? 0} flown · ${st?.n ?? 0} won`,
+      t("hangar.topLine", { wave: this.selWave + 1, flown: st?.s ?? st?.n ?? 0, won: st?.n ?? 0 }),
       UI.accent,
       17,
     )
-    if (!top.length) line(300, "No runs yet", UI.dim)
+    if (!top.length) line(300, t("hangar.noRuns"), UI.dim)
     top.forEach((v, i) => {
       line(296 + i * 21, topRunLine(i, v), UI.text)
     })
