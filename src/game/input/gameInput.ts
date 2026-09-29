@@ -1,10 +1,10 @@
 // In-game controls -> sim FrameInput.
-// - Keyboard: arrows/WASD move (DOS keyboard acceleration), Space/Ctrl fire, Shift/Alt cycle
-//   special weapon, B/Enter nova bomb, 1..0,- pick a special, P/Esc pause.
+// - Keyboard: arrows/WASD move (DOS keyboard acceleration), Space toggles auto-fire, Shift/Alt next/previous
+//   special weapon, Enter nova bomb, 1..0,- pick a special, P/Esc pause.
 // - Touch: drag anywhere (also the letterbox strips) moves a virtual cursor relative to the ship
 //   so the finger never covers it; on-screen buttons from `buttons`.
-// - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = Space/Ctrl,
-//   a finger on the screen.
+// - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = a finger on
+//   the screen (touch only; no single-shot key on desktop).
 import type { Input, Scene } from "phaser"
 import { SCALE } from "../data/playfield"
 import { loadSettings, saveSettings } from "../data/save"
@@ -72,13 +72,9 @@ export class GameInput {
         "A",
         "S",
         "D",
-        "SPACE",
-        "CTRL",
         "SHIFT",
         "ALT",
-        "B",
         "ENTER",
-        "F",
         "G",
         ...SPECIAL_KEYS.map(([k]) => k),
       ]
@@ -87,7 +83,6 @@ export class GameInput {
         this.keys[n] = key
       }
       for (const [k, , t] of SPECIAL_KEYS) this.keys[k]?.on("down", () => (this.selected = t))
-      this.keys.F?.on("down", () => this.toggleAutoFire())
       // hidden cheat (like the DOS godmode): not listed in the briefing
       this.keys.G?.on("down", () => this.onGod())
       kb.on("keydown", () => {
@@ -170,8 +165,16 @@ export class GameInput {
     if (e.pointerId === this.drag?.id) this.drag = null
   }
 
+  private enterHeld = false
+
+  /** Ignore ENTER (nova) until it is released, e.g. after it closed the pause menu. */
+  ignoreEnterUntilUp(): void {
+    this.enterHeld = true
+  }
+
   /** Called once per sim frame. */
   read(): FrameInput {
+    if (!this.isDown("ENTER")) this.enterHeld = false
     const sel = this.selected
     this.selected = null
     const taps = this.tapButtons
@@ -182,9 +185,10 @@ export class GameInput {
       up: this.isDown("UP", "W"),
       down: this.isDown("DOWN", "S"),
       pointer: this.pointer,
-      fire: this.autoFire || this.isDown("SPACE", "CTRL"),
-      cycle: taps.has("cycle") || this.isDown("SHIFT", "ALT"),
-      mega: taps.has("mega") || this.isDown("B", "ENTER"),
+      fire: this.autoFire,
+      cycle: taps.has("cycle") || this.isDown("SHIFT"),
+      cyclePrev: this.isDown("ALT"),
+      mega: taps.has("mega") || (!this.enterHeld && this.isDown("ENTER")),
       select: sel,
     }
   }

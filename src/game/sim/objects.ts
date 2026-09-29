@@ -138,7 +138,7 @@ export const OBJ_LIB: ObjLib[] = [
 
 /**
  * Special weapons in shop order (by price). Web change to RAP.C Do_Game: the shop rows, HUD
- * strip, number-key picks (`gameInput.ts SPECIAL_KEYS`) and the cycle (Shift/Alt) button all walk
+ * strip, number-key picks (`gameInput.ts SPECIAL_KEYS`) and the cycle (Shift/Alt) keys all walk
  * this same order instead of the DOS object order.
  */
 export const WEAPON_ORDER: ObjType[] = OBJ_LIB.map((_, t) => t as ObjType)
@@ -239,11 +239,11 @@ export class Inventory {
     if (type === this.plr.sweapon) this.getNext()
   }
 
-  getNext(): void {
+  getNext(dir = 1): void {
     let idx = WEAPON_ORDER.indexOf(this.plr.sweapon as ObjType)
     let setval = EMPTY
     for (const _ of WEAPON_ORDER) {
-      idx = (idx + 1) % WEAPON_ORDER.length
+      idx = (idx + dir + WEAPON_ORDER.length) % WEAPON_ORDER.length
       const pos = WEAPON_ORDER[idx] as ObjType
       const cur = this.p_objs[pos]
       if (cur?.num) {

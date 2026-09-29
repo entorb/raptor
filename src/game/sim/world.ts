@@ -58,6 +58,8 @@ export interface FrameInput {
   fire: boolean
   /** BUT_2: cycle special weapon */
   cycle: boolean
+  /** web only: cycle special weapon backwards */
+  cyclePrev?: boolean
   /** BUT_3: mega bomb */
   mega: boolean
   /** keys 1..0,-: select a special weapon */
@@ -161,6 +163,7 @@ export class World {
   fadecnt = 0
   private b2_flag = false
   private b3_flag = false
+  private b4_flag = false
   private objuse_flag = false
   private think_cnt = 0
   private g_oldshield = EMPTY
@@ -406,6 +409,12 @@ export class World {
       this.b2_flag = true
       this.inv.getNext()
     }
+    if (!but[3]) this.b4_flag = false
+    else if (!this.b4_flag) {
+      this.sfx("SWEP")
+      this.b4_flag = true
+      this.inv.getNext(-1)
+    }
     if (!but[2]) this.b3_flag = false
     else if (!this.b3_flag) {
       this.b3_flag = true
@@ -424,11 +433,11 @@ export class World {
     this.g_flash = 0
     this.frame++
 
-    let but = [inp.fire, inp.cycle, inp.mega]
+    let but = [inp.fire, inp.cycle, inp.mega, !!inp.cyclePrev]
     if (this.demo) {
       const r = this.demoStep()
       if (!r) return false
-      but = [!!r.b[0], !!r.b[1], !!r.b[2]]
+      but = [!!r.b[0], !!r.b[1], !!r.b[2], false]
     } else this.movePlayer(inp)
 
     if (inp.select !== null) this.inv.makeSpecial(inp.select)

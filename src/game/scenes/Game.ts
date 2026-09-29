@@ -249,6 +249,10 @@ export class Game extends Scene {
     kb?.on("keydown-S", () => this.pauseMove(1))
     kb?.on("keydown-ENTER", () => this.pauseActivate())
     kb?.on("keydown-SPACE", () => this.pauseActivate())
+    kb?.on("keydown-SPACE", () => {
+      if (!this.paused && !this.waiting && !this.ended && this.demo < 0)
+        this.input2.toggleAutoFire()
+    })
     // start on keyup: a held Enter/Space would fire a nova bomb or shots in the first frame
     for (const k of ["ENTER", "SPACE"]) {
       kb?.on(`keydown-${k}`, () => (this.startArmed = this.waiting))
@@ -631,7 +635,6 @@ export class Game extends Scene {
         ]
       : [
           tr("ctl.move"),
-          tr("ctl.fire"),
           tr("ctl.special"),
           tr("ctl.nova"),
           tr("ctl.pause"),
@@ -875,6 +878,7 @@ export class Game extends Scene {
     this.pauseLayer = null
     this.pauseItems = []
     if (!this.paused) {
+      this.input2.ignoreEnterUntilUp()
       this.sound.resumeAll()
       return
     }
