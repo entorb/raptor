@@ -3,6 +3,8 @@ import type { GameObjects, Input, Scene } from "phaser"
 
 export interface MenuItem {
   label: string
+  /** texture key of an icon drawn left of the label */
+  icon?: string
   /** right-aligned detail text (price, value) */
   detail?: string
   disabled?: boolean
@@ -52,7 +54,9 @@ export class TextMenu {
     bg: GameObjects.Rectangle
     label: GameObjects.Text
     detail: GameObjects.Text
+    icon: GameObjects.Image
   }[] = []
+  private readonly labelX: number
   private cursor = 0
   readonly visible: number
   readonly rowH: number
@@ -79,12 +83,24 @@ export class TextMenu {
   onUpFromStart: (() => void) | null = null
   /** Touch: the first tap only selects (shows the description), a tap on the selected row activates. */
   tapToSelect = false
-  /** False while another row owns the arrow/confirm keys (the link row does). */
-  enabled = true
+  private active = true
+
+  /** False while another control owns the arrow/confirm keys (link row, tabs, back button): the
+   * selection highlight is hidden then, so only one control looks focused. */
+  get enabled(): boolean {
+    return this.active
+  }
+
+  set enabled(on: boolean) {
+    if (on === this.active) return
+    this.active = on
+    this.refresh()
+  }
 
   constructor(scene: Scene, x: number, y: number, w: number, rowH = 44, visible = 9) {
     this.visible = visible
     this.rowH = rowH
+    this.labelX = x + 18
     const kb = scene.input.keyboard
     if (kb) {
       const bind = (key: string, fn: () => void) =>
@@ -133,7 +149,7 @@ export class TextMenu {
         }
         const idx = this.scroll + i
         if (idx >= this.items.length) return
-        if (pointer.wasTouch && this.tapToSelect && idx !== this.cursor) {
+        if (pointer.wasTouch && this.tapToSelect && (idx !== this.cursor || !this.active)) {
           this.cursor = idx
           this.refresh()
           this.onMove?.(idx)
@@ -154,7 +170,11 @@ export class TextMenu {
         color: UI.gold,
       })
       detail.setOrigin(1, 0.5)
-      this.rows.push({ bg, label, detail })
+      const icon = scene.add
+        .image(x + 12 + rowH * 0.4, cy + rowH / 2, "__DEFAULT")
+        .setDisplaySize(rowH * 0.8, rowH * 0.8)
+        .setVisible(false)
+      this.rows.push({ bg, label, detail, icon })
     }
 
     // Drag-to-scroll and wheel: rows beyond the visible window have no keyboard
@@ -232,9 +252,12 @@ export class TextMenu {
     if (this.cursor >= this.scroll + this.visible) this.scroll = this.cursor - this.visible + 1
     this.rows.forEach((r, i) => {
       const it = this.items[this.scroll + i]
-      const sel = this.scroll + i === this.cursor
+      const sel = this.active && this.scroll + i === this.cursor
       r.label.setText(it ? it.label : "")
       r.detail.setText(it?.detail ?? "")
+      if (it?.icon) r.icon.setTexture(it.icon).setDisplaySize(this.rowH * 0.8, this.rowH * 0.8)
+      r.icon.setVisible(!!it?.icon).setAlpha(it?.dim ? 0.45 : 1)
+      r.label.setX(it?.icon ? this.labelX + this.rowH * 0.8 + 4 : this.labelX)
       let color = UI.text
       if (it?.disabled || it?.dim) color = UI.dim
       else if (it && sel) color = "#ffffff"
@@ -276,4 +299,41 @@ export function backdrop(scene: Scene): () => void {
     far.tilePositionY -= 0.3
     near.tilePositionY -= 0.8
   }
+}
+
+/** Labeled back button (top left): tap, hover and a keyboard focus look via `focus(on)`. */
+export function backButton(scene: Scene, label: string, onTap: () => void) {
+  const w = TOUCH ? 190 : 160
+  const bg = scene.add
+    .rectangle(16 + w / 2, TOUCH ? 46 : 38, w, TOUCH ? 74 : 46, 0x10182a, 0.9)
+    .setStrokeStyle(2, 0x39d0ff, 0.5)
+    .setInteractive({ useHandCursor: true })
+  const text = scene.add
+    .text(16 + w / 2, TOUCH ? 46 : 38, `${ICON.back} ${label}`, {
+      fontFamily: UI.font,
+      fontSize: TOUCH ? "24px" : "20px",
+      color: UI.text,
+      fontStyle: "bold",
+    })
+    .setOrigin(0.5)
+  const btn = {
+    bg,
+    text,
+    focused: false,
+    /** Highlight (keyboard focus or pointer hover). */
+    look(on: boolean) {
+      bg.setFillStyle(on ? 0x1d3a5c : 0x10182a, 0.9)
+      bg.setStrokeStyle(2, on ? 0xffffff : 0x39d0ff, on ? 0.9 : 0.5)
+      text.setColor(on ? "#ffffff" : UI.text)
+    },
+    setVisible(on: boolean) {
+      bg.setVisible(on)
+      text.setVisible(on)
+      if (bg.input) bg.input.enabled = on
+    },
+  }
+  bg.on("pointerover", () => btn.look(true))
+  bg.on("pointerout", () => btn.look(btn.focused))
+  bg.on("pointerup", onTap)
+  return btn
 }

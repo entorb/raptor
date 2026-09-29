@@ -1,6 +1,5 @@
 // Procedural effect textures: shots, particles, pickups, map structures.
 import { PIC_SIZES } from "../data/ep1"
-import { Obj } from "../sim/consts"
 import { bullseye, type Ctx, canopy, glow, metal, polyPath, roundRect, seeded } from "./draw"
 
 /**
@@ -41,7 +40,7 @@ export function drawShot(ctx: Ctx, key: string, tw: number): void {
   ctx.restore()
 }
 
-function drawShotArt(ctx: Ctx, key: string, w: number, h: number): void {
+export function drawShotArt(ctx: Ctx, key: string, w: number, h: number): void {
   const cx = w / 2
   const cy = h / 2
   const bolt = (color: string, core: string) => {
@@ -255,65 +254,6 @@ export function drawShard(ctx: Ctx, s: number): void {
     [0, s * 0.6],
   ])
   metal(ctx, 0, s, "#1b1f28", "#56627a", "#c8d2e6", ["rgba(255,255,255,0.4)", 1])
-}
-
-/** Pickup color + glyph per object type. */
-const PICKUP: Partial<Record<number, [string, string]>> = {
-  [Obj.FORWARD_GUNS]: ["#39d0ff", "B"],
-  [Obj.PLASMA_GUNS]: ["#6dff6d", "P"],
-  [Obj.MICRO_MISSLE]: ["#ffb347", "M"],
-  [Obj.DUMB_MISSLE]: ["#ff7a2e", "D"],
-  [Obj.MINI_GUN]: ["#ffe03d", "G"],
-  [Obj.TURRET]: ["#ff3dd2", "T"],
-  [Obj.MISSLE_PODS]: ["#ff9a2e", "R"],
-  [Obj.AIR_MISSLE]: ["#9fb7ff", "A"],
-  [Obj.GRD_MISSLE]: ["#9fd6a5", "S"],
-  [Obj.BOMB]: ["#ff5050", "H"],
-  [Obj.ENERGY_GRAB]: ["#8ffcff", "E"],
-  [Obj.MEGA_BOMB]: ["#ffe066", "N"],
-  [Obj.PULSE_CANNON]: ["#a078ff", "W"],
-  [Obj.FORWARD_LASER]: ["#ff3dd2", "L"],
-  [Obj.DEATH_RAY]: ["#ffe03d", "X"],
-  [Obj.SUPER_SHIELD]: ["#46e0ff", "Φ"],
-  [Obj.ENERGY]: ["#2effb4", "+"],
-  [Obj.DETECT]: ["#ffffff", "?"],
-}
-
-/** Hex badge pickup / HUD icon (money types become a golden crystal). */
-export function drawPickup(ctx: Ctx, type: number, s: number): void {
-  const cx = s / 2
-  const cy = s / 2
-  const def = PICKUP[type]
-  if (!def) {
-    // credits / energy crystal
-    polyPath(ctx, [
-      [cx, s * 0.08],
-      [s * 0.8, cy],
-      [cx, s * 0.92],
-      [s * 0.2, cy],
-    ])
-    metal(ctx, s * 0.2, s * 0.8, "#6b4a00", "#ffc83d", "#fff6c8", ["rgba(255,255,255,0.6)", 1.5])
-    glow(ctx, cx, cy, s * 0.3, "#ffd23d")
-    return
-  }
-  const [color, glyph] = def
-  glow(ctx, cx, cy, s * 0.5, color, color)
-  const pts: [number, number][] = []
-  for (let i = 0; i < 6; i++) {
-    const a = Math.PI / 6 + (i * Math.PI) / 3
-    pts.push([cx + Math.cos(a) * s * 0.4, cy + Math.sin(a) * s * 0.4])
-  }
-  polyPath(ctx, pts)
-  ctx.fillStyle = "rgba(10,14,24,0.85)"
-  ctx.fill()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = color
-  ctx.stroke()
-  ctx.fillStyle = "#ffffff"
-  ctx.font = `bold ${Math.round(s * 0.42)}px system-ui, sans-serif`
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText(glyph, cx, cy + 1)
 }
 
 /** Solar cell grid (the two top middle cells are left out for the hub). */

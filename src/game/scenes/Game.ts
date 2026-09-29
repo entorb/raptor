@@ -136,6 +136,7 @@ export class Game extends Scene {
     items: { t: ObjType; x: number; objs: GameObjects.GameObject[] }[]
   } = { sig: "", items: [] }
   private lastWeapon = -1
+  private novaBtn: GameObjects.Image | null = null
   private stars!: GameObjects.TileSprite[]
   private paused = false
   private pauseLayer: GameObjects.Container | null = null
@@ -173,6 +174,7 @@ export class Game extends Scene {
   }
 
   create(): void {
+    this.novaBtn = null
     let diff: number
     let frames: DemoFrame[] | null = null
     if (this.demo >= 0) {
@@ -588,6 +590,12 @@ export class Game extends Scene {
         { id: "mega", x: 890, y: 400, r: 64 }, // right thumb: above the weapon cycle, left thumb steers
         { id: "cycle", x: 890, y: 530, r: 64 },
       ]
+      this.novaBtn = this.add
+        .image(890, 400, `icon-${Obj.MEGA_BOMB}`)
+        .setScale(0.6)
+        .setAlpha(0.85)
+        .setDepth(D.hud)
+        .setVisible(false)
     }
   }
 
@@ -607,7 +615,7 @@ export class Game extends Scene {
           "STEER        drag anywhere (also beside the game)",
           `FIRE         ${this.input2.autoFire ? "automatic" : "while touching"}`,
           ...(specials.length ? ["SPECIAL      ▶ button: next · tap icon at bottom"] : []),
-          "NOVA BOMB    ● button",
+          "NOVA BOMB    nova button (right)",
           "PAUSE        ❚❚ button",
           `AUTO-FIRE    ${fire} · toggle in pause menu`,
         ]
@@ -768,7 +776,9 @@ export class Game extends Scene {
     if (w.weaponLost) warn = "WEAPON LOST\nSHIELD LOW"
     else if (w.lowShield) warn = "SHIELD LOW"
     this.hud.warn.setText(warn)
-    if (this.input2.touchMode && this.demo < 0) this.drawTouchButtons(g)
+    const touch = this.input2.touchMode && this.demo < 0
+    this.novaBtn?.setVisible(touch)
+    if (touch) this.drawTouchButtons(g)
   }
 
   private drawTouchButtons(g: GameObjects.Graphics): void {
@@ -777,7 +787,6 @@ export class Game extends Scene {
     // pause: drawn at the size of its hit zone (r 44), 40 px read as ~24 CSS px on phones
     g.lineStyle(2, 0xffffff, 0.4).strokeRoundedRect(12, 12, 56, 56, 10)
     g.fillStyle(0xffffff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
-    g.fillStyle(0xffe066, 0.8).fillCircle(890, 400, 12)
     g.fillStyle(0x39d0ff, 0.8).fillTriangle(878, 520, 878, 540, 902, 530)
   }
 

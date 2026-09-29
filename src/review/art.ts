@@ -1,14 +1,8 @@
 // Dev-only art review page (/raptor/review/art.html): every procedural sprite next to the original
 // picture from tmp/ref (if dumped), enemies grouped by the mission (wave) that spawns them.
-import {
-  drawDot,
-  drawPickup,
-  drawShard,
-  drawShot,
-  drawSmoke,
-  drawStructure,
-  drawWreck,
-} from "../game/art/fx"
+
+import { drawDot, drawShard, drawShot, drawSmoke, drawStructure, drawWreck } from "../game/art/fx"
+import { drawPickup } from "../game/art/icons"
 import { drawPlayer, drawUnit } from "../game/art/ships"
 import { buildField, CHUNK_ROWS, CHUNKS, RES, renderChunk } from "../game/art/terrain"
 import { STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"

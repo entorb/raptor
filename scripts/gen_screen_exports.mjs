@@ -76,17 +76,21 @@ const SCREENS = [
   ["pilots", async (p) => call(p, "Menu", "show", "pilots")],
   ["options", async (p) => call(p, "Menu", "show", "options")],
   ["hangar", async (p) => start(p, "Hangar")],
-  ["shop-buy", async (p) => call(p, "Hangar", "show", "shop")],
+  ["shop-buy", async (p) => start(p, "Shop")],
   [
     "shop-sell",
     async (p) =>
       p.evaluate(() => {
-        const h = window.__game.scene.getScene("Hangar")
-        h.buying = false
-        h.show("shop")
+        window.__game.scene.getScene("Shop").setTab(false)
       }),
   ],
-  ["launch", async (p) => call(p, "Hangar", "openLaunch", "bravo", 0)],
+  [
+    "launch",
+    async (p) => {
+      await start(p, "Hangar")
+      await call(p, "Hangar", "openLaunch", "bravo", 0)
+    },
+  ],
   ["briefing", async (p) => start(p, "Game", { sector: "bravo", wave: 0 }, 1500)],
   ["play", async (p) => (await call(p, "Game", "startMission"), p.waitForTimeout(4000))],
   ["pause", async (p) => call(p, "Game", "togglePause")],

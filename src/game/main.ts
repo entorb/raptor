@@ -4,6 +4,7 @@ import { Boot } from "./scenes/Boot"
 import { Game as MainGame } from "./scenes/Game"
 import { Hangar } from "./scenes/Hangar"
 import { Menu } from "./scenes/Menu"
+import { Shop } from "./scenes/Shop"
 
 const config: Types.Core.GameConfig = {
   type: AUTO,
@@ -20,7 +21,7 @@ const config: Types.Core.GameConfig = {
   input: {
     activePointers: 3,
   },
-  scene: [Boot, Menu, Hangar, MainGame],
+  scene: [Boot, Menu, Hangar, Shop, MainGame],
 }
 
 const StartGame = (parent: string) => {
