@@ -11,6 +11,7 @@ rm -f -- ./*/.DS_Store
 echo "## Checks"
 echo "### Code checks"
 ./scripts/run_checks.sh
+./scripts/run_spelling.sh
 
 echo "## Frontend Build and Transfer"
 pnpm run build

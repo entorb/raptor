@@ -46,6 +46,12 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   `SPECS`), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
   `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing backdrop per sector, crossfaded by `Hangar.show`), `terrain.ts` (terrain chunks), `textures.ts`
   (texture keys, built once in `Boot`).
+- `src/game/i18n/`: EN (default) + DE. `strings.ts` = `STRINGS` (`en`/`de` per key, `{name}` placeholders),
+  `i18n.ts` = `t(key, params)`, `setLang` (localStorage `raptor.lang`, also sets `<html lang>` + the `#rotate`
+  overlay). Toggle = main menu item (restarts the scene). All UI text goes through `t()`: never
+  cache a translated string in a module constant. Headers (RAPTOR, CALL OF THE VOID, HANGAR, SUPPLY SHOP,
+  MISSION BRIEFING) and item names (`OBJ_LIB`) stay English. `Game.ts` imports it as `tr` (local `t` vars).
+  `strings.ts` is excluded from cspell.
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
   (`Settings.autoFire`, default on) fires continuously; toggles: Options menu, pause menu, F key.

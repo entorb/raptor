@@ -12,7 +12,6 @@ import {
   nextWave,
   recordFail,
   recordStart,
-  SECTOR_NAMES,
   sectorDiff,
   topRunLine,
   type WaveResult,
@@ -22,6 +21,7 @@ import {
 import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import { loadPilots, type Sector, savePilot } from "../data/save"
+import { t as tr } from "../i18n/i18n"
 import { toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
 import { Effects } from "../render/effects"
@@ -272,7 +272,7 @@ export class Game extends Scene {
   }
 
   private sectorTitle(): string {
-    return this.sector === "train" ? "TRAINING SIMULATION" : SECTOR_NAMES[this.sector]
+    return tr(this.sector === "train" ? "game.trainSim" : "sector.bravoName")
   }
 
   private scrollY(): number {
@@ -486,9 +486,10 @@ export class Game extends Scene {
   private pickupText(type: ObjType, x: number, y: number): void {
     const money: Partial<Record<number, string>> = {
       [Obj.ITEMBUY6]: "+50 CR",
-      [Obj.ENERGY]: "+SHIELD",
+      [Obj.ENERGY]: tr("game.pickupShield"),
     }
-    const label = money[type] ?? (type >= Obj.ITEMBUY1 ? "+CREDITS" : "WEAPON")
+    const label =
+      money[type] ?? tr(type >= Obj.ITEMBUY1 ? "game.pickupCredits" : "game.pickupWeapon")
     const t = this.add
       .text(x * SCALE, y * SCALE, label, {
         fontFamily: UI.font,
@@ -541,7 +542,7 @@ export class Game extends Scene {
       .setOrigin(0.5)
       .setDepth(D.hud)
     const banner = this.add
-      .text(480, 110, `${this.sectorTitle()}\nWAVE ${this.wave + 1}`, {
+      .text(480, 110, `${this.sectorTitle()}\n${tr("wave")} ${this.wave + 1}`, {
         fontFamily: UI.font,
         fontSize: "40px",
         color: "#ffffff",
@@ -552,12 +553,13 @@ export class Game extends Scene {
       .setDepth(D.overlay)
       .setShadow(0, 0, UI.accent, 20, true, true)
       .setPadding(30)
-    if (this.demo >= 0) banner.setText("DEMO\ntap or press any key").setY(250)
+    if (this.demo >= 0) banner.setText(tr("game.demo")).setY(250)
     if (this.demo < 0) {
       this.briefing = this.controlsPanel(160).setDepth(D.overlay)
       this.waiting = true
     } else this.tweens.add({ targets: banner, alpha: 0, delay: 5200, duration: 800 })
-    this.input2.onAutoFire = (on) => this.toast(`AUTO-FIRE ${on ? "ON" : "OFF"}`)
+    this.input2.onAutoFire = (on) =>
+      this.toast(tr("game.autoFire", { state: tr(on ? "on" : "off") }))
     this.input2.onGod = () => this.toggleGod()
     const weaponName = this.add
       .text(480, 62, "", {
@@ -615,36 +617,31 @@ export class Game extends Scene {
   /** Mission briefing: all controls plus the keys of the special weapons on board. */
   private controlsLines(): string[] {
     const inv = this.world.inv
-    const fire = this.input2.autoFire ? "ON" : "OFF"
+    const fire = tr(this.input2.autoFire ? "on" : "off")
     const specials = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t)).map(
       ([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`,
     )
     const lines = this.isTouch()
       ? [
-          "STEER        drag anywhere (also beside the game)",
-          `FIRE         auto-fire ${fire} · green button (right)`,
-          ...(specials.length ? ["SPECIAL      ▶ button: next · tap icon at bottom"] : []),
-          "NOVA BOMB    nova button (right, top)",
-          "PAUSE        ❚❚ button",
+          tr("ctl.touchSteer"),
+          tr("ctl.touchFire", { state: fire }),
+          ...(specials.length ? [tr("ctl.touchSpecial")] : []),
+          tr("ctl.touchNova"),
+          tr("ctl.touchPause"),
         ]
       : [
-          "MOVE         Arrows / WASD",
-          "FIRE         Space / Ctrl",
-          "SPECIAL      Shift / Alt: next weapon",
-          "NOVA BOMB    B / Enter",
-          "PAUSE        P / Esc",
-          `AUTO-FIRE    F: on/off (now ${fire})`,
+          tr("ctl.move"),
+          tr("ctl.fire"),
+          tr("ctl.special"),
+          tr("ctl.nova"),
+          tr("ctl.pause"),
+          tr("ctl.autoFire", { state: fire }),
         ]
     // OBJS_Think: no recharge on hard
-    if (this.world.curplr_diff < DIFF_HARD)
-      lines.push("             not firing recharges the shield")
+    if (this.world.curplr_diff < DIFF_HARD) lines.push(tr("ctl.recharge"))
     if (specials.length) {
-      lines.push(
-        "",
-        this.isTouch() ? "SPECIAL WEAPONS ON BOARD" : "SELECT SPECIAL WEAPON",
-        ...specials,
-      )
-    } else lines.push("", "No special weapons on board: buy some in the supply shop.")
+      lines.push("", tr(this.isTouch() ? "ctl.specialsTouch" : "ctl.specialsKeys"), ...specials)
+    } else lines.push("", tr("ctl.noSpecials"))
     return lines
   }
 
@@ -659,7 +656,7 @@ export class Game extends Scene {
       })
       .setOrigin(0.5)
     const btn = this.add
-      .text(0, text.height / 2 + 34, this.isTouch() ? "▶ START" : "▶ START  [Enter]", {
+      .text(0, text.height / 2 + 34, `▶ ${tr("game.start")}${this.isTouch() ? "" : "  [Enter]"}`, {
         fontFamily: UI.font,
         fontSize: "26px",
         color: "#ffffff",
@@ -761,7 +758,7 @@ export class Game extends Scene {
     // refresh on kills only: newly seen enemies would otherwise make the value creep down constantly
     if (w.enemies.killed !== this.shownKills) {
       this.shownKills = w.enemies.killed
-      this.hud.killPct.setText(`KILLS ${w.destroyedPct.enemies ?? 0}%`)
+      this.hud.killPct.setText(`${tr("game.kills")} ${w.destroyedPct.enemies ?? 0}%`)
     }
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)
@@ -781,8 +778,8 @@ export class Game extends Scene {
       }
     }
     let warn = ""
-    if (w.weaponLost) warn = "WEAPON LOST\nSHIELD LOW"
-    else if (w.lowShield) warn = "SHIELD LOW"
+    if (w.weaponLost) warn = tr("game.weaponLost")
+    else if (w.lowShield) warn = tr("game.shieldLow")
     this.hud.warn.setText(warn)
     const touch = this.input2.touchMode && this.demo < 0
     this.novaBtn?.setVisible(touch && nova > 0)
@@ -891,7 +888,7 @@ export class Game extends Scene {
     this.hud.banner.setAlpha(0)
     const bg = this.add.rectangle(480, 300, 960, 600, 0x000000, 0.6)
     const title = this.add
-      .text(480, 110, "PAUSED", {
+      .text(480, 110, tr("game.paused"), {
         fontFamily: UI.font,
         fontSize: "48px",
         color: "#ffffff",
@@ -914,8 +911,9 @@ export class Game extends Scene {
       return t
     }
     const items: GameObjects.Text[] = []
-    items.push(mk(0, "Resume", () => this.togglePause()))
-    const fireLabel = () => `Auto-Fire: ${this.input2.autoFire ? "ON" : "OFF"}`
+    items.push(mk(0, tr("game.resume"), () => this.togglePause()))
+    const fireLabel = () =>
+      tr("game.autoFireLabel", { state: tr(this.input2.autoFire ? "on" : "off") })
     const fire = mk(0, fireLabel(), () => {
       this.input2.toggleAutoFire()
       fire.setText(fireLabel())
@@ -923,14 +921,15 @@ export class Game extends Scene {
     items.push(fire)
     // hidden where the Fullscreen API is missing (iPhone), like the menu entry
     if (this.scale.fullscreen.available) {
-      const fsLabel = () => `Fullscreen: ${this.scale.isFullscreen ? "ON" : "OFF"}`
+      const fsLabel = () =>
+        tr("game.fullscreenLabel", { state: tr(this.scale.isFullscreen ? "on" : "off") })
       const fs = mk(0, fsLabel(), () => {
         toggleFullscreen(this)
         this.time.delayedCall(300, () => fs.active && fs.setText(fsLabel()))
       })
       items.push(fs)
     }
-    items.push(mk(0, "Abort Mission", () => this.end("abort")))
+    items.push(mk(0, tr("game.abort"), () => this.end("abort")))
     items.forEach((t, i) => {
       t.setY(180 + i * 62)
     })
@@ -938,7 +937,7 @@ export class Game extends Scene {
     this.pauseHighlight()
     const extras = this.pauseWeapons(180 + items.length * 62 + 10)
     const hint = this.add
-      .text(480, 500, this.isTouch() ? "" : "Arrows + Enter, Esc/P resume", {
+      .text(480, 500, this.isTouch() ? "" : tr("game.pauseHint"), {
         fontFamily: UI.font,
         fontSize: "16px",
         color: UI.dim,
@@ -957,7 +956,11 @@ export class Game extends Scene {
     let cur = this.world.plr.sweapon
     const out: GameObjects.GameObject[] = [
       this.add
-        .text(480, y, "SPECIAL WEAPON", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+        .text(480, y, tr("game.specialWeapon"), {
+          fontFamily: UI.font,
+          fontSize: "16px",
+          color: UI.dim,
+        })
         .setOrigin(0.5),
     ]
     const frames: [number, GameObjects.Rectangle][] = []
@@ -1009,10 +1012,10 @@ export class Game extends Scene {
         })
       reloadPilot()
       return {
-        text: sim ? "SIMULATION FAILED" : "SHIP DESTROYED",
+        text: tr(sim ? "game.simFailed" : "game.shipDestroyed"),
         next: () =>
           this.scene.start("Hangar", {
-            message: `${sim ? "Simulation failed" : "Ship destroyed"}. Last save restored.${cr}`,
+            message: `${tr(sim ? "game.simFailedMsg" : "game.shipDestroyedMsg")}${cr}`,
           }),
       }
     }
@@ -1028,11 +1031,11 @@ export class Game extends Scene {
     }
     if (outcome === "landing") return this.landingTarget(sim, result, replay, payout)
     const training = outcome === "trainingComplete"
-    const message = training
-      ? "Training complete. Missions can be replayed."
-      : "Sector secured! Missions can be replayed."
+    const message = training ? tr("game.trainingCompleteMsg") : tr("game.sectorSecuredMsg")
     return {
-      text: training ? "TRAINING COMPLETE" : `${SECTOR_NAMES.bravo} SECURED`,
+      text: training
+        ? tr("game.trainingComplete")
+        : tr("game.sectorSecured", { sector: tr("sector.bravoName") }),
       next: () => this.scene.start("Hangar", { message }),
     }
   }
@@ -1044,15 +1047,14 @@ export class Game extends Scene {
     payout: number,
   ): { text: string; next: () => void } {
     const aborted = result === "abort"
-    const verb = replay ? "replayed" : "complete"
     const payoutStr = payout > 0 ? ` +${payout} CR` : ""
     const message = aborted
-      ? `Mission aborted.${payoutStr}`
-      : `Wave ${this.wave + 1} ${verb}: +${payout} CR`
+      ? `${tr("game.aborted")}${payoutStr}`
+      : tr(replay ? "game.waveReplayed" : "game.waveComplete", { n: this.wave + 1, cr: payout })
     const data: HangarData = { message }
-    const completeText = `${sim ? "SIMULATION" : "WAVE"} COMPLETE`
+    const completeText = tr(sim ? "game.simComplete" : "game.waveCompleteTitle")
     return {
-      text: aborted ? "MISSION ABORTED" : completeText,
+      text: aborted ? tr("game.missionAborted") : completeText,
       next: () => this.scene.start("Hangar", data),
     }
   }
@@ -1127,19 +1129,13 @@ export class Game extends Scene {
         .setShadow(0, 0, UI.accent, 24, true, true)
         .setPadding(36),
       txt(-150, `+${earned} CR`, 24, UI.gold),
-      txt(
-        -116,
-        `Enemies ${fmt(pct.enemies)}  ·  Buildings ${fmt(pct.buildings)} destroyed`,
-        20,
-        UI.text,
-      ),
-      txt(-78, `WAVE ${this.wave + 1}  ·  TOP 10  ·  ${st?.n ?? 0}x flown`, 19, UI.accent, UI.mono),
+      txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
+      txt(-78, tr("game.topLine", { wave: this.wave + 1, n: st?.n ?? 0 }), 19, UI.accent, UI.mono),
       ...top.map((r, i) =>
         txt(-52 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
       ),
     ]
-    if (rank === null)
-      items.push(txt(-48 + top.length * 21, "This run is not in the top 10", 18, UI.warn))
+    if (rank === null) items.push(txt(-48 + top.length * 21, tr("game.notTop"), 18, UI.warn))
     let done = false
     const go = () => {
       if (done) return
@@ -1147,7 +1143,12 @@ export class Game extends Scene {
       this.cameras.main.fadeOut(400, 0, 0, 0)
       this.time.delayedCall(450, next)
     }
-    const btn = txt(208, this.isTouch() ? "CONTINUE" : "CONTINUE  [Enter]", 26, "#ffffff")
+    const btn = txt(
+      208,
+      `${tr("game.continue")}${this.isTouch() ? "" : "  [Enter]"}`,
+      26,
+      "#ffffff",
+    )
       .setBackgroundColor("#1d3a5c")
       .setPadding(28, 8, 28, 8)
       .setInteractive({ useHandCursor: true })

@@ -4,31 +4,33 @@ import { type GameObjects, Scene } from "phaser"
 import { ICON_COLOR } from "../art/icons"
 import { getAudio } from "../audio/audio"
 import { type Loadout, withLoadout } from "../campaign"
+import { t } from "../i18n/i18n"
+import type { StringKey } from "../i18n/strings"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
 import { Buy, OBJ_LIB } from "../sim/objects"
 import { backButton, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
 
 /** One-line shop descriptions (space re-theme of the ITEMxx_TXT help). */
-const DESC: Partial<Record<ObjType, string>> = {
-  [Obj.FORWARD_GUNS]: "Standard twin blasters. Hit air and surface targets.",
-  [Obj.PLASMA_GUNS]: "Heavy plasma bolts, air targets only.",
-  [Obj.MICRO_MISSLE]: "Wing-mounted micro missiles, air and surface.",
-  [Obj.DUMB_MISSLE]: "Special: unguided missiles, dropped then launched.",
-  [Obj.MINI_GUN]: "Special: auto-tracking minigun, locks on random targets.",
-  [Obj.TURRET]: "Special: auto-tracking laser turret vs. fighters.",
-  [Obj.MISSLE_PODS]: "Special: rapid missile pods vs. fighters.",
-  [Obj.AIR_MISSLE]: "Special: air-to-air missiles.",
-  [Obj.GRD_MISSLE]: "Special: heavy missiles vs. surface targets.",
-  [Obj.BOMB]: "Special: hull buster bomb for station modules.",
-  [Obj.ENERGY_GRAB]: "Special: siphons enemy energy and jams their guns.",
-  [Obj.MEGA_BOMB]: "Nova bomb: damages everything on screen (max 5).",
-  [Obj.PULSE_CANNON]: "Special: wide pulse waves.",
-  [Obj.FORWARD_LASER]: "Special: twin lasers that cut through fighters.",
-  [Obj.DEATH_RAY]: "Special: the death ray.",
-  [Obj.SUPER_SHIELD]: "Phase shield: absorbs damage before the hull shield.",
-  [Obj.ENERGY]: "Shield energy (25% per unit).",
-  [Obj.DETECT]: "Damage scanner: shows the boss hull integrity.",
+const DESC: Partial<Record<ObjType, StringKey>> = {
+  [Obj.FORWARD_GUNS]: "desc.forwardGuns",
+  [Obj.PLASMA_GUNS]: "desc.plasmaGuns",
+  [Obj.MICRO_MISSLE]: "desc.microMissle",
+  [Obj.DUMB_MISSLE]: "desc.dumbMissle",
+  [Obj.MINI_GUN]: "desc.miniGun",
+  [Obj.TURRET]: "desc.turret",
+  [Obj.MISSLE_PODS]: "desc.misslePods",
+  [Obj.AIR_MISSLE]: "desc.airMissle",
+  [Obj.GRD_MISSLE]: "desc.grdMissle",
+  [Obj.BOMB]: "desc.bomb",
+  [Obj.ENERGY_GRAB]: "desc.energyGrab",
+  [Obj.MEGA_BOMB]: "desc.megaBomb",
+  [Obj.PULSE_CANNON]: "desc.pulseCannon",
+  [Obj.FORWARD_LASER]: "desc.forwardLaser",
+  [Obj.DEATH_RAY]: "desc.deathRay",
+  [Obj.SUPER_SHIELD]: "desc.superShield",
+  [Obj.ENERGY]: "desc.energy",
+  [Obj.DETECT]: "desc.detect",
 }
 
 const LIST = { x: 30, y: 150, w: 480 }
@@ -84,14 +86,14 @@ export class Shop extends Scene {
       .setShadow(0, 0, UI.accent, 16, true, true)
       .setPadding(24)
     this.back = backButton(this, "HANGAR", () => this.leave())
-    this.tabs = ["BUY", "SELL"].map((t, i) => {
+    this.tabs = [t("shop.buy"), t("shop.sell")].map((name, i) => {
       const x = 480 + (i - 0.5) * 170
       const bg = this.add
         .rectangle(x, 106, 164, TOUCH ? 64 : 42, 0x10182a, 0.9)
         .setInteractive({ useHandCursor: true })
       bg.on("pointerup", () => this.setTab(i === 0))
       const label = this.add
-        .text(x, 106, t, { fontFamily: UI.font, fontSize: "22px", fontStyle: "bold" })
+        .text(x, 106, name, { fontFamily: UI.font, fontSize: "22px", fontStyle: "bold" })
         .setOrigin(0.5)
       return { bg, label }
     })
@@ -111,7 +113,7 @@ export class Shop extends Scene {
       .setPadding(9)
     if (!TOUCH)
       this.add
-        .text(480, 146 + CARD.h + 14, "↑↓ select   ←→ buy/sell   Enter confirm   Esc hangar", {
+        .text(480, 146 + CARD.h + 14, t("shop.keys"), {
           fontFamily: UI.font,
           fontSize: "15px",
           color: UI.dim,
@@ -243,71 +245,76 @@ export class Shop extends Scene {
     const inv = this.lo.inv
     const flip = () => this.setTab(!this.buying)
     this.items = this.buying ? inv.buyList() : inv.sellList()
-    return this.items.map((t) => {
-      const cost = inv.getCost(t)
-      const count = this.owned(t)
+    return this.items.map((it) => {
+      const cost = inv.getCost(it)
+      const count = this.owned(it)
       const countStr = count ? ` (${count})` : ""
       return {
-        icon: `icon-${t}`,
-        label: `${OBJ_LIB[t]?.name ?? ""}${countStr}`,
-        detail: this.buying ? `${cost} CR` : `+${inv.getResale(t)} CR`,
+        icon: `icon-${it}`,
+        label: `${OBJ_LIB[it]?.name ?? ""}${countStr}`,
+        detail: this.buying ? `${cost} CR` : `+${inv.getResale(it)} CR`,
         dim: this.buying && cost > this.lo.plr.score,
-        action: () => this.trade(t),
+        action: () => this.trade(it),
         adjust: flip,
       }
     })
   }
 
   /** STORE.C "you have": amount for stackables (onlyflag), else number of copies (spares). */
-  private owned(t: ObjType): string {
+  private owned(it: ObjType): string {
     const inv = this.lo.inv
-    const n = OBJ_LIB[t]?.onlyflag ? inv.getAmt(t) : inv.getTotal(t)
+    const n = OBJ_LIB[it]?.onlyflag ? inv.getAmt(it) : inv.getTotal(it)
     if (!n) return ""
-    return t === Obj.ENERGY ? `${n}%` : String(n)
+    return it === Obj.ENERGY ? `${n}%` : String(n)
   }
 
   private describe(): void {
     const c = this.card
-    const t = this.items[this.menu.index]
-    const has = t !== undefined
+    const it = this.items[this.menu.index]
+    const has = it !== undefined
     for (const o of [c.icon, c.name, c.owned, c.btn, c.btnLabel]) o.setVisible(has)
     if (c.btn.input) c.btn.input.enabled = has
     if (!has) {
-      c.desc.setText(this.buying ? "Nothing for sale." : "Nothing to sell.")
+      c.desc.setText(t(this.buying ? "shop.nothingBuy" : "shop.nothingSell"))
       return
     }
     const inv = this.lo.inv
-    const own = this.owned(t)
-    c.icon.setTexture(`icon-${t}`)
-    c.name.setText(OBJ_LIB[t]?.name ?? "").setColor(ICON_COLOR[t] ?? "#ffffff")
-    c.owned.setText(own ? `On board: ${own}` : "Not on board")
-    c.desc.setText(DESC[t] ?? "")
-    const cost = inv.getCost(t)
+    const own = this.owned(it)
+    c.icon.setTexture(`icon-${it}`)
+    c.name.setText(OBJ_LIB[it]?.name ?? "").setColor(ICON_COLOR[it] ?? "#ffffff")
+    c.owned.setText(own ? t("shop.onBoard", { n: own }) : t("shop.notOnBoard"))
+    const dk = DESC[it]
+    c.desc.setText(dk ? t(dk) : "")
+    const cost = inv.getCost(it)
     const poor = this.buying && cost > this.lo.plr.score
     c.btn.setFillStyle(this.buying ? 0x1d5c3a : 0x5c1d2a, poor ? 0.4 : 1)
     c.btn.setStrokeStyle(2, this.buying ? 0x2effb4 : 0xff5a6a, poor ? 0.3 : 0.9)
     c.btnLabel
-      .setText(this.buying ? `BUY · ${cost} CR` : `SELL · +${inv.getResale(t)} CR`)
+      .setText(
+        this.buying
+          ? `${t("shop.buy")} · ${cost} CR`
+          : `${t("shop.sell")} · +${inv.getResale(it)} CR`,
+      )
       .setAlpha(poor ? 0.5 : 1)
   }
 
   private tradeSelected(): void {
-    const t = this.items[this.menu.index]
-    if (t !== undefined) this.trade(t)
+    const it = this.items[this.menu.index]
+    if (it !== undefined) this.trade(it)
   }
 
-  private trade(t: ObjType): void {
+  private trade(it: ObjType): void {
     const inv = this.lo.inv
-    const name = OBJ_LIB[t]?.name ?? ""
+    const name = OBJ_LIB[it]?.name ?? ""
     if (this.buying) {
-      const r = inv.buy(t)
-      let text = "No room on the ship"
-      if (r === Buy.GOTIT) text = `Purchased ${name}`
-      else if (r === Buy.NOMONEY) text = "Not enough credits"
+      const r = inv.buy(it)
+      let text = t("shop.noRoom")
+      if (r === Buy.GOTIT) text = t("shop.purchased", { name })
+      else if (r === Buy.NOMONEY) text = t("shop.noMoney")
       this.msg.setText(text).setColor(r === Buy.GOTIT ? UI.gold : UI.warn)
     } else {
-      inv.sell(t)
-      this.msg.setText(`Sold ${name}`).setColor(UI.gold)
+      inv.sell(it)
+      this.msg.setText(t("shop.sold", { name })).setColor(UI.gold)
     }
     this.save()
     this.refresh(true)
@@ -318,9 +325,9 @@ export class Shop extends Scene {
     const shield = inv.getAmt(Obj.ENERGY)
     const phase = inv.getAmt(Obj.SUPER_SHIELD)
     this.status.setText(
-      `CREDITS ${this.lo.plr.score}   SHIELD ${Math.round((shield / MAX_SHIELD) * 100)}%` +
-        (phase ? `   PHASE ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
-        `   NOVA ${inv.getAmt(Obj.MEGA_BOMB)}`,
+      `${t("hud.credits")} ${this.lo.plr.score}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
+        (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
+        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`,
     )
   }
 }
