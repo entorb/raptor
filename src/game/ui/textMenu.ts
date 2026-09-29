@@ -272,8 +272,8 @@ export class TextMenu {
 }
 
 /** Title + subtitle header used by the menu scenes. */
-export function header(scene: Scene, title: string, sub?: string): void {
-  scene.add
+export function header(scene: Scene, title: string, sub?: string): GameObjects.Text {
+  const t = scene.add
     .text(480, 54, title, {
       fontFamily: UI.font,
       fontSize: "46px",
@@ -287,6 +287,7 @@ export function header(scene: Scene, title: string, sub?: string): void {
     scene.add
       .text(480, 100, sub, { fontFamily: UI.font, fontSize: "20px", color: UI.accent })
       .setOrigin(0.5)
+  return t
 }
 
 /** Shared animated space backdrop for menu scenes. */

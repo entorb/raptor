@@ -6,13 +6,14 @@
 //   icon-<type>      item icons (96 px, shop)
 //   hudbar-off, hudbar-shield, hudbar-energy  HUD shield bars (dim / all lit)
 //   struct-<k>, wreck-<k>  destructible map structures (96 px)
-//   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg, shop-bg (960x600)
+//   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg, shop-bg, brief-bravo, brief-train (960x600)
 // Training sector (buildTrainingTextures, on the first training mission):
 //   ut-<PICNAME>, tstruct-<k>, twreck-<k>, sim-floor, sim-grid, sim-dots
 import type { Scene } from "phaser"
 import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import { Obj } from "../sim/consts"
+import { drawBriefing } from "./briefing"
 import { makeCanvas, seeded } from "./draw"
 import {
   drawDot,
@@ -178,6 +179,8 @@ export function buildTextures(scene: Scene): void {
   single(scene, "shard", 12, 12, (ctx) => drawShard(ctx, 12))
   single(scene, "hangar-bg", 960, 600, (ctx) => drawHangar(ctx, 960, 600))
   single(scene, "shop-bg", 960, 600, (ctx) => drawShop(ctx, 960, 600))
+  for (const s of ["bravo", "train"])
+    single(scene, `brief-${s}`, 960, 600, (ctx) => drawBriefing(ctx, 960, 600, s === "train"))
   single(scene, "stars-far", 512, 512, (ctx) => stars(ctx, 512, 260, 1, 0.8))
   single(scene, "stars-near", 512, 512, (ctx) => stars(ctx, 512, 60, 2, 1.8))
   single(scene, "nebula", 512, 1024, (ctx) => {
