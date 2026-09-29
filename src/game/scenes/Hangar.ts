@@ -1,4 +1,4 @@
-// Hangar: Launch screen and the way to the supply shop (WINDOWS.C WIN_Hangar).
+// Hangar: mission briefing (launch) screen and the way to the supply shop (WINDOWS.C WIN_Hangar).
 import { type GameObjects, Scene } from "phaser"
 import { seeded } from "../art/draw"
 import { BAY, PAD, PAD_TILT } from "../art/hangar"
@@ -66,6 +66,8 @@ export class Hangar extends Scene {
   private sectorBoxes: Box[] = []
   private waveBoxes: Box[] = []
   private launchBox!: Box
+  private title!: GameObjects.Text
+  private briefs: GameObjects.Image[] = []
 
   constructor() {
     super("Hangar")
@@ -86,11 +88,13 @@ export class Hangar extends Scene {
     this.dogfight()
     this.add.image(480, 300, "hangar-bg")
     this.parkedShip()
+    // mission briefing backdrops, one per sector, crossfaded by show()
+    this.briefs = SECTORS.map((s) => this.add.image(480, 300, `brief-${s}`).setAlpha(0))
     this.panel = this.add
       .rectangle(640, 158, 360, 100, 0x05060d, 0.72)
       .setOrigin(0.5, 0)
       .setStrokeStyle(1, 0x39d0ff, 0.35)
-    header(this, "HANGAR")
+    this.title = header(this, "HANGAR")
     this.add
       .text(480, 96, pilotTitle(p), { fontFamily: UI.font, fontSize: "22px", color: UI.text })
       .setOrigin(0.5)
@@ -295,6 +299,11 @@ export class Hangar extends Scene {
       if (o.input) o.input.enabled = launch
     }
     this.menu.enabled = !launch && !this.backFocused
+    this.title.setText(launch ? "MISSION BRIEFING" : "HANGAR")
+    SECTORS.forEach((s, i) => {
+      const alpha = launch && s === this.selSector ? 1 : 0
+      this.tweens.add({ targets: this.briefs[i], alpha, duration: 400 })
+    })
     let items: MenuItem[] = []
     if (mode === "hangar") items = this.hangarItems()
     else this.refreshLaunch()
@@ -309,7 +318,7 @@ export class Hangar extends Scene {
   private hangarItems(): MenuItem[] {
     const items: MenuItem[] = [
       {
-        label: `${ICON.play} Launch`,
+        label: `${ICON.play} Mission Briefing`,
         action: () => {
           const s = currentPilot()?.sector ?? "bravo"
           this.openLaunch(s, this.defaultWave(s))

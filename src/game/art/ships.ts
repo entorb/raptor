@@ -711,7 +711,7 @@ const HOLO_LINE: Record<Role, string> = {
   dart: "#5dffc8",
   ring: "#5dffc8",
   core: "#ffd24a",
-  board: "#7fd3ff",
+  board: "#ff6a4a",
   cube: "#c9a0ff",
 }
 
@@ -726,6 +726,18 @@ function drawTrainingUnit(ctx: Ctx, spec: Spec, w: number, h: number, t: number,
     case "dart": {
       // arrowhead drone, nose down
       const span = w * (0.4 + r() * 0.08)
+      if (spec.pal === X) {
+        // elite: swept diamond with a split tail
+        mirrorPath(ctx, cx, [
+          [0, h * 0.97],
+          [span, h * 0.45],
+          [w * 0.14, h * 0.04],
+          [0, h * 0.2],
+        ])
+        holo(ctx, h, line)
+        bullseye(ctx, cx, h * 0.48, m * 0.14)
+        break
+      }
       mirrorPath(ctx, cx, [
         [0, h * 0.97],
         [span, h * 0.3],
@@ -772,10 +784,17 @@ function drawTrainingUnit(ctx: Ctx, spec: Spec, w: number, h: number, t: number,
       break
     }
     case "board": {
-      // pop-up target board with corner brackets
-      roundRect(ctx, w * 0.08, h * 0.08, w * 0.84, h * 0.84, m * 0.1)
+      // armed emplacement (fires back): octagon with a turning gun, unlike the square
+      // passive target pads (fx.ts drawTrainingStructure)
+      regularPoly(ctx, cx, cy, w * 0.46, h * 0.46, 8, Math.PI / 8)
       holo(ctx, h, line)
-      bullseye(ctx, cx, cy, m * (0.26 + 0.04 * Math.sin(spin)))
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(spin)
+      roundRect(ctx, -m * 0.06, 0, m * 0.12, m * 0.46, 2)
+      holo(ctx, h, line)
+      ctx.restore()
+      bullseye(ctx, cx, cy, m * 0.18)
       break
     }
     default: {
