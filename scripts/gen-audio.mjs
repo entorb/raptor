@@ -304,6 +304,7 @@ const MODES = {
   dorian: [0, 2, 3, 5, 7, 9, 10],
   phrygian: [0, 1, 3, 5, 7, 8, 10],
   harmonic: [0, 2, 3, 5, 7, 8, 11],
+  major: [0, 2, 4, 5, 7, 9, 11],
 }
 
 /** Scale degree (any integer) -> semitones above the root. */
@@ -357,6 +358,23 @@ const INST = {
       )
     })
   },
+  // bugle / trumpet: pitch scoop into the note, filter opens with the breath
+  brass: (f, dur, vel) => {
+    const a = new Osc("saw")
+    const b = new Osc("saw", 0.5)
+    const lp = new Biquad("lp", 1000, 1.2)
+    return render(dur + 0.25, (t) => {
+      const scoop = 1 - 0.02 * Math.exp(-t * 40)
+      const vib = 1 + 0.005 * Math.sin(2 * Math.PI * 5 * t) * Math.min(1, Math.max(0, t - 0.3))
+      lp.set(700 + 3300 * Math.min(1, t / 0.05) * (0.75 + 0.25 * Math.exp(-t * 6)))
+      return (
+        lp.run(a.next(f * scoop * vib) + b.next(f * scoop * vib * 1.004)) *
+        0.5 *
+        vel *
+        adsr(t, dur, 0.015, 0.2, 0.8, 0.15)
+      )
+    })
+  },
   bell: (f, dur, vel) =>
     render(Math.max(dur, 0.6) + 1, (t) => {
       const v = Math.sin(
@@ -402,6 +420,7 @@ const BUS = {
   bass: { gain: 0.5, pan: 0, rev: 0, dly: 0, duck: 0.45 },
   pluck: { gain: 0.2, pan: 0.25, rev: 0.25, dly: 0.35, duck: 0.3 },
   lead: { gain: 0.26, pan: -0.08, rev: 0.35, dly: 0.25, duck: 0 },
+  brass: { gain: 0.3, pan: 0, rev: 0.4, dly: 0, duck: 0 },
   bell: { gain: 0.24, pan: -0.2, rev: 0.45, dly: 0.3, duck: 0 },
   kick: { gain: 0.75, pan: 0, rev: 0, dly: 0, duck: 0 },
   snare: { gain: 0.4, pan: 0.05, rev: 0.25, dly: 0, duck: 0 },
@@ -419,6 +438,7 @@ const DRUMS = {
     snare: [4, 12],
     hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   },
+  march: { kick: [0, 8], snare: [4, 7, 12, 14, 15], hat: [] },
 }
 const BASS = {
   eighth: [0, 2, 4, 6, 8, 10, 12, 14],
@@ -584,6 +604,11 @@ function compose(spec) {
     if (si > 0 && has("drums")) c.add("crash", bar, 0, 16, 0, 0.8)
     for (let b = 0; b < bars; b++, bar++) composeBar(c, has, si, bars, b, bar)
   })
+  // fixed melody [bar, step, len, semitones above root] on brass, doubled an octave down
+  for (const [b, st, len, semi] of spec.melody ?? []) {
+    c.add("brass", b, st, len, spec.root + semi, 1)
+    c.add("brass", b, st, len, spec.root - 12 + semi, 0.6)
+  }
   return { ev, length: bar * 16 * step, step }
 }
 
@@ -768,20 +793,62 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
   },
-  // ship destroyed (one-shot)
+  // mission failed / ship destroyed (one-shot): dark A harmonic minor
   rap5: {
     seed: 51,
-    bpm: 70,
+    bpm: 84,
     root: 45,
-    mode: "minor",
-    prog: [0, 5, 3, 0],
-    sections: [[4, "pad bell"]],
+    mode: "harmonic",
+    prog: [0, 5, 4, 0],
+    sections: [[2, "pad bass drums lead"]],
     drums: "half",
     bass: "long",
     arp: null,
-    leadInst: "bell",
+    leadInst: "lead",
     leadOct: 1,
     once: true,
+  },
+  // mission won (one-shot): military bugle fanfare in C, bugle notes only (C G C E G C)
+  fanfare: {
+    seed: 91,
+    bpm: 104,
+    root: 60,
+    mode: "major",
+    prog: [0],
+    sections: [
+      [3, "pad bass drums"],
+      [1, "pad bass drums"],
+    ],
+    drums: "march",
+    bass: "long",
+    arp: null,
+    leadInst: "lead",
+    leadOct: 1,
+    once: true,
+    // ta-ta-TAA ta-TAA | TAA-ta ta-TAA | ta-ta-TAA ta-ta ta-TAA | TAAA
+    melody: [
+      [0, 0, 1, 7],
+      [0, 1, 1, 7],
+      [0, 2, 2, 7],
+      [0, 4, 4, 12],
+      [0, 8, 3, 7],
+      [0, 11, 1, 12],
+      [0, 12, 4, 16],
+      [1, 0, 6, 19],
+      [1, 6, 2, 16],
+      [1, 8, 3, 12],
+      [1, 11, 1, 16],
+      [1, 12, 4, 19],
+      [2, 0, 1, 19],
+      [2, 1, 1, 19],
+      [2, 2, 2, 19],
+      [2, 4, 3, 16],
+      [2, 7, 1, 12],
+      [2, 8, 3, 16],
+      [2, 11, 1, 19],
+      [2, 12, 4, 16],
+      [3, 0, 16, 24],
+    ],
   },
   // waves 5, 9: intense G harmonic minor
   rap6: {

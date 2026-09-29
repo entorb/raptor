@@ -1022,7 +1022,10 @@ export class Game extends Scene {
       const saved = loadPilots().find((q) => q.name === pilot.name)
       if (saved && payout > 0) savePilot({ ...saved, score: saved.score + payout })
       reloadPilot()
-    } else setPilot(pilot)
+    } else {
+      setPilot(pilot)
+      getAudio().playSong(this, "fanfare", false)
+    }
     if (outcome === "landing") return this.landingTarget(sim, result, replay, payout)
     const training = outcome === "trainingComplete"
     const message = training
