@@ -182,7 +182,7 @@ export class GameInput {
       up: this.isDown("UP", "W"),
       down: this.isDown("DOWN", "S"),
       pointer: this.pointer,
-      fire: this.autoFire || this.drag !== null || this.isDown("SPACE", "CTRL"),
+      fire: this.autoFire || this.isDown("SPACE", "CTRL"),
       cycle: taps.has("cycle") || this.isDown("SHIFT", "ALT"),
       mega: taps.has("mega") || this.isDown("B", "ENTER"),
       select: sel,

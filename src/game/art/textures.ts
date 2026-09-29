@@ -26,7 +26,7 @@ import {
   HUD_BAR,
 } from "./fx"
 import { drawHangar } from "./hangar"
-import { drawIcon, drawPickup } from "./icons"
+import { drawButtonIcon, drawIcon, drawPickup } from "./icons"
 import { drawPlayer, drawUnit } from "./ships"
 import { drawShop } from "./shop"
 
@@ -163,6 +163,9 @@ export function buildTextures(scene: Scene): void {
     single(scene, `pickup-${t}`, 48, 48, (ctx) => drawPickup(ctx, t, 48))
     single(scene, `icon-${t}`, 96, 96, (ctx) => drawIcon(ctx, t, 0, 0, 96))
   }
+
+  for (const k of ["auto", "cycle"] as const)
+    single(scene, `btn-${k}`, 96, 96, (ctx) => drawButtonIcon(ctx, k, 96))
 
   for (let k = 0; k < STRUCT_KINDS; k++)
     single(scene, `struct-${k}`, 96, 96, (ctx) => drawStructure(ctx, k, 96))

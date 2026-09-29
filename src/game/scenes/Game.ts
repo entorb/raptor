@@ -137,6 +137,7 @@ export class Game extends Scene {
   } = { sig: "", items: [] }
   private lastWeapon = -1
   private novaBtn: GameObjects.Image | null = null
+  private touchIcons: GameObjects.Image[] = []
   private stars!: GameObjects.TileSprite[]
   private paused = false
   private pauseLayer: GameObjects.Container | null = null
@@ -175,6 +176,7 @@ export class Game extends Scene {
 
   create(): void {
     this.novaBtn = null
+    this.touchIcons = []
     let diff: number
     let frames: DemoFrame[] | null = null
     if (this.demo >= 0) {
@@ -234,6 +236,7 @@ export class Game extends Scene {
     this.input2 = new GameInput(this)
     this.input2.onButton = (id) => {
       if (id === "pause") this.togglePause()
+      else if (id === "auto") this.input2.toggleAutoFire()
       else if (id.startsWith("w")) this.input2.selectWeapon(Number(id.slice(1)) as ObjType)
     }
     this.createHud()
@@ -587,15 +590,21 @@ export class Game extends Scene {
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
-        { id: "mega", x: 890, y: 400, r: 64 }, // right thumb: above the weapon cycle, left thumb steers
-        { id: "cycle", x: 890, y: 530, r: 64 },
+        { id: "mega", x: 890, y: 270, r: 64 }, // right thumb: above the weapon cycle, left thumb steers
+        { id: "cycle", x: 890, y: 400, r: 64 },
+        { id: "auto", x: 890, y: 530, r: 44 },
       ]
       this.novaBtn = this.add
-        .image(890, 400, `icon-${Obj.MEGA_BOMB}`)
+        .image(890, 270, `icon-${Obj.MEGA_BOMB}`)
         .setScale(0.6)
         .setAlpha(0.85)
         .setDepth(D.hud)
         .setVisible(false)
+      this.touchIcons = [
+        this.add.image(890, 400, "btn-cycle").setScale(0.6),
+        this.add.image(890, 530, "btn-auto").setScale(0.6),
+      ]
+      for (const i of this.touchIcons) i.setAlpha(0.85).setDepth(D.hud).setVisible(false)
     }
   }
 
@@ -613,11 +622,10 @@ export class Game extends Scene {
     const lines = this.isTouch()
       ? [
           "STEER        drag anywhere (also beside the game)",
-          `FIRE         ${this.input2.autoFire ? "automatic" : "while touching"}`,
+          `FIRE         auto-fire ${fire} · green button (right)`,
           ...(specials.length ? ["SPECIAL      ▶ button: next · tap icon at bottom"] : []),
-          "NOVA BOMB    nova button (right)",
+          "NOVA BOMB    nova button (right, top)",
           "PAUSE        ❚❚ button",
-          `AUTO-FIRE    ${fire} · toggle in pause menu`,
         ]
       : [
           "MOVE         Arrows / WASD",
@@ -777,17 +785,24 @@ export class Game extends Scene {
     else if (w.lowShield) warn = "SHIELD LOW"
     this.hud.warn.setText(warn)
     const touch = this.input2.touchMode && this.demo < 0
-    this.novaBtn?.setVisible(touch)
+    this.novaBtn?.setVisible(touch && nova > 0)
+    const canSwap = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t)).length > 1
+    for (const i of this.touchIcons) i.setVisible(touch)
+    this.touchIcons[0]?.setVisible(touch && canSwap)
     if (touch) this.drawTouchButtons(g)
   }
 
   private drawTouchButtons(g: GameObjects.Graphics): void {
-    g.lineStyle(2, 0xffe066, 0.5).strokeCircle(890, 400, 44)
-    g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 530, 44)
-    // pause: drawn at the size of its hit zone (r 44), 40 px read as ~24 CSS px on phones
+    if (this.world.inv.getAmt(Obj.MEGA_BOMB) > 0)
+      g.lineStyle(2, 0xffe066, 0.5).strokeCircle(890, 270, 44)
+    if (SPECIAL_KEYS.filter(([, , t]) => this.world.inv.isEquip(t)).length > 1)
+      g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 400, 44)
+    // auto-fire toggle: icon dims when off
+    const on = this.input2.autoFire
+    g.lineStyle(2, 0x7dff9a, on ? 0.8 : 0.4).strokeCircle(890, 530, 44)
+    this.touchIcons[1]?.setAlpha(on ? 0.95 : 0.4)
     g.lineStyle(2, 0xffffff, 0.4).strokeRoundedRect(12, 12, 56, 56, 10)
     g.fillStyle(0xffffff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
-    g.fillStyle(0x39d0ff, 0.8).fillTriangle(878, 520, 878, 540, 902, 530)
   }
 
   /** Rebuild the weapon strip when the weapons on board change; flash the name on a switch. */
