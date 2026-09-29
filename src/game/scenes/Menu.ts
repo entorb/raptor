@@ -126,7 +126,7 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.actions = this.actionRow(480, 506)
-    this.menu = new TextMenu(this, 280, 214, 400, TOUCH ? 54 : 46, TOUCH ? 5 : 6)
+    this.menu = new TextMenu(this, 280, 214, 400, TOUCH ? 66 : 58, TOUCH ? 5 : 6)
     this.menu.onBack = () => {
       if (this.mode === "new") this.show("name")
       else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
@@ -328,11 +328,6 @@ export class Menu extends Scene {
       getAudio().sfxVolume = v
       this.show("options")
     }
-    const setAutoFire = (v: boolean) => {
-      s.autoFire = v
-      saveSettings(s)
-      this.show("options")
-    }
     return [
       {
         label: "Music",
@@ -345,12 +340,6 @@ export class Menu extends Scene {
         detail: pct(s.sfx),
         action: () => setSfx(cycle(s.sfx)),
         adjust: (d) => setSfx(step(s.sfx, d)),
-      },
-      {
-        label: "Auto-Fire",
-        detail: s.autoFire ? "ON" : "OFF",
-        action: () => setAutoFire(!s.autoFire),
-        adjust: () => setAutoFire(!s.autoFire),
       },
       { label: `${ICON.back} Back`, action: () => this.show("main") },
     ]

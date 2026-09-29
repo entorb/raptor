@@ -110,7 +110,7 @@ export class Hangar extends Scene {
     // launch keys before the menu's and the back icon's: a key that switches modes (menu Launch,
     // back icon DOWN) must not also act on the launch screen within the same keypress
     this.bindLaunchKeys()
-    this.menu = new TextMenu(this, 470, 164, 340, TOUCH ? 46 : 36, TOUCH ? 6 : 9)
+    this.menu = new TextMenu(this, 470, 164, 340, TOUCH ? 60 : 50, TOUCH ? 6 : 7)
     this.menu.onBack = () => this.backAction()
     this.menu.onUpFromStart = () => {
       if (this.mode !== "hangar") this.setBackFocus(true)
