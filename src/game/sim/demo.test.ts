@@ -49,9 +49,9 @@ describe("demo playback", () => {
       )
       expect(frames).toBeGreaterThan(100)
       const e = w.enemies
-      expect(e.spawned).toBeGreaterThan(0)
+      expect(e.seen).toBeGreaterThan(0)
       expect(e.killed).toBeGreaterThan(0)
-      expect(e.killed).toBeLessThanOrEqual(e.spawned)
+      expect(e.killed).toBeLessThanOrEqual(e.seen)
       expect(w.tiles.destroyed).toBeLessThanOrEqual(w.tiles.structs)
     })
   }

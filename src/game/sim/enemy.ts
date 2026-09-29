@@ -93,6 +93,8 @@ export interface Ship {
   multi: number
   speed: number
   suckagain: number
+  /** web: counted in `Enemies.seen` (entered the screen or was destroyed) */
+  seen: boolean
   /** set when ENEMY_Remove freed the slot (DOS sets item = ~0) */
   removed: boolean
 }
@@ -114,8 +116,8 @@ export class Enemies {
   boss_sound = false
   onscreen: Ship[] = []
   tiley = 0
-  /** web: ships spawned / destroyed this wave (mission stats) */
-  spawned = 0
+  /** web: ships seen on screen / destroyed this wave (mission stats; spawns above the screen don't count yet) */
+  seen = 0
   killed = 0
   private nextId = 1
 
@@ -126,7 +128,7 @@ export class Enemies {
     this.end_waveflag = false
     this.boss_sound = false
     this.cur = 0
-    this.spawned = 0
+    this.seen = 0
     this.killed = 0
     this.spawns = spawns.map(([link, slib, x, y, _game, level]) => {
       const lib = ENEMY_LIB[slib ?? 0]
@@ -188,6 +190,7 @@ function add(w: World, sp: Spawn): void {
     multi: MULTI_OFF,
     speed: lib.movespeed,
     suckagain: 0,
+    seen: false,
     removed: false,
   }
   n.x += 16 - n.hlx
@@ -257,7 +260,6 @@ function add(w: World, sp: Spawn): void {
   n.suckagain = lib.hits >> 4
   if (lib.song !== EMPTY) e.boss_sound = true
   e.ships.push(n)
-  e.spawned++
 }
 
 /** ENEMY_GetRandom */
@@ -580,12 +582,23 @@ function stepShip(w: World, s: Ship): boolean {
   if (!s.groundflag) ramPlayer(w, s)
 
   if (s.hits <= 0) {
+    markSeen(w, s)
     killShip(w, s)
     return true
   }
 
-  if (s.y + s.height > 0 && s.y < 200 && s.x + s.width > 0 && s.x < 320) w.enemies.onscreen.push(s)
+  if (s.y + s.height > 0 && s.y < 200 && s.x + s.width > 0 && s.x < 320) {
+    markSeen(w, s)
+    w.enemies.onscreen.push(s)
+  }
   return false
+}
+
+/** web: count a ship for the kill percentage once it is visible (or destroyed) */
+function markSeen(w: World, s: Ship): void {
+  if (s.seen) return
+  s.seen = true
+  w.enemies.seen++
 }
 
 function explodeShip(w: World, s: Ship): void {
