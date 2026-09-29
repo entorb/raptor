@@ -13,6 +13,30 @@ const phasermsg = () => {
   }
 }
 
+// Matomo visitor counting, prod build only (dev uses config.dev.mjs)
+const matomo = () => ({
+  name: "matomo",
+  transformIndexHtml: {
+    order: "post",
+    handler(html, ctx) {
+      if (ctx.filename && !ctx.filename.endsWith("index.html")) return html
+      const script = `<script>
+  var _paq = window._paq = window._paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="https://entorb.net/stats/matomo/";
+    _paq.push(['setTrackerUrl', u+'matomo.php']);
+    _paq.push(['setSiteId', '19']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>`
+      return html.replace("</head>", `${script}</head>`)
+    },
+  },
+})
+
 export default defineConfig({
   root: "src",
   publicDir: "../public",
@@ -44,6 +68,7 @@ export default defineConfig({
   },
   plugins: [
     phasermsg(),
+    matomo(),
     VitePWA({
       registerType: "prompt",
       // Inject the registration script; avoids importing virtual:pwa-register.
