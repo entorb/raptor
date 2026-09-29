@@ -33,6 +33,7 @@ bspark
 bufs
 buystuff
 chans
+crossfaded
 csprite
 curframe
 curplr
@@ -197,6 +198,7 @@ scanlines
 segoe
 segs
 selfcheck
+sess
 setval
 shipfull
 shipglow
@@ -237,9 +239,11 @@ suben
 suckagain
 sweapon
 swep
+swiftshader
 syncop
 tappable
 targ
+targt
 tasm
 tdead
 tileable

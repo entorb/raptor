@@ -8,7 +8,8 @@ A web remake of the 1994 MS-DOS vertical shooter [Raptor: Call of the Shadows](h
 
 ## Privacy
 
-- All data on your device: no database, no tracking, no advertisement
+- All data on your device: no login, no database, no payment, no advertisement
+- Anonymous usage stats are collected via global play counter and a local [Matomo](https://matomo.org/) instance
 
 ## Changes with respect to original game
 
@@ -19,6 +20,7 @@ A web remake of the 1994 MS-DOS vertical shooter [Raptor: Call of the Shadows](h
 - Replay of each mission allowed
 - No selling of basic weapon
 - After mission accomplished: shield refilled to 50%
+- Death and abort mission now earn 50% of credits
 
 ## Development
 

@@ -26,21 +26,25 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   (add intentional DOS identifiers to `cspell-words.txt`).
 - Deploy: `scripts/deploy.sh` (checks, build, rsync to `html/raptor/`; vite `base` is `/raptor/`).
 - SonarCloud: `scripts/get_sonar_issues.sh` refreshes `tmp/sonar.json`. Recurring findings to avoid
-  up front: nested ternaries (extract the inner one into its own `const`), `void` on a non-Promise
-  expression (use a block-bodied arrow instead), cognitive complexity > 15 (split branches into
-  `private` helper methods, as in `terrain.ts` `plateColor`/`rockColor`), and plain `for (let i...)`
-  over a simple iteration (`for-of` instead).
+  up front: nested template literals (extract inner template to `const`), nested ternaries (extract
+  the inner one into its own `const`), comma operator in arrow functions (use block-bodied arrow
+  with proper `await` lines instead), `void` on a non-Promise expression (use a block-bodied arrow
+  instead), cognitive complexity > 15 (split branches into `private` helper methods, as in
+  `terrain.ts` `simPanel`/`simStripe`/`simGrid`), and plain `for (let i...)` over a simple
+  iteration (`for-of` instead).
 
 ## Layout
 
 - `src/game/sim/`: the DOS game logic, pure TS, no Phaser. One module per DOS file (see
   [original_game/docs/dos_src.md](original_game/docs/dos_src.md)). `World.step(input)` = one DOS frame.
 - `src/game/scenes/`: `Boot` (audio + procedural textures), `Menu`, `Hangar` (Launch / Shop / Exit),
+  `Shop` (own scene: BUY/SELL tabs, icon list, detail card with the buy/sell button, `← HANGAR`),
   `Game` (fixed-step sim at `FRAME_MS`, rendering with interpolation).
 - `src/game/render/`: `terrainView.ts` (scrolling terrain chunks, destructible modules),
   `effects.ts` (particles for the original ANIMS).
 - `src/game/art/`: procedural Canvas2D art: `ships.ts` (unit archetypes per original picture name,
-  `SPECS`), `fx.ts` (shots, pickups, structures), `terrain.ts` (terrain chunks), `textures.ts`
+  `SPECS`), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
+  `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing backdrop per sector, crossfaded by `Hangar.show`), `terrain.ts` (terrain chunks), `textures.ts`
   (texture keys, built once in `Boot`).
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
@@ -75,18 +79,18 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   Training wave 1 is a web-only beginner wave (`data/training.ts BEGINNER_MAP`: map 0 terrain,
   hand-picked spawns, shield carriers only, early boss with `easyBoss`); waves 2-5 fly DOS maps
   0-3. `campaign.ts waveMap(sector, wave)` maps a sector wave to its DOS map index + map.
-  `PilotSave.done` = Bravo waves ever finished. Hangar = Launch / Shop (Buy/Sell toggle row) /
+  `PilotSave.done` = Bravo waves ever finished. Hangar = Mission Briefing / Shop (Buy/Sell toggle row) /
   Exit. Launch screen (`Hangar.buildLaunch`, own keyboard grid: sector boxes, wave boxes, Launch):
   preselects `p.sector` + `defaultWave` (next unfinished), any `playable` wave, the level's top 10
   below. A wave != `nextWave` is a replay: `afterWave(p, result, sector, wave, earned)` keeps
   credits/loadout. `PilotSave.stats[b<w>|t<w>]` = completions + top-10 runs (`TopRun`: credits + enemy kill %, old saves stored plain numbers). A completed
   wave (replay or not) shows a results panel (`Game.showResults`): credits, enemies/buildings destroyed
-  (`World.destroyedPct`: `Enemies.killed/spawned`, `Tiles.destroyed/structs`) and the level's top 10 with
+  (`World.destroyedPct`: `Enemies.killed/seen`, `Tiles.destroyed/structs`) and the level's top 10 with
   this run in gold; Continue (tap, Enter/Space keyup) goes to the Hangar main screen. A completed wave refills the shield to at least 50% (`Game.end`). Death and abort reload the
   last save (`reloadPilot`): weapons lost in flight come back. The HUD shows credits earned this run.
   The Hangar back icon is only shown on the shop and launch screens (hangar has an Exit row).
 - Training sector look (`Game.create` `sim`): a holographic simulator instead of a real fight.
-  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones
+  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones (armed ground units = red octagon emplacements with a gun, never the square passive `tstruct-` pads)
   (`ships.ts drawTrainingUnit`, one shape per unit role), `tstruct-/twreck-` target pads, `sim-*`
   grid backdrop; `ChunkJob(..., train)` renders the map as a gridded deck; `Effects(..., sim)` uses
   cyan "derez" explosions; banners say SIMULATION. Sim/gameplay is identical to Bravo.
@@ -120,6 +124,8 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 
 ## Shop rules (STORE.C / OBJECTS.C, verified)
 
+- Shop keyboard focus: list -> UP off the first row -> BUY/SELL tabs (LEFT/RIGHT switch) -> UP -> `← HANGAR`
+  (`Shop.focus`; scene keys are bound after the menu, `skipKey` swallows the menu's own UP).
 - Buy list = `OBJS_CanBuy` items (all weapons: the registered-version rule, `Inventory.reg`),
   sorted by price; sell list = `OBJS_CanSell`, resale = half price.
 - Every weapon purchase adds a new object; only the first is equipped, the rest are spares that
@@ -129,6 +135,9 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - Stackables (`onlyflag`): shield energy (25% per unit, max 100%, can't sell below 25%), nova
   bombs (max 5), damage scanner (max 1). Phase shields are separate objects, max 5.
 - Unaffordable items stay selectable (dimmed) and answer "Not enough credits", like DOS.
+- Web change (touch): shop rows are two-tap (`TextMenu.tapToSelect`): the first tap selects and
+  shows the detail card, a tap on the selected row or the card button buys/sells; a swipe never
+  activates a row. LEFT/RIGHT switch the BUY/SELL tab.
 
 ## Porting rules (sim)
 
@@ -171,8 +180,20 @@ await browser.close()
 - Mobile: `browser.newContext({ viewport: { width: 800, height: 360 }, deviceScaleFactor: 2,
   isMobile: true, hasTouch: true })`, drags via CDP `Input.dispatchTouchEvent`.
 
+## Screen exports (UI review)
+
+`node scripts/gen_screen_exports.mjs [--screen=shop-buy] [--device=mobile]` (needs `pnpm dev`) writes
+`tmp/screens/<device>-<NN>-<name>.png` + `.txt`: every visible text (design box, CSS font px, `TINY` < 12 px)
+and every pointer target (CSS size, `SMALL` < 44 px). Mobile = 800x360 touch, where the 960x600 game
+renders at 0.6x. Dev modules are served from `/raptor/game/...` (vite `root: "src"`). Headless needs
+the swiftshader launch args, or `page.screenshot` hangs.
+
 ## Gotchas
 
+- A text glow (`setShadow(..., blur, true, true)`) needs `setPadding` >= 1.5x blur, or the blur is
+  cut at the text texture edge and shows as a faint grey box. Padding moves origin-0/1 texts: shift x/y back.
+- Phones render the 960x600 game at ~0.6x: `ui/textMenu.ts TOUCH` (`pointer: coarse`) enlarges menu
+  rows, the link row and launch boxes. Check with the screen exports (`SMALL`/`TINY`).
 - Original shot pictures are mostly padding (Twin Blaster = 2x2 dot in 8x8): `fx.ts SHOT_BOX`
   holds the visible box per picture; draw shot art inside it, not across the whole texture.
 - Enums: use `as const` objects (`Obj`, `Anim`, `Buy`), not `const enum` (isolatedModules).
