@@ -1,13 +1,22 @@
 // Web-only beginner wave that opens the training sector (not in DOS): map 0 terrain with a
 // thinned-out subset of its first third (rows 138..97), shield carriers only and an early,
 // weaker boss, so the wave is about 1/3 as long as wave 1.
-import { MAPS } from "./ep1"
+
+import { MAP_COLS, MAP_ONSCREEN } from "../sim/consts"
+import { FLATS, MAPS } from "./ep1"
 import type { WaveMap } from "./types"
+
+const BOSS_ROW = 95 + MAP_ONSCREEN
+
+// no buildings from the boss screen on: destructible tiles become their plain (destroyed) look
+const flats = (MAPS[0]?.flats ?? []).map((f, i) =>
+  Math.floor(i / MAP_COLS) < BOSS_ROW ? (FLATS.link[f] ?? f) : f,
+)
 
 // CSPRITE records [link, slib, x, y, game, level]; sorted by descending row, level 3 = easy,
 // link 0 = spawns together with the next record, 1/-1 ends the group
 export const BEGINNER_MAP: WaveMap = {
-  flats: MAPS[0]?.flats ?? [],
+  flats,
   spawns: [
     [0, 13, 5, 138, 0, 3],
     [1, 13, 3, 138, 0, 3],
