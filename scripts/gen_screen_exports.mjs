@@ -100,7 +100,13 @@ const SCREENS = [
     },
   ],
   ["briefing", async (p) => start(p, "Game", { sector: "bravo", wave: 0 }, 1500)],
-  ["play", async (p) => (await call(p, "Game", "startMission"), p.waitForTimeout(4000))],
+  [
+    "play",
+    async (p) => {
+      await call(p, "Game", "startMission")
+      await p.waitForTimeout(4000)
+    },
+  ],
   ["pause", async (p) => call(p, "Game", "togglePause")],
   [
     "results",

@@ -212,24 +212,35 @@ export class ChunkJob {
 
   /** Simulator deck: gridded floor, lit panels (hull) and hazard stripes (lichen). */
   private simColor(m: number, shade: number, dx: number, dy: number): void {
-    const { rgb } = this
     const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
     if (m > 0.5) {
-      const seam = dx % 16 < 0.8 || dy % 16 < 0.8
-      rgb[0] = (seam ? 60 : 44) * shade
-      rgb[1] = (seam ? 230 : 62) * shade
-      rgb[2] = (seam ? 190 : 78) * shade
+      this.simPanel(shade, dx, dy)
     } else if (lic > 0.45) {
-      const stripe = (dx + dy) % 24 < 5
-      rgb[0] = (stripe ? 150 : 30) * shade
-      rgb[1] = (stripe ? 120 : 36) * shade
-      rgb[2] = (stripe ? 30 : 48) * shade
+      this.simStripe(shade, dx, dy)
     } else {
-      const grid = dx % 32 < 0.8 || dy % 32 < 0.8
-      rgb[0] = (grid ? 40 : 20) * shade
-      rgb[1] = (grid ? 150 : 30) * shade
-      rgb[2] = (grid ? 210 : 44) * shade
+      this.simGrid(shade, dx, dy)
     }
+  }
+
+  private simPanel(shade: number, dx: number, dy: number): void {
+    const seam = dx % 16 < 0.8 || dy % 16 < 0.8
+    this.rgb[0] = (seam ? 60 : 44) * shade
+    this.rgb[1] = (seam ? 230 : 62) * shade
+    this.rgb[2] = (seam ? 190 : 78) * shade
+  }
+
+  private simStripe(shade: number, dx: number, dy: number): void {
+    const stripe = (dx + dy) % 24 < 5
+    this.rgb[0] = (stripe ? 150 : 30) * shade
+    this.rgb[1] = (stripe ? 120 : 36) * shade
+    this.rgb[2] = (stripe ? 30 : 48) * shade
+  }
+
+  private simGrid(shade: number, dx: number, dy: number): void {
+    const grid = dx % 32 < 0.8 || dy % 32 < 0.8
+    this.rgb[0] = (grid ? 40 : 20) * shade
+    this.rgb[1] = (grid ? 150 : 30) * shade
+    this.rgb[2] = (grid ? 210 : 44) * shade
   }
 
   /** Glowing lichen patches (cyan / violet) on top of `this.rgb`. */
