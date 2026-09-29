@@ -1,4 +1,4 @@
-// Hangar + supply shop as plain text menus (WINDOWS.C WIN_Hangar, STORE.C STORE_Enter).
+// Hangar: Launch screen and the way to the supply shop (WINDOWS.C WIN_Hangar).
 import { type GameObjects, Scene } from "phaser"
 import { seeded } from "../art/draw"
 import { BAY, PAD, PAD_TILT } from "../art/hangar"
@@ -17,12 +17,20 @@ import { ENEMY_LIB } from "../data/ep1"
 import { type PilotSave, SECTORS, type Sector } from "../data/save"
 import { reportMissionStart } from "../data/stats"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
-import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
-import { Buy, OBJ_LIB } from "../sim/objects"
-import { backdrop, header, ICON, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
+import { MAX_SHIELD, Obj } from "../sim/consts"
+import {
+  backButton,
+  backdrop,
+  header,
+  ICON,
+  type MenuItem,
+  TextMenu,
+  TOUCH,
+  UI,
+} from "../ui/textMenu"
 import { pilotTitle } from "./Menu"
 
-type Mode = "hangar" | "shop" | "launch"
+type Mode = "hangar" | "launch"
 
 export interface HangarData {
   message?: string
@@ -40,43 +48,17 @@ const ROW_WAVE = 1
 const ROW_LAUNCH = 2
 const WAVE_STEP = 38
 
-/** One-line shop descriptions (space re-theme of the ITEMxx_TXT help). */
-const DESC: Partial<Record<ObjType, string>> = {
-  [Obj.FORWARD_GUNS]: "Standard twin blasters. Hit air and surface targets.",
-  [Obj.PLASMA_GUNS]: "Heavy plasma bolts, air targets only.",
-  [Obj.MICRO_MISSLE]: "Wing-mounted micro missiles, air and surface.",
-  [Obj.DUMB_MISSLE]: "Special: unguided missiles, dropped then launched.",
-  [Obj.MINI_GUN]: "Special: auto-tracking minigun, locks on random targets.",
-  [Obj.TURRET]: "Special: auto-tracking laser turret vs. fighters.",
-  [Obj.MISSLE_PODS]: "Special: rapid missile pods vs. fighters.",
-  [Obj.AIR_MISSLE]: "Special: air-to-air missiles.",
-  [Obj.GRD_MISSLE]: "Special: heavy missiles vs. surface targets.",
-  [Obj.BOMB]: "Special: hull buster bomb for station modules.",
-  [Obj.ENERGY_GRAB]: "Special: siphons enemy energy and jams their guns.",
-  [Obj.MEGA_BOMB]: "Nova bomb: damages everything on screen (max 5).",
-  [Obj.PULSE_CANNON]: "Special: wide pulse waves.",
-  [Obj.FORWARD_LASER]: "Special: twin lasers that cut through fighters.",
-  [Obj.DEATH_RAY]: "Special: the death ray.",
-  [Obj.SUPER_SHIELD]: "Phase shield: absorbs damage before the hull shield.",
-  [Obj.ENERGY]: "Shield energy (25% per unit).",
-  [Obj.DETECT]: "Damage scanner: shows the boss hull integrity.",
-}
-
 export class Hangar extends Scene {
   private menu!: TextMenu
   private mode: Mode = "hangar"
   private lo!: Loadout
   private status!: GameObjects.Text
-  private desc!: GameObjects.Text
-  private msg!: GameObjects.Text
   private tick: () => void = () => {}
   private message = ""
   private panel!: GameObjects.Rectangle
   private table: GameObjects.Text[] = []
-  private backBg!: GameObjects.Rectangle
-  private backIcon!: GameObjects.Text
+  private back!: ReturnType<typeof backButton>
   private backFocused = false
-  private buying = true
   private selSector: Sector = "bravo"
   private selWave = 0
   private focusRow = ROW_LAUNCH
@@ -117,16 +99,7 @@ export class Hangar extends Scene {
       .setOrigin(0.5)
       .setShadow(0, 0, "#000000", 6, true, true)
       .setPadding(9)
-    this.desc = this.add
-      .text(640, TOUCH ? 462 : 514, "", {
-        fontFamily: UI.font,
-        fontSize: TOUCH ? "20px" : "15px",
-        color: UI.text,
-        align: "center",
-        wordWrap: { width: 340 },
-      })
-      .setOrigin(0.5, TOUCH ? 0 : 0.5)
-    this.msg = this.add
+    this.add
       .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
     this.buildLaunch(p)
@@ -135,7 +108,6 @@ export class Hangar extends Scene {
     this.bindLaunchKeys()
     this.menu = new TextMenu(this, 470, 164, 340, TOUCH ? 46 : 36, TOUCH ? 6 : 9)
     this.menu.onBack = () => this.backAction()
-    this.menu.onMove = () => this.describe()
     this.menu.onUpFromStart = () => {
       if (this.mode !== "hangar") this.setBackFocus(true)
     }
@@ -267,18 +239,9 @@ export class Hangar extends Scene {
     else this.show("hangar")
   }
 
-  /** Top-right back icon: mouse click/hover, or UP off the menu's first row. */
+  /** Top-left back button: mouse click/hover, or UP off the menu's first row. */
   private buildBackButton(): void {
-    this.backBg = this.add
-      .rectangle(908, 40, 56, 44, 0x10182a, 0.85)
-      .setStrokeStyle(1, 0x39d0ff, 0)
-      .setInteractive({ useHandCursor: true })
-    this.backIcon = this.add
-      .text(908, 40, ICON.back, { fontFamily: UI.font, fontSize: "26px", color: UI.text })
-      .setOrigin(0.5)
-    this.backBg.on("pointerover", () => this.setBackVisual(true))
-    this.backBg.on("pointerout", () => this.setBackVisual(this.backFocused))
-    this.backBg.on("pointerup", () => this.backAction())
+    this.back = backButton(this, "HANGAR", () => this.backAction())
     const kb = this.input.keyboard
     kb?.on("keydown-DOWN", () => {
       if (this.backFocused) this.setBackFocus(false)
@@ -297,28 +260,10 @@ export class Hangar extends Scene {
   /** Keyboard focus: also disables the list so its own arrow/confirm keys don't fire. */
   private setBackFocus(on: boolean): void {
     this.backFocused = on
+    this.back.focused = on
     this.menu.enabled = !on && this.mode !== "launch"
-    this.setBackVisual(on)
+    this.back.look(on)
     if (this.mode === "launch") this.refreshLaunch()
-  }
-
-  private setBackVisual(on: boolean): void {
-    this.backBg.setStrokeStyle(1, 0x39d0ff, on ? 0.8 : 0)
-    this.backBg.setFillStyle(on ? 0x39d0ff : 0x10182a, on ? 0.18 : 0.85)
-    this.backIcon.setColor(on ? "#ffffff" : UI.text)
-  }
-
-  private items: (ObjType | null)[] = []
-
-  private describe(): void {
-    const t = this.items[this.menu.index]
-    if (t === null || t === undefined) {
-      this.desc.setText("")
-      return
-    }
-    const hint = this.menu.tapToSelect && TOUCH
-    const again = hint ? `\nTap again to ${this.buying ? "buy" : "sell"}` : ""
-    this.desc.setText((DESC[t] ?? "") + again)
   }
 
   private updateStatus(): void {
@@ -339,32 +284,26 @@ export class Hangar extends Scene {
     this.mode = mode
     const p = currentPilot()
     if (!p) return
-    this.items = []
     this.clearTable()
     const launch = mode === "launch"
     // the hangar menu has its own Exit row: the back icon is for the shop and launch screens
     const back = mode !== "hangar"
     if (!back && this.backFocused) this.setBackFocus(false)
-    this.backBg.setVisible(back)
-    if (this.backBg.input) this.backBg.input.enabled = back
-    this.backIcon.setVisible(back)
+    this.back.setVisible(back)
     for (const o of this.launchObjs) {
       o.setVisible(launch)
       if (o.input) o.input.enabled = launch
     }
     this.menu.enabled = !launch && !this.backFocused
-    this.menu.tapToSelect = mode === "shop"
     let items: MenuItem[] = []
     if (mode === "hangar") items = this.hangarItems()
-    else if (mode === "shop") items = this.shopItems()
     else this.refreshLaunch()
-    // panel fits the rows (the shop adds a description line, launch its boxes and top-10 table)
+    // panel fits the rows (launch: its boxes and top-10 table)
     const { rowH, visible } = this.menu
-    const h = Math.min(items.length, visible) * rowH + (mode === "shop" ? (TOUCH ? 116 : 60) : 16)
+    const h = Math.min(items.length, visible) * rowH + 16
     this.panel.setSize(360, launch ? 404 : h)
     this.menu.setItems(items, keep)
     this.updateStatus()
-    this.describe()
   }
 
   private hangarItems(): MenuItem[] {
@@ -379,13 +318,12 @@ export class Hangar extends Scene {
       {
         label: `${ICON.buy} Shop`,
         action: () => {
-          this.buying = true
-          this.show("shop")
+          this.save()
+          this.scene.start("Shop")
         },
       },
       { label: `${ICON.back} Exit to Main Menu`, action: () => this.exit() },
     ]
-    this.items = items.map(() => null)
     return items
   }
 
@@ -534,74 +472,6 @@ export class Hangar extends Scene {
     )
     this.paint(this.launchBox, row === ROW_LAUNCH, row === ROW_LAUNCH)
     this.showTop(p)
-  }
-
-  private shopItems(): MenuItem[] {
-    const buy = this.buying
-    const inv = this.lo.inv
-    const flip = () => {
-      this.buying = !this.buying
-      this.show("shop")
-    }
-    const items: MenuItem[] = [
-      {
-        label: `${buy ? ICON.buy : ICON.sell} ${buy ? "Buy" : "Sell"}`,
-        detail: buy ? "[BUY]  sell" : "buy  [SELL]",
-        action: flip,
-        adjust: flip,
-      },
-    ]
-    this.items.push(null)
-    for (const t of buy ? inv.buyList() : inv.sellList()) {
-      const lib = OBJ_LIB[t]
-      if (!lib) continue
-      const label = `${lib.name}${this.owned(t)}`
-      if (buy) {
-        const cost = inv.getCost(t)
-        items.push({
-          label,
-          detail: `${cost} CR`,
-          dim: cost > this.lo.plr.score,
-          action: () => this.trade(t, true),
-        })
-      } else
-        items.push({
-          label,
-          detail: `+${inv.getResale(t)} CR`,
-          action: () => this.trade(t, false),
-        })
-      this.items.push(t)
-    }
-    items.push({ label: `${ICON.confirm} Done`, action: () => this.show("hangar") })
-    this.items.push(null)
-    return items
-  }
-
-  /** STORE.C "you have": amount for stackables (onlyflag), else number of copies (spares). */
-  private owned(t: ObjType): string {
-    const inv = this.lo.inv
-    const lib = OBJ_LIB[t]
-    const n = lib?.onlyflag ? inv.getAmt(t) : inv.getTotal(t)
-    if (!n) return ""
-    return t === Obj.ENERGY ? ` (${n}%)` : ` (${n})`
-  }
-
-  private trade(t: ObjType, buy: boolean): void {
-    const inv = this.lo.inv
-    const name = OBJ_LIB[t]?.name ?? ""
-    if (buy) {
-      const r = inv.buy(t)
-      let text = "No room on the ship"
-      if (r === Buy.GOTIT) text = `Purchased ${name}`
-      else if (r === Buy.NOMONEY) text = "Not enough credits"
-      this.msg.setText(text)
-      this.msg.setColor(r === Buy.GOTIT ? UI.gold : UI.warn)
-    } else {
-      inv.sell(t)
-      this.msg.setText(`Sold ${name}`).setColor(UI.gold)
-    }
-    this.save()
-    this.show(this.mode)
   }
 
   private clearTable(): void {
