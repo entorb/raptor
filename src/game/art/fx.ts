@@ -214,7 +214,10 @@ export function drawHudBar(ctx: Ctx, lit: [string, string, string] | null): void
     let c = "#1a2030"
     if (lit) {
       const frac = i / segs
-      const tier = frac < 0.25 ? 0 : frac < 0.5 ? 1 : 2
+      let tier: 0 | 1 | 2
+      if (frac < 0.25) tier = 0
+      else if (frac < 0.5) tier = 1
+      else tier = 2
       c = lit[tier]
     }
     ctx.globalAlpha = lit ? 0.95 : 0.8

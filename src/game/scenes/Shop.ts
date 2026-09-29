@@ -245,9 +245,11 @@ export class Shop extends Scene {
     this.items = this.buying ? inv.buyList() : inv.sellList()
     return this.items.map((t) => {
       const cost = inv.getCost(t)
+      const count = this.owned(t)
+      const countStr = count ? ` (${count})` : ""
       return {
         icon: `icon-${t}`,
-        label: `${OBJ_LIB[t]?.name ?? ""}${this.owned(t) ? ` (${this.owned(t)})` : ""}`,
+        label: `${OBJ_LIB[t]?.name ?? ""}${countStr}`,
         detail: this.buying ? `${cost} CR` : `+${inv.getResale(t)} CR`,
         dim: this.buying && cost > this.lo.plr.score,
         action: () => this.trade(t),

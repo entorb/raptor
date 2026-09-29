@@ -992,11 +992,11 @@ export class Game extends Scene {
   ): { text: string; next: () => void } {
     const aborted = result === "abort"
     const verb = replay ? "replayed" : "complete"
-    const data: HangarData = {
-      message: aborted
-        ? `Mission aborted.${payout > 0 ? ` +${payout} CR` : ""}`
-        : `Wave ${this.wave + 1} ${verb}: +${payout} CR`,
-    }
+    const payoutStr = payout > 0 ? ` +${payout} CR` : ""
+    const message = aborted
+      ? `Mission aborted.${payoutStr}`
+      : `Wave ${this.wave + 1} ${verb}: +${payout} CR`
+    const data: HangarData = { message }
     const completeText = `${sim ? "SIMULATION" : "WAVE"} COMPLETE`
     return {
       text: aborted ? "MISSION ABORTED" : completeText,
