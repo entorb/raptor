@@ -46,10 +46,7 @@ echo "## Git"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "## git push"
-  git add pnpm-lock.yaml
-  git diff --staged --quiet -- pnpm-lock.yaml || git commit -m "chore(deps): Lock"
-
-  git add package.json pnpm-workspace.yaml biome.json .pre-commit-config.yaml .nvmrc
+  git add pnpm-lock.yaml package.json pnpm-workspace.yaml biome.json .pre-commit-config.yaml .nvmrc
   git commit -m "chore(deps): Package update" || true
   git push
 fi
