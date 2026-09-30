@@ -1134,7 +1134,13 @@ export class Game extends Scene {
         .setPadding(36),
       txt(-150, `+${earned} CR`, 24, UI.gold),
       txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
-      txt(-78, tr("game.topLine", { wave: this.wave + 1, n: st?.n ?? 0 }), 19, UI.accent, UI.mono),
+      txt(
+        -78,
+        tr("hangar.topLine", { wave: this.wave + 1, flown: st?.s ?? st?.n ?? 0, won: st?.n ?? 0 }),
+        19,
+        UI.accent,
+        UI.mono,
+      ),
       ...top.map((r, i) =>
         txt(-52 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
       ),

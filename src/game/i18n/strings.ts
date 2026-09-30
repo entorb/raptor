@@ -87,10 +87,7 @@ export const STRINGS = {
   "hangar.exit": e("Exit to Main Menu", "Zum Hauptmenü"),
   "hangar.launch": e("LAUNCH", "START"),
   "hangar.replay": e("REPLAY", "WIEDERHOLEN"),
-  "hangar.topLine": e(
-    "WAVE {wave} · TOP 10 · {flown} flown · {won} won",
-    "WELLE {wave} · TOP 10 · {flown} geflogen · {won} gewonnen",
-  ),
+  "hangar.topLine": e("WAVE {wave} · {won}/{flown} won", "WELLE {wave} · {won}/{flown} gewonnen"),
   "hangar.noRuns": e("No runs yet", "Noch keine Flüge"),
 
   "shop.buy": e("BUY", "KAUFEN"),
@@ -254,10 +251,6 @@ export const STRINGS = {
   "game.destroyed": e(
     "Enemies {e}  ·  Buildings {b} destroyed",
     "Feinde {e}  ·  Gebäude {b} zerstört",
-  ),
-  "game.topLine": e(
-    "WAVE {wave}  ·  TOP 10  ·  {n}x flown",
-    "WELLE {wave}  ·  TOP 10  ·  {n}x geflogen",
   ),
   "game.notTop": e("This run is not in the top 10", "Dieser Flug ist nicht in den Top 10"),
   "game.continue": e("CONTINUE", "WEITER"),
