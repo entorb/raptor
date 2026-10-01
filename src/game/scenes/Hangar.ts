@@ -24,7 +24,9 @@ import {
   backdrop,
   header,
   ICON,
+  keyHint,
   type MenuItem,
+  rollCredits,
   TextMenu,
   TOUCH,
   UI,
@@ -35,6 +37,8 @@ type Mode = "hangar" | "launch"
 
 export interface HangarData {
   message?: string
+  /** credits paid out by the mission: the status line rolls up from the old value */
+  earned?: number
 }
 
 /** A tappable box of the launch screen. */
@@ -69,6 +73,10 @@ export class Hangar extends Scene {
   private launchBox!: Box
   private title!: GameObjects.Text
   private briefs: GameObjects.Image[] = []
+  private messageText!: GameObjects.Text
+  private hint!: GameObjects.Text
+  private earned = 0
+  private credits: (cr: number) => void = () => {}
 
   constructor() {
     super("Hangar")
@@ -76,6 +84,12 @@ export class Hangar extends Scene {
 
   init(data: HangarData): void {
     this.message = data?.message ?? ""
+    // Phaser keeps the last start data for a later start without data (back from the Shop)
+    this.earned = data?.earned ?? 0
+    if (data) {
+      data.message = undefined
+      data.earned = undefined
+    }
   }
 
   create(): void {
@@ -104,18 +118,17 @@ export class Hangar extends Scene {
       .setOrigin(0.5)
       .setShadow(0, 0, "#000000", 6, true, true)
       .setPadding(9)
-    this.add
+    this.messageText = this.add
       .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
+    this.hint = keyHint(this, "")
+    this.credits = rollCredits(this, this.lo.plr.score - this.earned, (cr) => this.renderStatus(cr))
     this.buildLaunch(p)
     // launch keys before the menu's and the back icon's: a key that switches modes (menu Launch,
     // back icon DOWN) must not also act on the launch screen within the same keypress
     this.bindLaunchKeys()
     this.menu = new TextMenu(this, 470, 164, 340, TOUCH ? 60 : 50, TOUCH ? 6 : 7)
     this.menu.onBack = () => this.backAction()
-    this.menu.onUpFromStart = () => {
-      if (this.mode !== "hangar") this.setBackFocus(true)
-    }
     this.buildBackButton()
     getAudio().playSong(this, "hangar")
     this.show("hangar")
@@ -272,13 +285,18 @@ export class Hangar extends Scene {
   }
 
   private updateStatus(): void {
-    const p = currentPilot()
-    if (!p) return
+    // the arrival roll-up starts after the scene fade-in
+    if (this.earned) this.time.delayedCall(400, () => this.credits(this.lo.plr.score))
+    else this.credits(this.lo.plr.score)
+    this.earned = 0
+  }
+
+  private renderStatus(cr: number): void {
     const inv = this.lo.inv
     const shield = inv.getAmt(Obj.ENERGY)
     const phase = inv.getAmt(Obj.SUPER_SHIELD)
     this.status.setText(
-      `${t("hud.credits")} ${this.lo.plr.score}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
+      `${t("hud.credits")} ${cr}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
         (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
         `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`,
     )
@@ -290,6 +308,8 @@ export class Hangar extends Scene {
     const p = currentPilot()
     if (!p) return
     this.clearTable()
+    // the notification belongs to the arrival: leaving the hangar screen clears it
+    if (mode !== "hangar") this.messageText.setText("")
     const launch = mode === "launch"
     // the hangar menu has its own Exit row: the back icon is for the shop and launch screens
     const back = mode !== "hangar"
@@ -301,6 +321,7 @@ export class Hangar extends Scene {
     }
     this.menu.enabled = !launch && !this.backFocused
     this.title.setText(launch ? "MISSION BRIEFING" : "HANGAR")
+    this.hint.setText(t(launch ? "hint.launch" : "hint.menu"))
     SECTORS.forEach((s, i) => {
       const alpha = launch && s === this.selSector ? 1 : 0
       this.tweens.add({ targets: this.briefs[i], alpha, duration: 400 })
@@ -413,7 +434,7 @@ export class Hangar extends Scene {
     on(["RIGHT", "D"], () => this.stepLaunch(1))
     on(["ENTER", "SPACE"], () => {
       if (this.focusRow === ROW_LAUNCH) this.launch()
-      else focus(ROW_LAUNCH)
+      else focus(this.focusRow + 1)
     })
   }
 

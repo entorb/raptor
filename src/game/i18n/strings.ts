@@ -12,7 +12,15 @@ const e = (en: string, de: string): Entry => ({ en, de })
 export const STRINGS = {
   "rotate.title": e("ROTATE YOUR DEVICE", "GERÄT DREHEN"),
   "rotate.sub": e("LANDSCAPE REQUIRED", "QUERFORMAT ERFORDERLICH"),
-  "lang.other": e("Deutsch", "English"),
+  "lang.current": e("English", "Deutsch"),
+  "hint.menu": e(
+    "↑↓ select   Enter confirm   Esc back",
+    "↑↓ wählen   Enter bestätigen   Esc zurück",
+  ),
+  "hint.launch": e(
+    "↑↓ row   ←→ choose   Enter confirm   Esc hangar",
+    "↑↓ Zeile   ←→ wählen   Enter bestätigen   Esc Hangar",
+  ),
 
   back: e("Back", "Zurück"),
   ok: e("OK", "OK"),
@@ -53,6 +61,10 @@ export const STRINGS = {
   "menu.deleteConfirm": e(
     "Delete pilot {name}? This cannot be undone.",
     "Pilot {name} löschen? Das kann nicht rückgängig gemacht werden.",
+  ),
+  "menu.pilotStats": e(
+    "{cr} CR  ·  Bravo waves {done}/{total}  ·  Training {train}/{trainTotal}",
+    "{cr} CR  ·  Bravo-Wellen {done}/{total}  ·  Training {train}/{trainTotal}",
   ),
   "menu.yesDelete": e("Yes, delete", "Ja, löschen"),
   "menu.newPilotInfo": e("New pilot: {name}", "Neuer Pilot: {name}"),
@@ -100,6 +112,17 @@ export const STRINGS = {
   "shop.nothingSell": e("Nothing to sell.", "Nichts zum Verkaufen."),
   "shop.onBoard": e("On board: {n}", "An Bord: {n}"),
   "shop.notOnBoard": e("Not on board", "Nicht an Bord"),
+  "shop.max": e("max {n}", "max. {n}"),
+  "shop.cargo": e("CARGO", "LADUNG"),
+  "shop.sellLast": e(
+    "Last one on board: tap again to sell",
+    "Letztes an Bord: erneut tippen zum Verkaufen",
+  ),
+  "shop.sellLastKey": e(
+    "Last one on board: confirm again to sell",
+    "Letztes an Bord: erneut bestätigen zum Verkaufen",
+  ),
+  "shop.confirmSell": e("CONFIRM", "BESTÄTIGEN"),
   "shop.noRoom": e("No room on the ship", "Kein Platz im Schiff"),
   "shop.purchased": e("Purchased {name}", "{name} gekauft"),
   "shop.noMoney": e("Not enough credits", "Nicht genug Credits"),
@@ -220,7 +243,10 @@ export const STRINGS = {
   "game.autoFireLabel": e("Auto-Fire: {state}", "Autofeuer: {state}"),
   "game.fullscreenLabel": e("Fullscreen: {state}", "Vollbild: {state}"),
   "game.abort": e("Abort Mission", "Mission abbrechen"),
-  "game.pauseHint": e("Arrows + Enter, Esc/P resume", "Pfeile + Enter, Esc/P weiter"),
+  "game.pauseHint": e(
+    "↑↓ + Enter, ←→ special weapon, Esc/P resume",
+    "↑↓ + Enter, ←→ Spezialwaffe, Esc/P weiter",
+  ),
   "game.specialWeapon": e("SPECIAL WEAPON", "SONDERWAFFE"),
   "game.simFailed": e("SIMULATION FAILED", "SIMULATION FEHLGESCHLAGEN"),
   "game.shipDestroyed": e("SHIP DESTROYED", "SCHIFF ZERSTÖRT"),
@@ -253,6 +279,8 @@ export const STRINGS = {
     "Feinde {e}  ·  Gebäude {b} zerstört",
   ),
   "game.notTop": e("This run is not in the top 10", "Dieser Flug ist nicht in den Top 10"),
+  "game.newBest": e("NEW BEST!", "NEUER REKORD!"),
+  "game.rank": e("Rank #{n}", "Platz {n}"),
   "game.continue": e("CONTINUE", "WEITER"),
 } as const satisfies Record<string, Entry>
 

@@ -20,7 +20,7 @@ import {
 } from "../campaign"
 import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
-import { loadPilots, type Sector, savePilot } from "../data/save"
+import { loadPilots, loadSettings, type Sector, savePilot, saveSettings } from "../data/save"
 import { t as tr } from "../i18n/i18n"
 import { toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
@@ -39,7 +39,7 @@ import {
 import { enemyBaseDamage, type Ship } from "../sim/enemy"
 import { Inventory, OBJ_LIB } from "../sim/objects"
 import { type DemoFrame, World } from "../sim/world"
-import { UI } from "../ui/textMenu"
+import { pctLabel, stepVolume, UI } from "../ui/textMenu"
 import type { HangarData } from "./Hangar"
 
 export interface GameData {
@@ -141,8 +141,10 @@ export class Game extends Scene {
   private stars!: GameObjects.TileSprite[]
   private paused = false
   private pauseLayer: GameObjects.Container | null = null
-  private pauseItems: { t: GameObjects.Text; fn: () => void }[] = []
+  private pauseItems: { t: GameObjects.Text; fn: () => void; adjust?: (d: number) => void }[] = []
   private pauseCursor = 0
+  /** LEFT/RIGHT in the pause menu: step through the special weapons on board */
+  private pauseWeaponStep: ((d: number) => void) | null = null
   private ended = false
   private shakeAmt = 0
   private briefing: GameObjects.Container | null = null
@@ -247,6 +249,13 @@ export class Game extends Scene {
     kb?.on("keydown-W", () => this.pauseMove(-1))
     kb?.on("keydown-DOWN", () => this.pauseMove(1))
     kb?.on("keydown-S", () => this.pauseMove(1))
+    for (const [k, d] of [
+      ["LEFT", -1],
+      ["A", -1],
+      ["RIGHT", 1],
+      ["D", 1],
+    ] as const)
+      kb?.on(`keydown-${k}`, () => this.pauseLeftRight(d))
     kb?.on("keydown-ENTER", () => this.pauseActivate())
     kb?.on("keydown-SPACE", () => this.pauseActivate())
     kb?.on("keydown-SPACE", () => {
@@ -859,6 +868,14 @@ export class Game extends Scene {
     this.pauseHighlight()
   }
 
+  /** LEFT/RIGHT: change the selected volume row, else step the special weapon. */
+  private pauseLeftRight(d: number): void {
+    if (!this.paused) return
+    const adjust = this.pauseItems[this.pauseCursor]?.adjust
+    if (adjust) adjust(d)
+    else this.pauseWeaponStep?.(d)
+  }
+
   private pauseActivate(): void {
     if (this.paused) this.pauseItems[this.pauseCursor]?.fn()
   }
@@ -866,8 +883,7 @@ export class Game extends Scene {
   private pauseHighlight(): void {
     this.pauseItems.forEach(({ t }, i) => {
       const sel = i === this.pauseCursor
-      t.setColor(sel ? "#ffffff" : UI.text)
-      t.setBackgroundColor(sel ? "#1d3a5c" : "#10182a")
+      t.setColor(sel ? UI.gold : UI.text).setScale(sel ? 1.08 : 1)
     })
   }
 
@@ -877,6 +893,7 @@ export class Game extends Scene {
     this.pauseLayer?.destroy()
     this.pauseLayer = null
     this.pauseItems = []
+    this.pauseWeaponStep = null
     if (!this.paused) {
       this.input2.ignoreEnterUntilUp()
       this.sound.resumeAll()
@@ -903,12 +920,11 @@ export class Game extends Scene {
       const t = this.add
         .text(480, y, label, {
           fontFamily: UI.font,
-          fontSize: "30px",
+          fontSize: "26px",
           color: UI.text,
-          backgroundColor: "#10182a",
         })
         .setOrigin(0.5)
-        .setPadding(24, 10, 24, 10)
+        .setPadding(24, 8, 24, 8)
         .setInteractive({ useHandCursor: true })
       t.on("pointerup", fn)
       this.pauseItems.push({ t, fn })
@@ -922,7 +938,7 @@ export class Game extends Scene {
       this.input2.toggleAutoFire()
       fire.setText(fireLabel())
     })
-    items.push(fire)
+    items.push(fire, this.pauseVolume("music"), this.pauseVolume("sfx"))
     // hidden where the Fullscreen API is missing (iPhone), like the menu entry
     if (this.scale.fullscreen.available) {
       const fsLabel = () =>
@@ -935,13 +951,13 @@ export class Game extends Scene {
     }
     items.push(mk(0, tr("game.abort"), () => this.end("abort")))
     items.forEach((t, i) => {
-      t.setY(180 + i * 62)
+      t.setY(160 + i * 46)
     })
     this.pauseCursor = 0
     this.pauseHighlight()
-    const extras = this.pauseWeapons(180 + items.length * 62 + 10)
+    const extras = this.pauseWeapons(160 + items.length * 46)
     const hint = this.add
-      .text(480, 500, this.isTouch() ? "" : tr("game.pauseHint"), {
+      .text(480, 575, this.isTouch() ? "" : tr("game.pauseHint"), {
         fontFamily: UI.font,
         fontSize: "16px",
         color: UI.dim,
@@ -951,6 +967,28 @@ export class Game extends Scene {
       .container(0, 0, [bg, title, ...items, ...extras, hint])
       .setDepth(D.overlay + 10)
     this.pauseLayer.setScrollFactor(0)
+  }
+
+  /** Pause menu volume row: tap cycles, LEFT/RIGHT step (like the start screen options). */
+  private pauseVolume(kind: "music" | "sfx"): GameObjects.Text {
+    const label = () =>
+      `${tr(kind === "music" ? "menu.music" : "menu.sfx")}: ${pctLabel(loadSettings()[kind])}`
+    const set = (d: number) => {
+      const s = loadSettings()
+      s[kind] = stepVolume(s[kind], d)
+      saveSettings(s)
+      if (kind === "music") getAudio().setMusicVolume(s.music)
+      else getAudio().sfxVolume = s.sfx
+      t.setText(label())
+    }
+    const t = this.add
+      .text(480, 0, label(), { fontFamily: UI.font, fontSize: "26px", color: UI.text })
+      .setOrigin(0.5)
+      .setPadding(24, 8, 24, 8)
+      .setInteractive({ useHandCursor: true })
+    t.on("pointerup", () => set(0))
+    this.pauseItems.push({ t, fn: () => set(0), adjust: set })
+    return t
   }
 
   /** Pause menu: tappable icons of the special weapons on board (the current one is framed). */
@@ -968,17 +1006,27 @@ export class Game extends Scene {
         .setOrigin(0.5),
     ]
     const frames: [number, GameObjects.Rectangle][] = []
+    const name = this.add
+      .text(480, y + 84, "", { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
+      .setOrigin(0.5)
+    const pick = (t: ObjType) => {
+      this.input2.selectWeapon(t)
+      cur = t
+      for (const [ft, fr] of frames) fr.setStrokeStyle(3, 0x39d0ff, ft === cur ? 1 : 0)
+      name.setText(OBJ_LIB[t]?.name ?? "")
+    }
+    this.pauseWeaponStep = (d) => {
+      const i = list.findIndex(([, , t]) => t === cur)
+      const next = list[(i + d + list.length) % list.length]
+      if (next) pick(next[2])
+    }
     for (const [i, [, key, t]] of list.entries()) {
       const x = 480 + (i - (list.length - 1) / 2) * 76
       const frame = this.add
         .rectangle(x, y + 46, 68, 68, 0x10182a)
         .setStrokeStyle(3, 0x39d0ff, t === cur ? 1 : 0)
         .setInteractive({ useHandCursor: true })
-      frame.on("pointerup", () => {
-        this.input2.selectWeapon(t)
-        cur = t
-        for (const [ft, fr] of frames) fr.setStrokeStyle(3, 0x39d0ff, ft === cur ? 1 : 0)
-      })
+      frame.on("pointerup", () => pick(t))
       frames.push([t, frame])
       const icon = this.add.image(x, y + 42, `pickup-${t}`)
       const label = this.add
@@ -986,6 +1034,8 @@ export class Game extends Scene {
         .setOrigin(0.5)
       out.push(frame, icon, label)
     }
+    name.setText(cur >= 0 ? (OBJ_LIB[cur]?.name ?? "") : "")
+    out.push(name)
     return out
   }
 
@@ -1020,6 +1070,7 @@ export class Game extends Scene {
         next: () =>
           this.scene.start("Hangar", {
             message: `${tr(sim ? "game.simFailedMsg" : "game.shipDestroyedMsg")}${cr}`,
+            earned: payout,
           }),
       }
     }
@@ -1040,7 +1091,7 @@ export class Game extends Scene {
       text: training
         ? tr("game.trainingComplete")
         : tr("game.sectorSecured", { sector: tr("sector.bravoName") }),
-      next: () => this.scene.start("Hangar", { message }),
+      next: () => this.scene.start("Hangar", { message, earned: payout }),
     }
   }
 
@@ -1055,7 +1106,7 @@ export class Game extends Scene {
     const message = aborted
       ? `${tr("game.aborted")}${payoutStr}`
       : tr(replay ? "game.waveReplayed" : "game.waveComplete", { n: this.wave + 1, cr: payout })
-    const data: HangarData = { message }
+    const data: HangarData = { message, earned: payout }
     const completeText = tr(sim ? "game.simComplete" : "game.waveCompleteTitle")
     return {
       text: aborted ? tr("game.missionAborted") : completeText,
@@ -1126,13 +1177,17 @@ export class Game extends Scene {
     const top = st?.top ?? []
     const txt = (y: number, s: string, size: number, color: string, font = UI.font) =>
       this.add.text(0, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
+    // a new personal best (rank 1) or the place this run took in the top 10
+    let rankStr = ""
+    if (rank === 1 && top.length > 1) rankStr = `  ·  ${tr("game.newBest")}`
+    else if (rank !== null) rankStr = `  ·  ${tr("game.rank", { n: rank })}`
     const items: GameObjects.GameObject[] = [
       this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
       txt(-200, title, 44, "#ffffff")
         .setFontStyle("bold")
         .setShadow(0, 0, UI.accent, 24, true, true)
         .setPadding(36),
-      txt(-150, `+${earned} CR`, 24, UI.gold),
+      txt(-150, `+${earned} CR${rankStr}`, 24, UI.gold),
       txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
       txt(
         -78,

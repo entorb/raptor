@@ -1,5 +1,6 @@
 // Vertical text menu: keyboard (up/down/left/right/enter/space/esc) + pointer (tap = select and activate).
-import type { GameObjects, Input, Scene } from "phaser"
+import type { GameObjects, Input, Scene, Tweens } from "phaser"
+import { getAudio } from "../audio/audio"
 
 export interface MenuItem {
   label: string
@@ -64,6 +65,8 @@ export class TextMenu {
   private scroll = 0
   private readonly moreUp: GameObjects.Text
   private readonly moreDown: GameObjects.Text
+  private readonly track: GameObjects.Rectangle
+  private readonly thumb: GameObjects.Rectangle
   /** true once a pointer drag has scrolled past the tap threshold, to swallow the matching pointerup */
   private dragged = false
   private dragY = 0
@@ -119,8 +122,13 @@ export class TextMenu {
       bind("keydown-ENTER", () => this.activate())
       bind("keydown-SPACE", () => this.activate())
     }
-    kb?.on("keydown-ESC", () => this.onBack?.())
-    kb?.on("keydown-BACKSPACE", () => this.onBack?.())
+    const back = () => {
+      if (!this.onBack) return
+      getAudio().ui("back")
+      this.onBack()
+    }
+    kb?.on("keydown-ESC", back)
+    kb?.on("keydown-BACKSPACE", back)
     for (let i = 0; i < visible; i++) {
       const cy = y + i * rowH
       const bg = scene.add
@@ -193,7 +201,7 @@ export class TextMenu {
       const clamped = Math.max(0, Math.min(max, next))
       if (clamped !== this.scroll) {
         this.scroll = clamped
-        this.refresh()
+        this.refresh(false)
       }
     })
     scene.input.on("pointerup", () => {
@@ -203,7 +211,7 @@ export class TextMenu {
       if (!inBounds(pointer.y) || pointer.x < x || pointer.x > x + w) return
       const max = Math.max(0, this.items.length - this.visible)
       this.scroll = Math.max(0, Math.min(max, this.scroll + Math.sign(dy)))
-      this.refresh()
+      this.refresh(false)
     })
 
     this.moreUp = scene.add
@@ -213,6 +221,15 @@ export class TextMenu {
     this.moreDown = scene.add
       .text(x + w / 2, bottom + 14, "▼", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
       .setOrigin(0.5)
+      .setVisible(false)
+    // scroll bar right of the rows, shown only when the list is longer than the window
+    this.track = scene.add
+      .rectangle(x + w + 4, top, 4, bottom - top, 0x39d0ff, 0.12)
+      .setOrigin(0.5, 0)
+      .setVisible(false)
+    this.thumb = scene.add
+      .rectangle(x + w + 4, top, 4, 1, 0x39d0ff, 0.7)
+      .setOrigin(0.5, 0)
       .setVisible(false)
   }
 
@@ -227,6 +244,13 @@ export class TextMenu {
     this.refresh()
   }
 
+  /** Put the cursor on an item (e.g. when focus comes back from another control). */
+  select(index: number): void {
+    this.cursor = Math.max(0, Math.min(index, this.items.length - 1))
+    this.refresh()
+    this.onMove?.(this.cursor)
+  }
+
   private move(d: number): void {
     if (!this.items.length) return
     if (d > 0 && this.cursor === this.items.length - 1 && this.onDownFromEnd) {
@@ -238,6 +262,7 @@ export class TextMenu {
       return
     }
     this.cursor = (this.cursor + d + this.items.length) % this.items.length
+    getAudio().ui("move")
     this.refresh()
     this.onMove?.(this.cursor)
   }
@@ -245,12 +270,16 @@ export class TextMenu {
   private activate(): void {
     const it = this.items[this.cursor]
     if (!it || it.disabled) return
+    getAudio().ui("confirm")
     it.action()
   }
 
-  private refresh(): void {
-    if (this.cursor < this.scroll) this.scroll = this.cursor
-    if (this.cursor >= this.scroll + this.visible) this.scroll = this.cursor - this.visible + 1
+  /** `follow`: scroll so the cursor is visible (not while the player drags/wheels the list). */
+  private refresh(follow = true): void {
+    if (follow && this.cursor < this.scroll) this.scroll = this.cursor
+    if (follow && this.cursor >= this.scroll + this.visible)
+      this.scroll = this.cursor - this.visible + 1
+    this.scroll = Math.max(0, Math.min(this.scroll, this.items.length - this.visible))
     this.rows.forEach((r, i) => {
       const it = this.items[this.scroll + i]
       const sel = this.active && this.scroll + i === this.cursor
@@ -269,6 +298,54 @@ export class TextMenu {
     })
     this.moreUp.setVisible(this.scroll > 0)
     this.moreDown.setVisible(this.scroll + this.visible < this.items.length)
+    const n = this.items.length
+    const bar = n > this.visible
+    this.track.setVisible(bar)
+    this.thumb.setVisible(bar)
+    if (bar) {
+      const h = this.track.height
+      this.thumb.setY(this.track.y + (h * this.scroll) / n).setSize(4, (h * this.visible) / n)
+    }
+  }
+}
+
+/** Desktop key help, same place (top right) on every menu screen. */
+export function keyHint(scene: Scene, text: string): GameObjects.Text {
+  return scene.add
+    .text(950, 8, text, { fontFamily: UI.font, fontSize: "13px", color: UI.dim })
+    .setOrigin(1, 0)
+    .setVisible(!TOUCH)
+}
+
+/** Volume setting in 20% steps; d = 0 cycles (100% wraps to 0%). */
+export function stepVolume(v: number, d: number): number {
+  if (d === 0) return v >= 0.99 ? 0 : stepVolume(v, 1)
+  return Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
+}
+
+export const pctLabel = (v: number) => `${Math.round(v * 100)}%`
+
+/** Credits in a status line roll to a new value (Hangar arrival, shop trades). Returns `set(to)`. */
+export function rollCredits(scene: Scene, from: number, render: (cr: number) => void) {
+  let shown = from
+  let tween: Tweens.Tween | null = null
+  render(from)
+  return (to: number) => {
+    tween?.stop()
+    if (to === shown) {
+      render(to)
+      return
+    }
+    tween = scene.tweens.addCounter({
+      from: shown,
+      to,
+      duration: 700,
+      ease: "Cubic.easeOut",
+      onUpdate: (tw) => {
+        shown = Math.round(tw.getValue() ?? to)
+        render(shown)
+      },
+    })
   }
 }
 

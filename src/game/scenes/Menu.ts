@@ -1,6 +1,6 @@
 import { type GameObjects, Scene } from "phaser"
 import { getAudio } from "../audio/audio"
-import { loadout, withLoadout } from "../campaign"
+import { doneWaves, loadout, sectorWaves, withLoadout } from "../campaign"
 import {
   deletePilot,
   loadPilots,
@@ -18,7 +18,17 @@ import { toggleFullscreen } from "../input/fullscreen"
 import { applyUpdate, checkForUpdate, hasInstallPrompt, promptInstall } from "../pwa"
 import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
-import { backdrop, ICON, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
+import {
+  backdrop,
+  ICON,
+  keyHint,
+  type MenuItem,
+  pctLabel,
+  stepVolume,
+  TextMenu,
+  TOUCH,
+  UI,
+} from "../ui/textMenu"
 
 /** Pilot titles by difficulty, from DIFF_EASY (training is a sector, not a difficulty). */
 const DIFF_NAMES: StringKey[] = ["diff.rookie", "diff.veteran", "diff.elite"]
@@ -68,6 +78,8 @@ export class Menu extends Scene {
   private actionIndex = 0
   private actionFocused = false
   private actionHover: number | null = null
+  /** The menu's own DOWN just entered the link row: the scene handler skips that keypress. */
+  private skipKey = false
   private nameInput: GameObjects.DOMElement | null = null
   /** pilot picked in the "pilots" list, name typed in "name" mode */
   private picked: PilotSave | null = null
@@ -102,18 +114,26 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.add
-      .text(480, 168, "by Torben", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .text(480, TOUCH ? 170 : 168, "by Torben", {
+        fontFamily: UI.font,
+        fontSize: TOUCH ? "20px" : "16px",
+        color: TOUCH ? "#9aa8c0" : UI.dim,
+      })
       .setOrigin(0.5)
     this.stats = this.add
-      .text(480, TOUCH ? 556 : 542, "", { fontFamily: UI.font, fontSize: "16px", color: UI.dim })
+      .text(480, TOUCH ? 556 : 542, "", {
+        fontFamily: UI.font,
+        fontSize: TOUCH ? "22px" : "16px",
+        color: TOUCH ? UI.text : UI.dim,
+      })
       .setOrigin(0.5)
     void readGlobalMissions().then((n) => {
       this.globalGames = n
       if (this.stats.active && this.mode === "main") this.stats.setText(this.statsLabel())
     })
     this.info = this.add
-      .text(480, 566, "", { fontFamily: UI.font, fontSize: "15px", color: UI.dim, align: "center" })
-      .setOrigin(0.5)
+      .text(480, 576, "", { fontFamily: UI.font, fontSize: "15px", color: UI.dim, align: "center" })
+      .setOrigin(0.5, 1)
     // body text for content that belongs above the menu items, not the footer (e.g. install help)
     this.body = this.add
       .text(480, 352, "", {
@@ -126,12 +146,13 @@ export class Menu extends Scene {
       })
       .setOrigin(0.5)
     this.add
-      .text(480, 588, t("menu.credit"), {
+      .text(480, TOUCH ? 586 : 588, t("menu.credit"), {
         fontFamily: UI.font,
-        fontSize: "13px",
-        color: UI.dim,
+        fontSize: TOUCH ? "19px" : "13px",
+        color: TOUCH ? "#9aa8c0" : UI.dim,
       })
       .setOrigin(0.5)
+    keyHint(this, t("hint.menu"))
     this.actions = this.actionRow(480, TOUCH ? 522 : 506)
     this.menu = new TextMenu(this, 280, 194, 400, TOUCH ? 60 : 52, TOUCH ? 5 : 6)
     this.menu.onBack = () => {
@@ -139,12 +160,12 @@ export class Menu extends Scene {
       else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
       else if (this.mode !== "main") this.show("main")
     }
-    // The link row is its own row: DOWN off the last menu item enters it,
-    // UP leaves, LEFT/RIGHT pick a link, ENTER/SPACE opens it.
-    this.menu.onDownFromEnd = () => this.setActionFocus(true)
+    // The link row: DOWN off the last menu item enters it, UP/DOWN and LEFT/RIGHT step through
+    // the links (DOWN past the last wraps to the first menu item, UP off the first returns to
+    // the menu), ENTER/SPACE opens one. Bound after the menu: its handlers run first.
     const kb = this.input.keyboard
-    kb?.on("keydown-UP", () => this.setActionFocus(false))
-    kb?.on("keydown-W", () => this.setActionFocus(false))
+    for (const k of ["UP", "W"]) kb?.on(`keydown-${k}`, () => this.stepAction(-1))
+    for (const k of ["DOWN", "S"]) kb?.on(`keydown-${k}`, () => this.stepAction(1))
     kb?.on("keydown-LEFT", () => this.moveAction(-1))
     kb?.on("keydown-A", () => this.moveAction(-1))
     kb?.on("keydown-RIGHT", () => this.moveAction(1))
@@ -206,6 +227,7 @@ export class Menu extends Scene {
       default:
         items = this.optionsItems()
     }
+    this.menu.onDownFromEnd = mode === "main" ? () => this.enterActions() : null
     this.menu.setItems(items, mode === "options")
   }
 
@@ -222,7 +244,7 @@ export class Menu extends Scene {
         },
       })
     items.push(
-      { label: `${ICON.language} ${t("lang.other")}`, action: () => this.toggleLang() },
+      { label: `${ICON.language} ${t("lang.current")}`, action: () => this.toggleLang() },
       { label: `${ICON.options} ${t("menu.options")}`, action: () => this.show("options") },
     )
     items.push({ label: `${ICON.exit} ${t("menu.exit")}`, action: () => this.exit() })
@@ -267,7 +289,14 @@ export class Menu extends Scene {
         { label: `${ICON.delete} ${t("menu.deletePilot")}`, action: () => this.show("delete") },
       )
     } else {
-      this.info.setText(t("menu.deleteConfirm", { name: p.name }))
+      const stats = t("menu.pilotStats", {
+        cr: p.score,
+        done: doneWaves(p, "bravo"),
+        total: sectorWaves(p, "bravo"),
+        train: doneWaves(p, "train"),
+        trainTotal: sectorWaves(p, "train"),
+      })
+      this.info.setText(`${t("menu.deleteConfirm", { name: p.name })}\n${stats}`)
       items.push({
         label: `${ICON.delete} ${t("menu.yesDelete")}`,
         action: () => {
@@ -328,9 +357,6 @@ export class Menu extends Scene {
   private optionsItems(): MenuItem[] {
     this.info.setText(t("menu.shieldInfo"))
     const s = loadSettings()
-    const pct = (v: number) => `${Math.round(v * 100)}%`
-    const step = (v: number, d = 1) => Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
-    const cycle = (v: number) => (v >= 0.99 ? 0 : step(v))
     const setMusic = (v: number) => {
       s.music = v
       saveSettings(s)
@@ -346,15 +372,15 @@ export class Menu extends Scene {
     return [
       {
         label: t("menu.music"),
-        detail: pct(s.music),
-        action: () => setMusic(cycle(s.music)),
-        adjust: (d) => setMusic(step(s.music, d)),
+        detail: pctLabel(s.music),
+        action: () => setMusic(stepVolume(s.music, 0)),
+        adjust: (d) => setMusic(stepVolume(s.music, d)),
       },
       {
         label: t("menu.sfx"),
-        detail: pct(s.sfx),
-        action: () => setSfx(cycle(s.sfx)),
-        adjust: (d) => setSfx(step(s.sfx, d)),
+        detail: pctLabel(s.sfx),
+        action: () => setSfx(stepVolume(s.sfx, 0)),
+        adjust: (d) => setSfx(stepVolume(s.sfx, d)),
       },
       { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     ]
@@ -467,6 +493,28 @@ export class Menu extends Scene {
     this.actionFocused = on
     this.menu.enabled = !on
     this.refreshActions()
+  }
+
+  private enterActions(): void {
+    this.skipKey = true
+    this.actionIndex = 0
+    this.setActionFocus(true)
+  }
+
+  /** UP/DOWN while the link row has focus. */
+  private stepAction(dir: number): void {
+    if (this.skipKey) {
+      this.skipKey = false
+      return
+    }
+    if (!this.actionFocused) return
+    const next = this.actionIndex + dir
+    if (next >= 0 && next < this.actionTexts.length) {
+      this.moveAction(dir)
+      return
+    }
+    this.setActionFocus(false)
+    if (dir > 0) this.menu.select(0)
   }
 
   private moveAction(dir: number): void {

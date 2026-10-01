@@ -110,6 +110,13 @@ export function spatial(
   return { vol, pan: (xpos - 128) / 127 }
 }
 
+/** Menu sounds: sample, playback rate, volume. */
+const UI_SFX: Record<"move" | "confirm" | "back", [SfxFile, number, number]> = {
+  move: ["gun", 2.2, 0.12],
+  confirm: ["bonus", 1.2, 0.3],
+  back: ["swep", 0.8, 0.25],
+}
+
 export class Audio {
   private readonly manager: Sound.WebAudioSoundManager | null
   private song: Sound.BaseSound | null = null
@@ -196,6 +203,13 @@ export class Audio {
   setMusicVolume(v: number): void {
     this.musicVolume = v
     if (this.song instanceof Sound.WebAudioSound) this.song.setVolume(v)
+  }
+
+  /** Menu feedback (web addition): cursor move, confirm, back. */
+  ui(kind: "move" | "confirm" | "back"): void {
+    if (!this.manager || this.sfxVolume <= 0) return
+    const [file, rate, vol] = UI_SFX[kind]
+    this.voice(this.manager, file).play({ volume: vol * this.sfxVolume, rate })
   }
 
   stopAll(): void {
