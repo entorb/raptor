@@ -9,6 +9,10 @@ export const MAP_SIZE = MAP_ROWS * MAP_COLS
 export const MAP_LEFT = 16
 export const MAP_BOTTOM = 200 - 18
 
+/** Circle offsets (16 steps) shared by bonus pickups and enemy mines. */
+export const XPOS = [-1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2]
+export const YPOS = [-3, -3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2]
+
 export const PLAYERWIDTH = 32
 export const PLAYERHEIGHT = 32
 export const PLAYERMINX = 5

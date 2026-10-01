@@ -14,6 +14,7 @@ import {
   polyPath,
   roundRect,
   seeded,
+  sphere,
 } from "./draw"
 
 export interface Palette {
@@ -193,14 +194,11 @@ const orb: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const cy = h / 2
   const R = Math.min(w, h) * 0.47
-  const g = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.1, cx, cy, R)
-  g.addColorStop(0, p.light)
-  g.addColorStop(0.5, p.mid)
-  g.addColorStop(1, p.dark)
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.arc(cx, cy, R, 0, Math.PI * 2)
-  ctx.fill()
+  sphere(ctx, cx, cy, R, 0.35, 0.1, [
+    [0, p.light],
+    [0.5, p.mid],
+    [1, p.dark],
+  ])
   ctx.strokeStyle = "rgba(255,255,255,0.3)"
   ctx.lineWidth = 1.5
   ctx.stroke()
@@ -304,14 +302,11 @@ const station: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const cy = h / 2
   const R = Math.min(w, h) * 0.48
-  const g = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.4, R * 0.05, cx, cy, R)
-  g.addColorStop(0, p.light)
-  g.addColorStop(0.45, p.mid)
-  g.addColorStop(1, p.dark)
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.arc(cx, cy, R, 0, Math.PI * 2)
-  ctx.fill()
+  sphere(ctx, cx, cy, R, 0.4, 0.05, [
+    [0, p.light],
+    [0.45, p.mid],
+    [1, p.dark],
+  ])
   ctx.save()
   ctx.beginPath()
   ctx.arc(cx, cy, R, 0, Math.PI * 2)
@@ -526,13 +521,10 @@ const worm: Draw = (ctx, w, h, t, _r, p) => {
     const x = w * (0.08 + (i * 0.84) / (segs - 1))
     const y = h / 2 + Math.sin(t * 6.28 + i * 0.9) * h * 0.2
     const rr = h * (i === segs - 1 ? 0.5 : 0.38)
-    const g = ctx.createRadialGradient(x - rr * 0.3, y - rr * 0.3, 0, x, y, rr)
-    g.addColorStop(0, p.light)
-    g.addColorStop(1, p.dark)
-    ctx.fillStyle = g
-    ctx.beginPath()
-    ctx.arc(x, y, rr, 0, Math.PI * 2)
-    ctx.fill()
+    sphere(ctx, x, y, rr, 0.3, 0, [
+      [0, p.light],
+      [1, p.dark],
+    ])
   }
   glow(ctx, w * 0.92, h / 2, h * 0.3, p.accent)
 }

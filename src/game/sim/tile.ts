@@ -197,35 +197,32 @@ export function tileScroll(w: World): void {
   }
 }
 
-/** TILE_IsHit: note the DOS loop stops before the last spot. */
-export function tileIsHit(w: World, damage: number, x: number, y: number): boolean {
+/** First live tile spot under (x, y), with `damage` taken off; the DOS loop stops before the last spot. */
+function hitSpot(w: World, damage: number, x: number, y: number): TileSpot | null {
   const t = w.tiles
   for (let i = 0; i < t.tspots.length - 1; i++) {
     const ts = t.tspots[i] as TileSpot
-    if (x >= ts.x && x < ts.x + 32 && y >= ts.y && y < ts.y + 32) {
-      if (t.eitems[ts.mapspot] !== t.titems[ts.mapspot]) {
-        t.hits[ts.mapspot] = (t.hits[ts.mapspot] as number) - damage
-        w.startGAnim(w.rng.random(2) === 0 ? Anim.BLUE_SPARK : Anim.ORANGE_SPARK, x, y)
-        return true
-      }
+    const over = x >= ts.x && x < ts.x + MAP_BLOCKSIZE && y >= ts.y && y < ts.y + MAP_BLOCKSIZE
+    if (over && t.eitems[ts.mapspot] !== t.titems[ts.mapspot]) {
+      t.hits[ts.mapspot] = (t.hits[ts.mapspot] as number) - damage
+      return ts
     }
   }
-  return false
+  return null
+}
+
+/** TILE_IsHit */
+export function tileIsHit(w: World, damage: number, x: number, y: number): boolean {
+  if (!hitSpot(w, damage, x, y)) return false
+  w.startGAnim(w.rng.random(2) === 0 ? Anim.BLUE_SPARK : Anim.ORANGE_SPARK, x, y)
+  return true
 }
 
 /** TILE_Bomb */
 export function tileBomb(w: World, damage: number, x: number, y: number): boolean {
-  const t = w.tiles
-  for (let i = 0; i < t.tspots.length - 1; i++) {
-    const ts = t.tspots[i] as TileSpot
-    if (x >= ts.x && x < ts.x + 32 && y >= ts.y && y < ts.y + 32) {
-      if (t.eitems[ts.mapspot] !== t.titems[ts.mapspot]) {
-        t.hits[ts.mapspot] = (t.hits[ts.mapspot] as number) - damage
-        doDamage(w, ts.mapspot, damage)
-        if (ts.mapspot > MAP_COLS) doDamage(w, ts.mapspot - MAP_COLS, damage >> 1)
-        return true
-      }
-    }
-  }
-  return false
+  const ts = hitSpot(w, damage, x, y)
+  if (!ts) return false
+  doDamage(w, ts.mapspot, damage)
+  if (ts.mapspot > MAP_COLS) doDamage(w, ts.mapspot - MAP_COLS, damage >> 1)
+  return true
 }

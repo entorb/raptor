@@ -3,17 +3,20 @@
 import { type GameObjects, Scene } from "phaser"
 import { ICON_COLOR } from "../art/icons"
 import { getAudio } from "../audio/audio"
-import { type Loadout, withLoadout } from "../campaign"
+import { type Loadout, statusLine } from "../campaign"
 import { t } from "../i18n/i18n"
 import type { StringKey } from "../i18n/strings"
-import { currentPilot, pilotLoadout, setPilot } from "../session"
-import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
+import { currentPilot, pilotLoadout, saveLoadout } from "../session"
+import { Obj, type ObjType } from "../sim/consts"
 import { Buy, MAX_OBJS, MAX_PHASE, OBJ_LIB } from "../sim/objects"
 import {
   backButton,
+  bindKeys,
+  header,
   keyHint,
   type MenuItem,
   rollCredits,
+  statusText,
   TextMenu,
   TOUCH,
   UI,
@@ -86,16 +89,7 @@ export class Shop extends Scene {
     this.lo = pilotLoadout()
     this.buying = true
     this.add.image(480, 300, "shop-bg")
-    this.add
-      .text(480, 44, "SUPPLY SHOP", {
-        fontFamily: UI.font,
-        fontSize: "40px",
-        color: UI.text,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setShadow(0, 0, UI.accent, 16, true, true)
-      .setPadding(24)
+    header(this, "SUPPLY SHOP", undefined, 44, 40)
     this.back = backButton(this, "HANGAR", () => this.leave())
     this.tabs = [t("shop.buy"), t("shop.sell")].map((name, i) => {
       const x = 480 + (i - 0.5) * 170
@@ -113,15 +107,7 @@ export class Shop extends Scene {
       .setOrigin(0)
       .setStrokeStyle(1, 0x39d0ff, 0.35)
     this.buildCard()
-    this.status = this.add
-      .text(480, 578, "", {
-        fontFamily: UI.mono,
-        fontSize: TOUCH ? "22px" : "19px",
-        color: UI.text,
-      })
-      .setOrigin(0.5)
-      .setShadow(0, 0, "#000000", 6, true, true)
-      .setPadding(9)
+    this.status = statusText(this, TOUCH ? 22 : 19)
     keyHint(this, t("shop.keys"))
     this.credits = rollCredits(this, this.lo.plr.score, (cr) => this.renderStatus(cr))
     const rowH = TOUCH ? 58 : 40
@@ -190,22 +176,23 @@ export class Shop extends Scene {
 
   /** Tabs and back button keys (bound after the menu: its handlers run first). */
   private bindFocusKeys(): void {
-    const kb = this.input.keyboard
-    const on = (keys: string[], fn: () => void) => {
-      for (const k of keys)
-        kb?.on(`keydown-${k}`, () => {
-          if (this.skipKey) this.skipKey = false
-          else if (this.focus !== "list") fn()
-        })
+    const guard = () => {
+      if (!this.skipKey) return this.focus !== "list"
+      this.skipKey = false
+      return false
     }
-    on(["UP", "W"], () => this.setFocus("back"))
-    on(["DOWN", "S"], () => this.setFocus(this.focus === "back" ? "tabs" : "list"))
-    on(["LEFT", "A", "RIGHT", "D"], () => {
+    const tab = () => {
       if (this.focus === "tabs") this.setTab(!this.buying)
-    })
-    on(["ENTER", "SPACE"], () => {
-      if (this.focus === "back") this.leave()
-      else this.setFocus("list")
+    }
+    bindKeys(this, guard, {
+      up: () => this.setFocus("back"),
+      down: () => this.setFocus(this.focus === "back" ? "tabs" : "list"),
+      left: tab,
+      right: tab,
+      confirm: () => {
+        if (this.focus === "back") this.leave()
+        else this.setFocus("list")
+      },
     })
   }
 
@@ -213,8 +200,7 @@ export class Shop extends Scene {
     if (f === "list" && !this.items.length) return
     this.focus = f
     this.menu.enabled = f === "list"
-    this.back.focused = f === "back"
-    this.back.look(f === "back")
+    this.back.focus(f === "back")
     this.refresh(true)
   }
 
@@ -224,8 +210,7 @@ export class Shop extends Scene {
   }
 
   private save(): void {
-    const p = currentPilot()
-    if (p) setPilot(withLoadout(p, this.lo))
+    saveLoadout(this.lo)
   }
 
   private setTab(buy: boolean): void {
@@ -364,13 +349,8 @@ export class Shop extends Scene {
 
   private renderStatus(cr: number): void {
     const inv = this.lo.inv
-    const shield = inv.getAmt(Obj.ENERGY)
-    const phase = inv.getAmt(Obj.SUPER_SHIELD)
     this.status.setText(
-      `${t("hud.credits")} ${cr}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
-        (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
-        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}` +
-        `   ${t("shop.cargo")} ${inv.objs.length}/${MAX_OBJS}`,
+      `${statusLine(inv, cr)}   ${t("shop.cargo")} ${inv.objs.length}/${MAX_OBJS}`,
     )
   }
 }

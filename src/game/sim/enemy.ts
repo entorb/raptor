@@ -519,7 +519,7 @@ function shootShip(w: World, s: Ship): void {
 
 /** ENEMY_Think: ramming a ship hurts both sides. */
 function ramPlayer(w: World, s: Ship): void {
-  if (w.player_cx > s.x && w.player_cx < s.x2 && w.player_cy > s.y && w.player_cy < s.y2) {
+  if (inside(s, w.player_cx, w.player_cy)) {
     s.hits -= PLAYERWIDTH / 2
     const suben = Math.max(s.width, s.height)
     w.subEnergy(suben >> 2)

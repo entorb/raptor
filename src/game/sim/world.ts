@@ -288,11 +288,9 @@ export class World {
       if (sup.num < 0) this.inv.del(Obj.SUPER_SHIELD)
       return sup.num
     }
-    const cur = this.inv.p_objs[Obj.ENERGY]
-    if (!cur) return 0
+    if (!this.inv.p_objs[Obj.ENERGY]) return 0
     this.sfx("HIT")
-    cur.num = Math.max(0, cur.num - amt)
-    return cur.num
+    return this.inv.subAmt(Obj.ENERGY, amt)
   }
 
   private use(type: ObjType): void {
@@ -375,6 +373,10 @@ export class World {
     } else if (this.playerpic > this.playerbasepic) this.playerpic--
     else if (this.playerpic < this.playerbasepic) this.playerpic++
     this.oldx = this.playerx
+    this.syncPlayerCenter()
+  }
+
+  private syncPlayerCenter(): void {
     this.player_cx = this.playerx + PLAYERWIDTH / 2
     this.player_cy = this.playery + PLAYERHEIGHT / 2
   }
@@ -389,8 +391,7 @@ export class World {
     }
     this.playerx = r.px
     this.playery = r.py
-    this.player_cx = r.px + PLAYERWIDTH / 2
-    this.player_cy = r.py + PLAYERHEIGHT / 2
+    this.syncPlayerCenter()
     this.playerpic = r.pic
     return r
   }

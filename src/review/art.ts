@@ -1,6 +1,7 @@
 // Dev-only art review page (/raptor/review/art.html): every procedural sprite next to the original
 // picture from tmp/ref (if dumped), enemies grouped by the mission (wave) that spawns them.
 
+import { makeCanvas } from "../game/art/draw"
 import { drawDot, drawShard, drawShot, drawSmoke, drawStructure, drawWreck } from "../game/art/fx"
 import { drawPickup } from "../game/art/icons"
 import { drawPlayer, drawUnit } from "../game/art/ships"
@@ -36,10 +37,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 function canvas(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
-  const c = el("canvas")
-  c.width = Math.ceil(w)
-  c.height = Math.ceil(h)
-  draw(c.getContext("2d") as CanvasRenderingContext2D)
+  const { c, ctx } = makeCanvas(w, h)
+  draw(ctx)
   return c
 }
 

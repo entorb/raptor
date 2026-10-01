@@ -6,13 +6,15 @@ import { buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
 import {
   afterWave,
+  isReplay,
   type Loadout,
   levelKey,
   loadout,
-  nextWave,
   recordFail,
   recordStart,
+  refillShield,
   sectorDiff,
+  topHeader,
   topRunLine,
   type WaveResult,
   waveMap,
@@ -20,7 +22,7 @@ import {
 } from "../campaign"
 import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
-import { loadPilots, loadSettings, type Sector, savePilot, saveSettings } from "../data/save"
+import { loadPilots, loadSettings, type Sector, savePilot } from "../data/save"
 import { t as tr } from "../i18n/i18n"
 import { toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
@@ -37,9 +39,10 @@ import {
   type ObjType,
 } from "../sim/consts"
 import { enemyBaseDamage, type Ship } from "../sim/enemy"
+import { ES_LASER } from "../sim/eshot"
 import { Inventory, OBJ_LIB } from "../sim/objects"
 import { type DemoFrame, World } from "../sim/world"
-import { pctLabel, stepVolume, UI } from "../ui/textMenu"
+import { bindKeys, changeVolume, glowText, pctLabel, UI } from "../ui/textMenu"
 import type { HangarData } from "./Hangar"
 
 export interface GameData {
@@ -245,19 +248,13 @@ export class Game extends Scene {
     const kb = this.input.keyboard
     kb?.on("keydown-ESC", () => (this.demo >= 0 ? this.finishDemo() : this.togglePause()))
     kb?.on("keydown-P", () => this.demo < 0 && this.togglePause())
-    kb?.on("keydown-UP", () => this.pauseMove(-1))
-    kb?.on("keydown-W", () => this.pauseMove(-1))
-    kb?.on("keydown-DOWN", () => this.pauseMove(1))
-    kb?.on("keydown-S", () => this.pauseMove(1))
-    for (const [k, d] of [
-      ["LEFT", -1],
-      ["A", -1],
-      ["RIGHT", 1],
-      ["D", 1],
-    ] as const)
-      kb?.on(`keydown-${k}`, () => this.pauseLeftRight(d))
-    kb?.on("keydown-ENTER", () => this.pauseActivate())
-    kb?.on("keydown-SPACE", () => this.pauseActivate())
+    bindKeys(this, () => true, {
+      up: () => this.pauseMove(-1),
+      down: () => this.pauseMove(1),
+      left: () => this.pauseLeftRight(-1),
+      right: () => this.pauseLeftRight(1),
+      confirm: () => this.pauseActivate(),
+    })
     kb?.on("keydown-SPACE", () => {
       if (!this.paused && !this.waiting && !this.ended && this.demo < 0)
         this.input2.toggleAutoFire()
@@ -430,7 +427,7 @@ export class Game extends Scene {
       if (s.lib.type === Obj.MEGA_BOMB) t.obj.setScale(1.8 + 0.2 * Math.sin(w.frame * 0.6))
     }
     for (const e of w.eshots) {
-      if (e.type === 5) continue // laser: drawn as a beam
+      if (e.type === ES_LASER) continue // laser: drawn as a beam
       const key = `shot-${e.lib.key}`
       this.track(`q${e.id}`, key, "__BASE", e.x + e.lib.xoff, e.y + e.lib.yoff, D.eshots)
     }
@@ -531,17 +528,15 @@ export class Game extends Scene {
           .setDepth(D.hud)
       return { off: img("hudbar-off"), on: img(tex) }
     })
-    const score = this.add
-      .text(57, 21, "", {
-        // x/y minus the glow padding
-        fontFamily: UI.mono,
-        fontSize: "26px",
-        color: "#ffffff",
-      })
-      .setOrigin(0, 0)
-      .setDepth(D.hud)
-      .setShadow(0, 0, UI.accent, 10, true, true)
-      .setPadding(15)
+    // x/y are the glyph edge shifted outward by the 15 px glow padding
+    const hudNum = (x: number, originX: number) =>
+      this.add
+        .text(x, 21, "", { fontFamily: UI.mono, fontSize: "26px", color: "#ffffff" })
+        .setOrigin(originX, 0)
+        .setDepth(D.hud)
+        .setShadow(0, 0, UI.accent, 10, true, true)
+        .setPadding(15)
+    const score = hudNum(57, 0)
     // below the kill counter, right-aligned with it
     const special = this.add.image(868, 96, "pickup-3").setDepth(D.hud).setScale(0.9)
     const warn = this.add
@@ -554,18 +549,10 @@ export class Game extends Scene {
       })
       .setOrigin(0.5)
       .setDepth(D.hud)
-    const banner = this.add
-      .text(480, 110, `${this.sectorTitle()}\n${tr("wave")} ${this.wave + 1}`, {
-        fontFamily: UI.font,
-        fontSize: "40px",
-        color: "#ffffff",
-        align: "center",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
+    const bannerText = `${this.sectorTitle()}\n${tr("wave")} ${this.wave + 1}`
+    const banner = glowText(this, 480, 110, bannerText, 40, 20)
+      .setAlign("center")
       .setDepth(D.overlay)
-      .setShadow(0, 0, UI.accent, 20, true, true)
-      .setPadding(30)
     if (this.demo >= 0) banner.setText(tr("game.demo")).setY(250)
     if (this.demo < 0) {
       this.briefing = this.controlsPanel(160).setDepth(D.overlay)
@@ -574,33 +561,13 @@ export class Game extends Scene {
     this.input2.onAutoFire = (on) =>
       this.toast(tr("game.autoFire", { state: tr(on ? "on" : "off") }))
     this.input2.onGod = () => this.toggleGod()
-    const weaponName = this.add
-      .text(480, 62, "", {
-        fontFamily: UI.font,
-        fontSize: "24px",
-        color: "#ffffff",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setDepth(D.hud)
-      .setShadow(0, 0, UI.accent, 12, true, true)
-      .setPadding(18)
-      .setAlpha(0)
+    const weaponName = glowText(this, 480, 62, "", 24, 12).setDepth(D.hud).setAlpha(0)
     this.lastWeapon = this.world.plr.sweapon
     const novas = Array.from({ length: 5 }, (_, i) =>
       this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
     )
-    const killPct = this.add
-      .text(903, 21, "", {
-        // mirrors the credits (57, 21): glyphs end at x 888 = 960 - 72
-        fontFamily: UI.mono,
-        fontSize: "26px",
-        color: "#ffffff",
-      })
-      .setOrigin(1, 0)
-      .setDepth(D.hud)
-      .setShadow(0, 0, UI.accent, 10, true, true)
-      .setPadding(15)
+    // mirrors the credits (57, 21): glyphs end at x 888 = 960 - 72
+    const killPct = hudNum(903, 1)
     this.hud = { g, bars, score, special, warn, banner, weaponName, novas, killPct }
     if (this.demo < 0) {
       this.input2.buttons = [
@@ -623,17 +590,35 @@ export class Game extends Scene {
     }
   }
 
+  /** Filled button (panel-relative x 0) with the Enter key hint on desktop. */
+  private pillButton(y: number, label: string, onTap: () => void): GameObjects.Text {
+    const btn = this.add
+      .text(0, y, `${label}${this.isTouch() ? "" : "  [Enter]"}`, {
+        fontFamily: UI.font,
+        fontSize: "26px",
+        color: "#ffffff",
+        backgroundColor: "#1d3a5c",
+      })
+      .setOrigin(0.5)
+      .setPadding(28, 8, 28, 8)
+      .setInteractive({ useHandCursor: true })
+    btn.on("pointerup", onTap)
+    return btn
+  }
+
+  /** Special weapons on board, in key order. */
+  private specials() {
+    return SPECIAL_KEYS.filter(([, , t]) => this.world.inv.isEquip(t))
+  }
+
   private isTouch(): boolean {
     return this.input2.touchMode || window.matchMedia?.("(pointer: coarse)").matches === true
   }
 
   /** Mission briefing: all controls plus the keys of the special weapons on board. */
   private controlsLines(): string[] {
-    const inv = this.world.inv
     const fire = tr(this.input2.autoFire ? "on" : "off")
-    const specials = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t)).map(
-      ([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`,
-    )
+    const specials = this.specials().map(([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`)
     const lines = this.isTouch()
       ? [
           tr("ctl.touchSteer"),
@@ -667,17 +652,9 @@ export class Game extends Scene {
         lineSpacing: 5,
       })
       .setOrigin(0.5)
-    const btn = this.add
-      .text(0, text.height / 2 + 34, `▶ ${tr("game.start")}${this.isTouch() ? "" : "  [Enter]"}`, {
-        fontFamily: UI.font,
-        fontSize: "26px",
-        color: "#ffffff",
-        backgroundColor: "#1d3a5c",
-      })
-      .setOrigin(0.5)
-      .setPadding(28, 8, 28, 8)
-      .setInteractive({ useHandCursor: true })
-    btn.on("pointerup", () => this.startMission())
+    const btn = this.pillButton(text.height / 2 + 34, `▶ ${tr("game.start")}`, () =>
+      this.startMission(),
+    )
     text.setY(-30)
     btn.setY(btn.y - 30)
     const h = text.height + 92
@@ -795,7 +772,7 @@ export class Game extends Scene {
     this.hud.warn.setText(warn)
     const touch = this.input2.touchMode && this.demo < 0
     this.novaBtn?.setVisible(touch && nova > 0)
-    const canSwap = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t)).length > 1
+    const canSwap = this.specials().length > 1
     for (const i of this.touchIcons) i.setVisible(touch)
     this.touchIcons[0]?.setVisible(touch && canSwap)
     if (touch) this.drawTouchButtons(g)
@@ -804,8 +781,7 @@ export class Game extends Scene {
   private drawTouchButtons(g: GameObjects.Graphics): void {
     if (this.world.inv.getAmt(Obj.MEGA_BOMB) > 0)
       g.lineStyle(2, 0xffe066, 0.5).strokeCircle(890, 270, 44)
-    if (SPECIAL_KEYS.filter(([, , t]) => this.world.inv.isEquip(t)).length > 1)
-      g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 400, 44)
+    if (this.specials().length > 1) g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 400, 44)
     // auto-fire toggle: icon dims when off
     const on = this.input2.autoFire
     g.lineStyle(2, 0x7dff9a, on ? 0.8 : 0.4).strokeCircle(890, 530, 44)
@@ -816,8 +792,7 @@ export class Game extends Scene {
 
   /** Rebuild the weapon strip when the weapons on board change; flash the name on a switch. */
   private updateWeaponBar(sw: number): void {
-    const inv = this.world.inv
-    const list = SPECIAL_KEYS.filter(([, , t]) => inv.isEquip(t))
+    const list = this.specials()
     const sig = list.map(([, , t]) => t).join()
     const bar = this.weaponBar
     if (sig !== bar.sig) this.rebuildWeaponBar(list, sig)
@@ -974,11 +949,7 @@ export class Game extends Scene {
     const label = () =>
       `${tr(kind === "music" ? "menu.music" : "menu.sfx")}: ${pctLabel(loadSettings()[kind])}`
     const set = (d: number) => {
-      const s = loadSettings()
-      s[kind] = stepVolume(s[kind], d)
-      saveSettings(s)
-      if (kind === "music") getAudio().setMusicVolume(s.music)
-      else getAudio().sfxVolume = s.sfx
+      changeVolume(kind, d)
       t.setText(label())
     }
     const t = this.add
@@ -993,7 +964,7 @@ export class Game extends Scene {
 
   /** Pause menu: tappable icons of the special weapons on board (the current one is framed). */
   private pauseWeapons(y: number): GameObjects.GameObject[] {
-    const list = SPECIAL_KEYS.filter(([, , t]) => this.world.inv.isEquip(t))
+    const list = this.specials()
     if (!list.length) return []
     let cur = this.world.plr.sweapon
     const out: GameObjects.GameObject[] = [
@@ -1127,12 +1098,11 @@ export class Game extends Scene {
     const p = currentPilot()
     if (!p) return
     // web change: a completed wave refills the shield to at least 50%
-    const shield = this.lo.inv.p_objs[Obj.ENERGY]
-    if (result === "complete" && shield) shield.num = Math.max(shield.num, MAX_SHIELD / 2)
+    if (result === "complete") refillShield(this.lo.inv)
     const earned = this.lo.plr.score - this.startScore
     // web change: a death or abort still keeps half the credits earned in flight
     const payout = result === "complete" ? earned : Math.floor(earned / 2)
-    const replay = this.wave !== nextWave(p, this.sector)
+    const replay = isReplay(p, this.sector, this.wave)
     const pct = this.world.destroyedPct
     const after = afterWave(
       withLoadout(p, this.lo),
@@ -1147,18 +1117,8 @@ export class Game extends Scene {
       this.showResults(text, pct, after, earned, next)
       return
     }
-    const t = this.add
-      .text(480, 280, text, {
-        fontFamily: UI.font,
-        fontSize: "52px",
-        color: "#ffffff",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setDepth(D.overlay)
-      .setAlpha(0)
-      .setShadow(0, 0, after.outcome === "death" ? UI.warn : UI.accent, 24, true, true)
-      .setPadding(36)
+    const glow = after.outcome === "death" ? UI.warn : UI.accent
+    const t = glowText(this, 480, 280, text, 52, 24, glow).setDepth(D.overlay).setAlpha(0)
     this.tweens.add({ targets: t, alpha: 1, duration: 500 })
     this.cameras.main.fadeOut(2600, 0, 0, 0)
     this.time.delayedCall(2800, next)
@@ -1183,19 +1143,10 @@ export class Game extends Scene {
     else if (rank !== null) rankStr = `  ·  ${tr("game.rank", { n: rank })}`
     const items: GameObjects.GameObject[] = [
       this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
-      txt(-200, title, 44, "#ffffff")
-        .setFontStyle("bold")
-        .setShadow(0, 0, UI.accent, 24, true, true)
-        .setPadding(36),
+      glowText(this, 0, -200, title, 44, 24),
       txt(-150, `+${earned} CR${rankStr}`, 24, UI.gold),
       txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
-      txt(
-        -78,
-        tr("hangar.topLine", { wave: this.wave + 1, flown: st?.s ?? st?.n ?? 0, won: st?.n ?? 0 }),
-        19,
-        UI.accent,
-        UI.mono,
-      ),
+      txt(-78, topHeader(st, this.wave), 19, UI.accent, UI.mono),
       ...top.map((r, i) =>
         txt(-52 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
       ),
@@ -1208,17 +1159,7 @@ export class Game extends Scene {
       this.cameras.main.fadeOut(400, 0, 0, 0)
       this.time.delayedCall(450, next)
     }
-    const btn = txt(
-      208,
-      `${tr("game.continue")}${this.isTouch() ? "" : "  [Enter]"}`,
-      26,
-      "#ffffff",
-    )
-      .setBackgroundColor("#1d3a5c")
-      .setPadding(28, 8, 28, 8)
-      .setInteractive({ useHandCursor: true })
-    btn.on("pointerup", go)
-    items.push(btn)
+    items.push(this.pillButton(208, tr("game.continue"), go))
     // continue on keyup of a key pressed now: a key still held from the fight must not skip this
     let armed = false
     for (const k of ["ENTER", "SPACE"]) {
