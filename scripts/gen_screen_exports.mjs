@@ -135,7 +135,10 @@ const browser = await chromium.launch({
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
 })
 let failed = false
-for (const dev of devices) {
+// screens share one page and must run in order: chain them instead of awaiting in a loop
+const inOrder = (items, fn) =>
+  items.reduce((p, item, i) => p.then(() => fn(item, i)), Promise.resolve())
+await inOrder(devices, async (dev) => {
   const ctx = await browser.newContext(DEVICES[dev])
   await ctx.route("**/web-stats-json.php**", (r) => r.fulfill({ json: { accesscounts: 1 } }))
   const page = await ctx.newPage()
@@ -149,16 +152,16 @@ for (const dev of devices) {
   })
   await page.waitForTimeout(800)
   await seedPilot(page)
-  for (const [i, [name, go]] of SCREENS.entries()) {
+  await inOrder(SCREENS, async ([name, go], i) => {
     await go(page)
     await page.waitForTimeout(500)
-    if (only && only !== name) continue
+    if (only && only !== name) return
     const file = `${OUT}/${dev}-${String(i + 1).padStart(2, "0")}-${name}`
     await page.screenshot({ path: `${file}.png` })
     writeFileSync(`${file}.txt`, `# ${dev} ${name}\n${await page.evaluate(snapshot)}`)
     console.log(file)
-  }
+  })
   await ctx.close()
-}
+})
 await browser.close()
 if (failed) process.exit(1)

@@ -83,8 +83,7 @@ export function glowText(
   s: string,
   size: number,
   blur: number,
-  glow: string = UI.accent,
-  color = "#ffffff",
+  { glow = UI.accent, color = "#ffffff" }: { glow?: string; color?: string } = {},
 ): GameObjects.Text {
   return scene.add
     .text(x, y, s, { fontFamily: UI.font, fontSize: `${size}px`, color, fontStyle: "bold" })
@@ -411,7 +410,7 @@ export function header(
   y = 54,
   size = 46,
 ): GameObjects.Text {
-  const t = glowText(scene, 480, y, title, size, 16, UI.accent, UI.text)
+  const t = glowText(scene, 480, y, title, size, 16, { color: UI.text })
   if (sub)
     scene.add
       .text(480, 100, sub, { fontFamily: UI.font, fontSize: "20px", color: UI.accent })

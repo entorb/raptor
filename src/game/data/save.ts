@@ -1,5 +1,5 @@
 // Pilot + settings persistence (replaces LOADSAVE.C CHARxxxx.FIL files).
-import { DIFF_EASY, DIFF_NORMAL, DIFF_TRAIN } from "../sim/consts"
+import { DIFF_NORMAL } from "../sim/consts"
 import type { InvObj } from "../sim/objects"
 
 export interface PilotSave {
@@ -47,8 +47,6 @@ export interface Settings {
   autoFire: boolean
 }
 
-// TODO: delete after 1.10.2026 (single-pilot save migration)
-const OLD_PILOT_KEY = "raptor.pilot.v1"
 const PILOTS_KEY = "raptor.pilots.v1"
 export const MAX_NAME = 16
 const SETTINGS_KEY = "raptor.settings.v1"
@@ -88,13 +86,6 @@ export function isPilotSave(v: unknown): v is PilotSave {
 
 /** All saved pilots, most recently saved first (`[0]` = Continue). */
 export function loadPilots(): PilotSave[] {
-  const old = read<unknown>(OLD_PILOT_KEY)
-  if (old !== null) {
-    // one-time migration of the single-pilot save
-    // TODO: delete after 1.10.2026
-    remove(OLD_PILOT_KEY)
-    if (isPilotSave(old)) savePilot(old)
-  }
   const list = read<unknown>(PILOTS_KEY)
   return Array.isArray(list) ? list.filter(isPilotSave).map(normalize) : []
 }
@@ -104,18 +95,16 @@ const isStats = (v: unknown): v is LevelStats => {
   return typeof s === "object" && s !== null && Number.isInteger(s.n) && Array.isArray(s.top)
 }
 
-/** Old saves stored plain credits; drop malformed entries. */
+/** Drop malformed top-10 entries. */
 function topRuns(top: unknown[]): TopRun[] {
   return top.flatMap((v) => {
-    // TODO: delete after 1.10.2026 (migration of plain-credit top-10 entries)
-    if (Number.isInteger(v)) return [{ cr: v as number }]
     const r = v as TopRun
     if (typeof r !== "object" || r === null || !Number.isInteger(r.cr)) return []
     return [Number.isInteger(r.pct) ? { cr: r.cr, pct: r.pct } : { cr: r.cr }]
   })
 }
 
-/** Fill defaults, drop untrusted junk and migrate old training pilots (diff 0) to Rookie. */
+/** Fill defaults and drop untrusted junk. */
 function normalize(p: PilotSave): PilotSave {
   const stats = Object.fromEntries(
     Object.entries(typeof p.stats === "object" && p.stats ? p.stats : {})
@@ -135,8 +124,6 @@ function normalize(p: PilotSave): PilotSave {
     sector: SECTORS.includes(p.sector as Sector) ? p.sector : "bravo",
     stats,
   }
-  // TODO: delete after 1.10.2026 (old training pilots migration)
-  if (p.diff <= DIFF_TRAIN) return { ...q, diff: DIFF_EASY, wave: 0, done: 0, train: p.wave }
   return { ...q, train: q.train ?? 0 }
 }
 
@@ -155,14 +142,6 @@ export function deletePilot(name: string): void {
     PILOTS_KEY,
     loadPilots().filter((p) => !sameName(p.name, name)),
   )
-}
-
-function remove(key: string): void {
-  try {
-    localStorage.removeItem(key)
-  } catch {
-    // ignore
-  }
 }
 
 export function loadSettings(): Settings {

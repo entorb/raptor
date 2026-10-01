@@ -422,43 +422,48 @@ export function drawPickup(ctx: Ctx, type: number, s: number): void {
 export function drawButtonIcon(ctx: Ctx, kind: "auto" | "cycle", s: number): void {
   ctx.save()
   ctx.scale(s / 100, s / 100)
-  if (kind === "auto") {
-    const c = "#7dff9a"
-    for (const [x, y] of [
-      [34, 20],
-      [66, 20],
-      [34, 56],
-      [66, 56],
-    ] as const) {
-      const big = y === 20
-      ctx.beginPath()
-      ctx.roundRect(x - 6, y, 12, big ? 34 : 24, 6)
-      ctx.fillStyle = big ? "#f2fff5" : "rgba(125,255,154,0.55)"
-      ctx.fill()
-      glow(ctx, x, y + (big ? 17 : 12), big ? 24 : 16, c)
-    }
-  } else {
-    const c = "#39d0ff"
-    for (const a0 of [0.25, 1.25]) {
-      const a1 = a0 + 0.6
-      ctx.beginPath()
-      ctx.arc(50, 50, 40, a0 * Math.PI, a1 * Math.PI)
-      ctx.strokeStyle = c
-      ctx.lineWidth = 6
-      ctx.lineCap = "round"
-      ctx.stroke()
-      const ex = 50 + Math.cos(a1 * Math.PI) * 40
-      const ey = 50 + Math.sin(a1 * Math.PI) * 40
-      const t = a1 * Math.PI + Math.PI / 2
-      polyPath(ctx, [
-        [ex + Math.cos(t) * 12, ey + Math.sin(t) * 12],
-        [ex + Math.cos(t + 2.4) * 11, ey + Math.sin(t + 2.4) * 11],
-        [ex + Math.cos(t - 2.4) * 11, ey + Math.sin(t - 2.4) * 11],
-      ])
-      ctx.fillStyle = c
-      ctx.fill()
-    }
-    missile(ctx, 50, 24, 42, 9, c)
-  }
+  if (kind === "auto") autoGlyph(ctx)
+  else cycleGlyph(ctx)
   ctx.restore()
+}
+
+function autoGlyph(ctx: Ctx): void {
+  const c = "#7dff9a"
+  for (const [x, y] of [
+    [34, 20],
+    [66, 20],
+    [34, 56],
+    [66, 56],
+  ] as const) {
+    const big = y === 20
+    ctx.beginPath()
+    ctx.roundRect(x - 6, y, 12, big ? 34 : 24, 6)
+    ctx.fillStyle = big ? "#f2fff5" : "rgba(125,255,154,0.55)"
+    ctx.fill()
+    glow(ctx, x, y + (big ? 17 : 12), big ? 24 : 16, c)
+  }
+}
+
+function cycleGlyph(ctx: Ctx): void {
+  const c = "#39d0ff"
+  for (const a0 of [0.25, 1.25]) {
+    const a1 = a0 + 0.6
+    ctx.beginPath()
+    ctx.arc(50, 50, 40, a0 * Math.PI, a1 * Math.PI)
+    ctx.strokeStyle = c
+    ctx.lineWidth = 6
+    ctx.lineCap = "round"
+    ctx.stroke()
+    const ex = 50 + Math.cos(a1 * Math.PI) * 40
+    const ey = 50 + Math.sin(a1 * Math.PI) * 40
+    const t = a1 * Math.PI + Math.PI / 2
+    polyPath(ctx, [
+      [ex + Math.cos(t) * 12, ey + Math.sin(t) * 12],
+      [ex + Math.cos(t + 2.4) * 11, ey + Math.sin(t + 2.4) * 11],
+      [ex + Math.cos(t - 2.4) * 11, ey + Math.sin(t - 2.4) * 11],
+    ])
+    ctx.fillStyle = c
+    ctx.fill()
+  }
+  missile(ctx, 50, 24, 42, 9, c)
 }

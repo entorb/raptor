@@ -58,8 +58,7 @@ export function nextWave(p: PilotSave, sector: Sector): number | null {
 
 /** Waves this pilot has finished at least once in a sector (replayable). */
 export function doneWaves(p: PilotSave, sector: Sector): number {
-  // TODO: delete after 1.10.2026 (`done` missing in old saves: fall back to `wave`)
-  return sector === "train" ? (p.train ?? 0) : Math.max(p.done ?? 0, p.wave)
+  return sector === "train" ? (p.train ?? 0) : (p.done ?? 0)
 }
 
 /** Wave preselected in the Hangar: the next unfinished one, else the sector's last. */
