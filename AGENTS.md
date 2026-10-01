@@ -43,7 +43,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - `src/game/render/`: `terrainView.ts` (scrolling terrain chunks, destructible modules),
   `effects.ts` (particles for the original ANIMS).
 - `src/game/art/`: procedural Canvas2D art: `ships.ts` (unit archetypes per original picture name,
-  `SPECS`), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
+  `SPECS`; `drawPlayer` = 7 bank frames drawn as a roll: lowered wing short/dark, raised wing wide/lit), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
   `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing backdrop per sector, crossfaded by `Hangar.show`), `terrain.ts` (terrain chunks), `textures.ts`
   (texture keys, built once in `Boot`).
 - `src/game/i18n/`: EN (default) + DE. `strings.ts` = `STRINGS` (`en`/`de` per key, `{name}` placeholders),
@@ -52,6 +52,15 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   cache a translated string in a module constant. Headers (RAPTOR, CALL OF THE VOID, HANGAR, SUPPLY SHOP,
   MISSION BRIEFING) and item names (`OBJ_LIB`) stay English. `Game.ts` imports it as `tr` (local `t` vars).
   `strings.ts` is excluded from cspell.
+- `src/game/input/gamepad.ts` (web addition): polls the standard-mapping gamepad and dispatches
+  synthetic keyboard events on `window` (keyCode patched in, Phaser reads it): D-pad/stick = arrows,
+  A = Enter, B = Esc, X = Space, Start = P, LB = Alt, RB = Shift. No scene has gamepad code.
+- `ui/textMenu.ts` shared UI: `keyHint` (desktop key help, top right of every menu screen),
+  `rollCredits` (status line credits roll up: Hangar arrival via `HangarData.earned`, shop trades),
+  `stepVolume`; `TextMenu` plays `Audio.ui("move"|"confirm"|"back")` menu sounds.
+- Shop: maxed items (`Inventory.full`) are dimmed with `MAX`; the card shows the max per item,
+  the status line the cargo (`MAX_OBJS`); selling the last copy of a weapon needs a second sell.
+- Pause menu: volume rows (LEFT/RIGHT adjust on them), else LEFT/RIGHT step the special weapon.
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
   (`Settings.autoFire`, default on) fires continuously; toggles: Options menu, pause menu, Space key (in flight, not while paused/waiting).
@@ -108,7 +117,8 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   via `pwa.ts`; `Home` = `https://entorb.net/games/`, `Source` = `https://github.com/entorb/raptor`).
   Every start screen must expose contact, source, home, share and install. The row is a second
   focusable strip, like `../last-eichhof`: DOWN off the last menu item enters it
-  (`TextMenu.onDownFromEnd`); `Menu.setActionFocus` hands arrow/confirm keys over by clearing
+  (`TextMenu.onDownFromEnd`, main mode only; other modes wrap), UP/DOWN/LEFT/RIGHT step through the
+  links, DOWN past the last wraps to the first menu item; `Menu.setActionFocus` hands arrow/confirm keys over by clearing
   `TextMenu.enabled` (UP returns them); the focused link gets a gold pill (`actionPills`), pointer
   hover is white. Clicking a link does *not* steal keyboard focus (it would strand touch users on
   a row they can't see).
@@ -202,6 +212,8 @@ the swiftshader launch args, or `page.screenshot` hangs.
   rows, the link row and launch boxes. Check with the screen exports (`SMALL`/`TINY`).
 - Original shot pictures are mostly padding (Twin Blaster = 2x2 dot in 8x8): `fx.ts SHOT_BOX`
   holds the visible box per picture; draw shot art inside it, not across the whole texture.
+- `scene.start(key)` without data reuses the scene's last start data: one-shot data (Hangar
+  `message`) must be consumed in `init`.
 - Enums: use `as const` objects (`Obj`, `Anim`, `Buy`), not `const enum` (isolatedModules).
 - Generated `ep1.ts` is biome-formatted; read it via TS import (`node tmp/x.mts`), not JSON regex.
 - Terrain chunks are expensive (~25 ms desktop): `TerrainView` builds the next chunks with
