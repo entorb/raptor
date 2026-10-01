@@ -51,6 +51,14 @@ describe("Inventory (OBJECTS.C)", () => {
     expect(inv.getAmt(Obj.ENERGY)).toBe(75)
     expect(plr.score).toBe(10000)
   })
+  it("full() matches buy SHIPFULL (shop greys out maxed items)", () => {
+    const { plr, inv } = fresh()
+    plr.score = 99999999
+    for (const t of [Obj.ENERGY, Obj.MEGA_BOMB, Obj.SUPER_SHIELD, Obj.DETECT]) {
+      while (!inv.full(t)) expect(inv.buy(t)).toBe(Buy.GOTIT)
+      expect(inv.buy(t)).toBe(Buy.SHIPFULL)
+    }
+  })
   it("buy/sell energy, resale is half price", () => {
     const { plr, inv } = fresh()
     expect(inv.buy(Obj.ENERGY)).toBe(Buy.GOTIT)

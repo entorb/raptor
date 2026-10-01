@@ -8,8 +8,16 @@ import { t } from "../i18n/i18n"
 import type { StringKey } from "../i18n/strings"
 import { currentPilot, pilotLoadout, setPilot } from "../session"
 import { MAX_SHIELD, Obj, type ObjType } from "../sim/consts"
-import { Buy, OBJ_LIB } from "../sim/objects"
-import { backButton, type MenuItem, TextMenu, TOUCH, UI } from "../ui/textMenu"
+import { Buy, MAX_OBJS, MAX_PHASE, OBJ_LIB } from "../sim/objects"
+import {
+  backButton,
+  keyHint,
+  type MenuItem,
+  rollCredits,
+  TextMenu,
+  TOUCH,
+  UI,
+} from "../ui/textMenu"
 
 /** One-line shop descriptions (space re-theme of the ITEMxx_TXT help). */
 const DESC: Partial<Record<ObjType, StringKey>> = {
@@ -51,6 +59,9 @@ export class Shop extends Scene {
   private skipKey = false
   private back!: ReturnType<typeof backButton>
   private items: ObjType[] = []
+  /** item whose last copy waits for a second sell (confirm) */
+  private confirmSell: ObjType | null = null
+  private credits: (cr: number) => void = () => {}
   private tabs: Tab[] = []
   private status!: GameObjects.Text
   private msg!: GameObjects.Text
@@ -111,19 +122,18 @@ export class Shop extends Scene {
       .setOrigin(0.5)
       .setShadow(0, 0, "#000000", 6, true, true)
       .setPadding(9)
-    if (!TOUCH)
-      this.add
-        .text(480, 146 + CARD.h + 14, t("shop.keys"), {
-          fontFamily: UI.font,
-          fontSize: "15px",
-          color: UI.dim,
-        })
-        .setOrigin(0.5)
+    keyHint(this, t("shop.keys"))
+    this.credits = rollCredits(this, this.lo.plr.score, (cr) => this.renderStatus(cr))
     const rowH = TOUCH ? 58 : 40
     this.menu = new TextMenu(this, LIST.x, LIST.y, LIST.w, rowH, Math.floor(376 / rowH))
     this.menu.tapToSelect = true
     this.menu.onBack = () => this.leave()
+    // no wrap from the last item back to the first
+    this.menu.onDownFromEnd = () => {}
+    this.confirmSell = null
     this.menu.onMove = () => {
+      this.msg.setText("")
+      this.confirmSell = null
       if (this.focus !== "list") this.setFocus("list")
       this.describe()
     }
@@ -221,6 +231,7 @@ export class Shop extends Scene {
   private setTab(buy: boolean): void {
     if (buy === this.buying) return
     this.buying = buy
+    this.confirmSell = null
     this.msg.setText("")
     this.refresh(false)
     // an empty list can't be left with the arrows: park the focus on the tabs
@@ -249,11 +260,14 @@ export class Shop extends Scene {
       const cost = inv.getCost(it)
       const count = this.owned(it)
       const countStr = count ? ` (${count})` : ""
+      const full = this.buying && inv.full(it)
+      let detail = `+${inv.getResale(it)} CR`
+      if (this.buying) detail = full ? "MAX" : `${cost} CR`
       return {
         icon: `icon-${it}`,
         label: `${OBJ_LIB[it]?.name ?? ""}${countStr}`,
-        detail: this.buying ? `${cost} CR` : `+${inv.getResale(it)} CR`,
-        dim: this.buying && cost > this.lo.plr.score,
+        detail,
+        dim: this.buying && (full || cost > this.lo.plr.score),
         action: () => this.trade(it),
         adjust: flip,
       }
@@ -266,6 +280,20 @@ export class Shop extends Scene {
     const n = OBJ_LIB[it]?.onlyflag ? inv.getAmt(it) : inv.getTotal(it)
     if (!n) return ""
     return it === Obj.ENERGY ? `${n}%` : String(n)
+  }
+
+  /** Most of an item the ship can hold (stack limit or phase shield count), null = cargo only. */
+  private maxOf(it: ObjType): string | null {
+    const lib = OBJ_LIB[it]
+    if (it === Obj.SUPER_SHIELD) return String(MAX_PHASE)
+    if (!lib?.onlyflag) return null
+    return it === Obj.ENERGY ? `${lib.max_cnt}%` : String(lib.max_cnt)
+  }
+
+  /** Selling this removes the last copy of a weapon (no spare left): asks for a second sell. */
+  private isLast(it: ObjType): boolean {
+    const lib = OBJ_LIB[it]
+    return !this.buying && !!lib && !lib.onlyflag && this.lo.inv.getTotal(it) === 1
   }
 
   private describe(): void {
@@ -282,20 +310,24 @@ export class Shop extends Scene {
     const own = this.owned(it)
     c.icon.setTexture(`icon-${it}`)
     c.name.setText(OBJ_LIB[it]?.name ?? "").setColor(ICON_COLOR[it] ?? "#ffffff")
-    c.owned.setText(own ? t("shop.onBoard", { n: own }) : t("shop.notOnBoard"))
+    const max = this.maxOf(it)
+    const ownStr = own ? t("shop.onBoard", { n: own }) : t("shop.notOnBoard")
+    const maxStr = max ? `  ·  ${t("shop.max", { n: max })}` : ""
+    c.owned.setText(`${ownStr}${maxStr}`)
     const dk = DESC[it]
     c.desc.setText(dk ? t(dk) : "")
     const cost = inv.getCost(it)
-    const poor = this.buying && cost > this.lo.plr.score
+    const poor = this.buying && (inv.full(it) || cost > this.lo.plr.score)
     c.btn.setFillStyle(this.buying ? 0x1d5c3a : 0x5c1d2a, poor ? 0.4 : 1)
     c.btn.setStrokeStyle(2, this.buying ? 0x2effb4 : 0xff5a6a, poor ? 0.3 : 0.9)
-    c.btnLabel
-      .setText(
-        this.buying
-          ? `${t("shop.buy")} · ${cost} CR`
-          : `${t("shop.sell")} · +${inv.getResale(it)} CR`,
-      )
-      .setAlpha(poor ? 0.5 : 1)
+    c.btnLabel.setText(this.tradeLabel(it)).setAlpha(poor ? 0.5 : 1)
+  }
+
+  private tradeLabel(it: ObjType): string {
+    const inv = this.lo.inv
+    if (this.buying) return `${t("shop.buy")} · ${inv.getCost(it)} CR`
+    const verb = this.confirmSell === it ? t("shop.confirmSell") : t("shop.sell")
+    return `${verb} · +${inv.getResale(it)} CR`
   }
 
   private tradeSelected(): void {
@@ -312,7 +344,13 @@ export class Shop extends Scene {
       if (r === Buy.GOTIT) text = t("shop.purchased", { name })
       else if (r === Buy.NOMONEY) text = t("shop.noMoney")
       this.msg.setText(text).setColor(r === Buy.GOTIT ? UI.gold : UI.warn)
+    } else if (this.isLast(it) && this.confirmSell !== it) {
+      this.confirmSell = it
+      this.msg.setText(t(TOUCH ? "shop.sellLast" : "shop.sellLastKey")).setColor(UI.warn)
+      this.describe()
+      return
     } else {
+      this.confirmSell = null
       inv.sell(it)
       this.msg.setText(t("shop.sold", { name })).setColor(UI.gold)
     }
@@ -321,13 +359,18 @@ export class Shop extends Scene {
   }
 
   private updateStatus(): void {
+    this.credits(this.lo.plr.score)
+  }
+
+  private renderStatus(cr: number): void {
     const inv = this.lo.inv
     const shield = inv.getAmt(Obj.ENERGY)
     const phase = inv.getAmt(Obj.SUPER_SHIELD)
     this.status.setText(
-      `${t("hud.credits")} ${this.lo.plr.score}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
+      `${t("hud.credits")} ${cr}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
         (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
-        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`,
+        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}` +
+        `   ${t("shop.cargo")} ${inv.objs.length}/${MAX_OBJS}`,
     )
   }
 }

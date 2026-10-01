@@ -155,7 +155,9 @@ export interface InvObj {
 export const Buy = { GOTIT: 0, NOMONEY: 1, SHIPFULL: 2, ERROR: 3 } as const
 export type Buy = (typeof Buy)[keyof typeof Buy]
 
-const MAX_OBJS = 20
+export const MAX_OBJS = 20
+/** Phase shields on board (web: separate objects, max 5) */
+export const MAX_PHASE = 5
 
 /**
  * Inventory with the DOS semantics: `objs` keeps insertion order (link list), `p_objs` are the
@@ -299,7 +301,8 @@ export class Inventory {
   }
 
   buy(type: ObjType): Buy {
-    if (type === Obj.SUPER_SHIELD && this.getTotal(Obj.SUPER_SHIELD) >= 5) return Buy.SHIPFULL
+    if (type === Obj.SUPER_SHIELD && this.getTotal(Obj.SUPER_SHIELD) >= MAX_PHASE)
+      return Buy.SHIPFULL
     if (this.plr.score < this.getCost(type)) return Buy.NOMONEY
     const r = this.add(type)
     if (r === Buy.GOTIT) this.plr.score -= this.getCost(type)
@@ -342,6 +345,16 @@ export class Inventory {
     if (type === Obj.FORWARD_GUNS && this.isEquip(type)) return false
     if (!this.reg && !lib.game1flag) return false
     return this.getCost(type) !== 0
+  }
+
+  /** No room for another one: full stack, 5 phase shields or 20 objects on board (add/buy SHIPFULL). */
+  full(type: ObjType): boolean {
+    const lib = OBJ_LIB[type]
+    if (!lib || lib.moneyflag) return false
+    if (type === Obj.SUPER_SHIELD && this.getTotal(type) >= MAX_PHASE) return true
+    const stack = lib.onlyflag ? this.objs.find((o) => o.type === type) : undefined
+    if (stack) return stack.num >= lib.max_cnt
+    return this.objs.length >= MAX_OBJS
   }
 
   canSell(type: ObjType): boolean {

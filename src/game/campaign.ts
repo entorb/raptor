@@ -128,14 +128,16 @@ export function afterWave(
 ): { pilot: PilotSave; outcome: Outcome; rank: number | null } {
   if (result === "dead") return { pilot: p, outcome: "death", rank: null }
   if (result === "abort") return { pilot: p, outcome: "landing", rank: null }
-  const { pilot, rank } = recordRun(p, levelKey(sector, wave), earned, pct)
+  const run = recordRun(p, levelKey(sector, wave), earned, pct)
+  const { rank } = run
+  // finished the last training wave (first time or replay): the Hangar now defaults to Bravo
+  const pilot: PilotSave =
+    sector === "train" && wave === TRAIN_WAVES - 1 ? { ...run.pilot, sector: "bravo" } : run.pilot
   if (wave !== nextWave(p, sector)) return { pilot, outcome: "landing", rank }
   if (sector === "train") {
     const train = wave + 1
-    // finished training: the Hangar now defaults to the Bravo sector
-    const sector = train === TRAIN_WAVES ? "bravo" : pilot.sector
     return {
-      pilot: { ...pilot, train, sector },
+      pilot: { ...pilot, train },
       outcome: train === TRAIN_WAVES ? "trainingComplete" : "landing",
       rank,
     }
@@ -185,6 +187,8 @@ export function runCampaignSelfCheck(): void {
   const t5 = afterWave({ ...base, train: 4 }, "complete", "train")
   assert(t5.outcome === "trainingComplete" && nextWave(t5.pilot, "train") === null, "training end")
   assert(t5.pilot.sector === "bravo" && t4.pilot.sector === base.sector, "training end -> bravo")
+  const t5r = afterWave({ ...t5.pilot, sector: "train" }, "complete", "train", 4)
+  assert(t5r.pilot.sector === "bravo", "training last-wave replay -> bravo")
   assert(defaultWave(base, "train") === 0 && defaultWave(t5.pilot, "train") === 4, "default wave")
   assert(playable(t4.pilot, "train", 4) && !playable(base, "train", 1), "playable waves")
   assert(waveMap("train", 0).map === BEGINNER_MAP, "training starts with the beginner wave")

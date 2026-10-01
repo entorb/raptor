@@ -1,5 +1,6 @@
 import type { Game as PhaserGame } from "phaser"
 import { applyDocumentLang } from "./game/i18n/i18n"
+import { initGamepad } from "./game/input/gamepad"
 import StartGame from "./game/main"
 import { captureInstallPrompt } from "./game/pwa"
 
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyDocumentLang()
   const game = StartGame("game-container")
   fitViewport(game)
+  initGamepad()
   // Dev-only handle for browser debugging (Playwright `page.evaluate`).
   if (import.meta.env.DEV) {
     ;(window as unknown as { __game: unknown }).__game = game

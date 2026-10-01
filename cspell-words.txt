@@ -98,6 +98,7 @@ eobj
 eplasma
 erfasst
 erforderlich
+erneut
 esbuild
 eshot
 eshots
@@ -126,6 +127,7 @@ fplry
 freeverb
 frntlas
 fängt
+gamepadconnected
 ganim
 gcnt
 gebäude
@@ -185,6 +187,7 @@ kontakt
 kopiert
 korrekturleser
 können
+LADUNG
 laserpow
 laserturm
 leertaste
@@ -192,6 +195,7 @@ leicht
 lenken
 lerp
 letzter
+Letztes
 lgflak
 lghtin
 libvorbis
@@ -294,6 +298,7 @@ raketen
 raketenwerfer
 rechts
 regen
+REKORD
 rekrut
 replayable
 retarget
@@ -351,6 +356,7 @@ songsg
 soundeffekte
 specialw
 spezial
+Spezialwaffe
 spielen
 spielstand
 spriteoff
@@ -419,6 +425,7 @@ waveflag
 weiter
 welche
 welle
+Wellen
 weltweit
 wepdest
 werden
@@ -430,6 +437,7 @@ xoff
 yoff
 yoyo
 zeigt
+Zeile
 zerstört
 ziehen
 ziele
