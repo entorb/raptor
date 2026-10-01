@@ -835,27 +835,41 @@ export function drawUnit(
   else spec.draw(ctx, w, h, t, r, spec.pal)
 }
 
-/** Player ship, nose up; bank -3..3 (DOS playerpic 0..6, 3 = level). */
+/**
+ * Player ship, nose up; bank -3..3 (DOS playerpic 0..6, 3 = level). The bank is drawn as a roll:
+ * the lowered wing (left for bank < 0) shrinks and darkens, the raised one stays wide and lit,
+ * the hull shows its side on the lowered side.
+ */
 export function drawPlayer(ctx: Ctx, w: number, h: number, bank: number): void {
   const p = PLAYER_PAL
-  const cx = w / 2
-  const k = bank / 3 // -1..1
-  const lw = 1 - Math.max(0, k) * 0.35
-  const rw = 1 + Math.min(0, k) * 0.35
+  const k = bank / 3 // -1..1, roll direction
+  const roll = Math.abs(k) * ((55 * Math.PI) / 180)
+  const cx = w / 2 - k * w * 0.03
+  const shift = -k * w * 0.05 // top side turns toward the raised wing
   ctx.save()
-  const wing = (s: number, sc: number) => {
+  const wing = (s: number) => {
+    const up = -s * k // +1 = raised wing, -1 = lowered wing
+    const sc = Math.cos(roll) + up * 0.25
+    const drop = up < 0 ? -up * h * 0.04 : 0
     const pts: Pt[] = [
       [cx + s * w * 0.08, h * 0.35],
-      [cx + s * w * 0.48 * sc, h * 0.7],
-      [cx + s * w * 0.46 * sc, h * 0.82],
+      [cx + s * w * 0.48 * sc, h * 0.7 + drop],
+      [cx + s * w * 0.46 * sc, h * 0.82 + drop],
       [cx + s * w * 0.1, h * 0.78],
     ]
     polyPath(ctx, pts)
     metal(ctx, cx - w / 2, cx + w / 2, p.dark, p.mid, p.light)
-    glow(ctx, cx + s * w * 0.45 * sc, h * 0.74, w * 0.05, s < 0 ? "#ff4050" : "#40ff90")
+    if (up !== 0) {
+      ctx.fillStyle = up < 0 ? `rgba(0,0,0,${-up * 0.45})` : `rgba(255,255,255,${up * 0.12})`
+      ctx.fill()
+    }
+    ctx.save()
+    ctx.globalAlpha = up < 0 ? 1 + up * 0.5 : 1
+    glow(ctx, cx + s * w * 0.45 * sc, h * 0.74 + drop, w * 0.05, s < 0 ? "#ff4050" : "#40ff90")
+    ctx.restore()
   }
-  wing(-1, lw)
-  wing(1, rw)
+  wing(-1)
+  wing(1)
   mirrorPath(ctx, cx, [
     [w * 0.02, h * 0.0],
     [w * 0.08, h * 0.18],
@@ -863,13 +877,27 @@ export function drawPlayer(ctx: Ctx, w: number, h: number, bank: number): void {
     [w * 0.16, h * 0.9],
     [w * 0.1, h * 0.98],
   ])
-  metal(ctx, cx - w * 0.16, cx + w * 0.16, p.dark, p.mid, p.light)
+  metal(ctx, cx - w * 0.16 + shift, cx + w * 0.16 + shift, p.dark, p.mid, p.light)
+  if (k !== 0) {
+    // hull side on the lowered side
+    const s = Math.sign(k)
+    ctx.save()
+    ctx.clip()
+    ctx.fillStyle = "rgba(0,0,0,0.5)"
+    ctx.fillRect(
+      s < 0 ? cx - w * 0.17 : cx + w * 0.17 - Math.abs(k) * w * 0.09,
+      0,
+      Math.abs(k) * w * 0.09,
+      h,
+    )
+    ctx.restore()
+  }
   panelLines(ctx, [
     [
-      [cx, h * 0.45],
-      [cx, h * 0.9],
+      [cx + shift * 0.6, h * 0.45],
+      [cx + shift * 0.6, h * 0.9],
     ],
   ])
-  canopy(ctx, cx, h * 0.34, w * 0.055, h * 0.1, p.glass)
+  canopy(ctx, cx + shift, h * 0.34, w * 0.055 * (1 - Math.abs(k) * 0.2), h * 0.1, p.glass)
   ctx.restore()
 }
