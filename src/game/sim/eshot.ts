@@ -1,6 +1,6 @@
 // Port of dosraptor/SOURCE/ESHOT.C: enemy projectiles.
 import { PIC_SIZES } from "../data/ep1"
-import { Anim, type Fx, PLAYERHEIGHT, PLAYERWIDTH } from "./consts"
+import { Anim, type Fx, PLAYERHEIGHT, PLAYERWIDTH, XPOS, YPOS } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, type MoveObj, moveSobj, newMove } from "./move"
 import type { World } from "./world"
@@ -46,9 +46,6 @@ const LIB_MINES = elib("MINE_BLK", 16, 2, 0)
 const LIB_LASER = elib("ELASER_BLK", 12, 4, 6)
 const LIB_PLASMA = elib("EPLASMA_PIC", 15, 1, 10)
 const LIB_COCO = elib("COCONUT_PIC", 1, 4, 6)
-
-const XPOS = [-1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2]
-const YPOS = [-3, -3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2]
 
 export interface EShot {
   id: number

@@ -1,6 +1,7 @@
 // Vertical text menu: keyboard (up/down/left/right/enter/space/esc) + pointer (tap = select and activate).
 import type { GameObjects, Input, Scene, Tweens } from "phaser"
 import { getAudio } from "../audio/audio"
+import { loadSettings, saveSettings } from "../data/save"
 
 export interface MenuItem {
   label: string
@@ -48,6 +49,57 @@ export const ICON = {
   source: "</>",
   exit: "⏻",
   language: "🌐",
+}
+
+const KEYS = {
+  up: ["UP", "W"],
+  down: ["DOWN", "S"],
+  left: ["LEFT", "A"],
+  right: ["RIGHT", "D"],
+  confirm: ["ENTER", "SPACE"],
+} as const
+
+/** Arrow keys + WASD and Enter/Space; handlers run only while `guard()` is true. */
+export function bindKeys(
+  scene: Scene,
+  guard: () => boolean,
+  on: Partial<Record<keyof typeof KEYS, () => void>>,
+): void {
+  for (const [dir, keys] of Object.entries(KEYS)) {
+    const fn = on[dir as keyof typeof KEYS]
+    if (!fn) continue
+    for (const k of keys)
+      scene.input.keyboard?.on(`keydown-${k}`, () => {
+        if (guard()) fn()
+      })
+  }
+}
+
+/** Bold glowing title text; padding 1.5x the blur so the glow isn't clipped. */
+export function glowText(
+  scene: Scene,
+  x: number,
+  y: number,
+  s: string,
+  size: number,
+  blur: number,
+  glow: string = UI.accent,
+  color = "#ffffff",
+): GameObjects.Text {
+  return scene.add
+    .text(x, y, s, { fontFamily: UI.font, fontSize: `${size}px`, color, fontStyle: "bold" })
+    .setOrigin(0.5)
+    .setShadow(0, 0, glow, blur, true, true)
+    .setPadding(blur * 1.5)
+}
+
+/** Status line text at the bottom of the Hangar and the shop. */
+export function statusText(scene: Scene, size = 19): GameObjects.Text {
+  return scene.add
+    .text(480, 578, "", { fontFamily: UI.mono, fontSize: `${size}px`, color: UI.text })
+    .setOrigin(0.5)
+    .setShadow(0, 0, "#000000", 6, true, true)
+    .setPadding(9)
 }
 
 export class TextMenu {
@@ -107,20 +159,13 @@ export class TextMenu {
     this.labelX = x + 18
     const kb = scene.input.keyboard
     if (kb) {
-      const bind = (key: string, fn: () => void) =>
-        kb.on(key, () => {
-          if (this.enabled) fn()
-        })
-      bind("keydown-UP", () => this.move(-1))
-      bind("keydown-W", () => this.move(-1))
-      bind("keydown-DOWN", () => this.move(1))
-      bind("keydown-S", () => this.move(1))
-      bind("keydown-LEFT", () => this.items[this.cursor]?.adjust?.(-1))
-      bind("keydown-A", () => this.items[this.cursor]?.adjust?.(-1))
-      bind("keydown-RIGHT", () => this.items[this.cursor]?.adjust?.(1))
-      bind("keydown-D", () => this.items[this.cursor]?.adjust?.(1))
-      bind("keydown-ENTER", () => this.activate())
-      bind("keydown-SPACE", () => this.activate())
+      bindKeys(scene, () => this.enabled, {
+        up: () => this.move(-1),
+        down: () => this.move(1),
+        left: () => this.items[this.cursor]?.adjust?.(-1),
+        right: () => this.items[this.cursor]?.adjust?.(1),
+        confirm: () => this.activate(),
+      })
     }
     const back = () => {
       if (!this.onBack) return
@@ -323,6 +368,15 @@ export function stepVolume(v: number, d: number): number {
   return Math.max(0, Math.min(1, Math.round((v + d * 0.2) * 5) / 5))
 }
 
+/** Step a volume setting (see `stepVolume`), save it and apply it to the audio. */
+export function changeVolume(kind: "music" | "sfx", d: number): void {
+  const s = loadSettings()
+  s[kind] = stepVolume(s[kind], d)
+  saveSettings(s)
+  if (kind === "music") getAudio().setMusicVolume(s.music)
+  else getAudio().sfxVolume = s.sfx
+}
+
 export const pctLabel = (v: number) => `${Math.round(v * 100)}%`
 
 /** Credits in a status line roll to a new value (Hangar arrival, shop trades). Returns `set(to)`. */
@@ -350,17 +404,14 @@ export function rollCredits(scene: Scene, from: number, render: (cr: number) => 
 }
 
 /** Title + subtitle header used by the menu scenes. */
-export function header(scene: Scene, title: string, sub?: string): GameObjects.Text {
-  const t = scene.add
-    .text(480, 54, title, {
-      fontFamily: UI.font,
-      fontSize: "46px",
-      color: UI.text,
-      fontStyle: "bold",
-    })
-    .setOrigin(0.5)
-    .setShadow(0, 0, UI.accent, 16, true, true)
-    .setPadding(24)
+export function header(
+  scene: Scene,
+  title: string,
+  sub?: string,
+  y = 54,
+  size = 46,
+): GameObjects.Text {
+  const t = glowText(scene, 480, y, title, size, 16, UI.accent, UI.text)
   if (sub)
     scene.add
       .text(480, 100, sub, { fontFamily: UI.font, fontSize: "20px", color: UI.accent })
@@ -404,6 +455,11 @@ export function backButton(scene: Scene, label: string, onTap: () => void) {
       bg.setFillStyle(on ? 0x1d3a5c : 0x10182a, 0.9)
       bg.setStrokeStyle(2, on ? 0xffffff : 0x39d0ff, on ? 0.9 : 0.5)
       text.setColor(on ? "#ffffff" : UI.text)
+    },
+    /** Keyboard focus. */
+    focus(on: boolean) {
+      btn.focused = on
+      btn.look(on)
     },
     setVisible(on: boolean) {
       bg.setVisible(on)

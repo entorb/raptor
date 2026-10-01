@@ -1,10 +1,10 @@
 // Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
 import { MAPS } from "./data/ep1"
-import type { PilotSave, Sector, TopRun } from "./data/save"
+import type { LevelStats, PilotSave, Sector, TopRun } from "./data/save"
 import { BEGINNER_MAP } from "./data/training"
 import type { WaveMap } from "./data/types"
 import { t } from "./i18n/i18n"
-import { DIFF_TRAIN, DIFF_WRAP, Obj } from "./sim/consts"
+import { DIFF_TRAIN, DIFF_WRAP, MAX_SHIELD, Obj } from "./sim/consts"
 import { Inventory, newPilotObjs } from "./sim/objects"
 
 export interface Loadout {
@@ -74,6 +74,18 @@ export function playable(p: PilotSave, sector: Sector, w: number): boolean {
 
 export const levelKey = (sector: Sector, wave: number) => `${sector === "train" ? "t" : "b"}${wave}`
 
+/** Stats of one level (empty when never flown). */
+export const levelStats = (p: PilotSave, key: string): LevelStats =>
+  p.stats?.[key] ?? { n: 0, top: [] }
+
+/** "Wave n: flown / won" header of a level's top-10 table. */
+export function topHeader(st: LevelStats | undefined, wave: number): string {
+  return t("hangar.topLine", { wave: wave + 1, flown: st?.s ?? st?.n ?? 0, won: st?.n ?? 0 })
+}
+
+/** A wave other than the next campaign wave is a replay. */
+export const isReplay = (p: PilotSave, sector: Sector, wave: number) => wave !== nextWave(p, sector)
+
 /** Count a finished run and keep the level's top-10 runs by earnings; rank is 1-based or null. */
 export function recordRun(
   p: PilotSave,
@@ -81,7 +93,7 @@ export function recordRun(
   earned: number,
   pct?: number,
 ): { pilot: PilotSave; rank: number | null } {
-  const old = p.stats?.[key] ?? { n: 0, top: [] }
+  const old = levelStats(p, key)
   const run: TopRun = pct === undefined ? { cr: earned } : { cr: earned, pct }
   // stable sort: on ties the new run ranks below equal older runs
   const top = [...old.top, run].sort((a, b) => b.cr - a.cr).slice(0, TOP)
@@ -91,15 +103,28 @@ export function recordRun(
 }
 
 /** Count a mission start on this level (wins, deaths and aborts all count as a start). */
-export function recordStart(p: PilotSave, key: string): PilotSave {
-  const old = p.stats?.[key] ?? { n: 0, top: [] }
-  return { ...p, stats: { ...p.stats, [key]: { ...old, s: (old.s ?? 0) + 1 } } }
-}
+export const recordStart = (p: PilotSave, key: string) => bumpStat(p, key, "s")
 
 /** Count a death on this level (kept even though the loadout/score of the run is discarded). */
-export function recordFail(p: PilotSave, key: string): PilotSave {
-  const old = p.stats?.[key] ?? { n: 0, top: [] }
-  return { ...p, stats: { ...p.stats, [key]: { ...old, f: (old.f ?? 0) + 1 } } }
+export const recordFail = (p: PilotSave, key: string) => bumpStat(p, key, "f")
+
+function bumpStat(p: PilotSave, key: string, field: "s" | "f"): PilotSave {
+  const old = levelStats(p, key)
+  return { ...p, stats: { ...p.stats, [key]: { ...old, [field]: (old[field] ?? 0) + 1 } } }
+}
+
+/** Web change: a completed wave refills the shield to at least 50%. */
+export function refillShield(inv: Inventory): void {
+  const shield = inv.p_objs[Obj.ENERGY]
+  if (shield) shield.num = Math.max(shield.num, MAX_SHIELD / 2)
+}
+
+/** Hangar/shop status line: credits, shield, phase shields and nova bombs. */
+export function statusLine(inv: Inventory, cr: number): string {
+  const shield = Math.round((inv.getAmt(Obj.ENERGY) / MAX_SHIELD) * 100)
+  const phase = inv.getAmt(Obj.SUPER_SHIELD)
+  const phaseStr = phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : ""
+  return `${t("hud.credits")} ${cr}   ${t("hud.shield")} ${shield}%${phaseStr}   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`
 }
 
 /** One top-10 row: rank, credits and enemy kill percent (`-` for runs without it). */
@@ -133,7 +158,7 @@ export function afterWave(
   // finished the last training wave (first time or replay): the Hangar now defaults to Bravo
   const pilot: PilotSave =
     sector === "train" && wave === TRAIN_WAVES - 1 ? { ...run.pilot, sector: "bravo" } : run.pilot
-  if (wave !== nextWave(p, sector)) return { pilot, outcome: "landing", rank }
+  if (isReplay(p, sector, wave)) return { pilot, outcome: "landing", rank }
   if (sector === "train") {
     const train = wave + 1
     return {

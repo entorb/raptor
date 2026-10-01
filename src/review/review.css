@@ -57,10 +57,6 @@ code {
   color: var(--text);
 }
 
-[hidden] {
-  display: none !important;
-}
-
 .filter {
   display: flex;
   gap: 16px;
@@ -190,4 +186,9 @@ th {
 audio {
   height: 32px;
   max-width: 260px;
+}
+
+/* last + doubled attribute: beats the class rules that set display (no !important) */
+[hidden][hidden] {
+  display: none;
 }

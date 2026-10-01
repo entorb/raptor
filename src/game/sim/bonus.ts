@@ -1,5 +1,14 @@
 // Port of dosraptor/SOURCE/BONUS.C: pickups dropped by enemies.
-import { MAP_LEFT, MAX_SHIELD, Obj, type ObjType, PLAYERHEIGHT, PLAYERWIDTH } from "./consts"
+import {
+  MAP_LEFT,
+  MAX_SHIELD,
+  Obj,
+  type ObjType,
+  PLAYERHEIGHT,
+  PLAYERWIDTH,
+  XPOS,
+  YPOS,
+} from "./consts"
 import { OBJ_LIB } from "./objects"
 import type { World } from "./world"
 
@@ -22,9 +31,6 @@ const FRAMES: Partial<Record<ObjType, number>> = {
   [Obj.ENERGY]: 4,
   [Obj.ITEMBUY6]: 4,
 }
-
-const XPOS = [-1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2]
-const YPOS = [-3, -3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2]
 
 export interface Bonus {
   id: number

@@ -10,6 +10,8 @@ import {
   nextWave,
   playable,
   sectorWaves,
+  statusLine,
+  topHeader,
   topRunLine,
   withLoadout,
 } from "../campaign"
@@ -17,16 +19,17 @@ import { ENEMY_LIB } from "../data/ep1"
 import { type PilotSave, SECTORS, type Sector } from "../data/save"
 import { reportMissionStart } from "../data/stats"
 import { t } from "../i18n/i18n"
-import { currentPilot, pilotLoadout, setPilot } from "../session"
-import { MAX_SHIELD, Obj } from "../sim/consts"
+import { currentPilot, pilotLoadout, saveLoadout, setPilot } from "../session"
 import {
   backButton,
   backdrop,
+  bindKeys,
   header,
   ICON,
   keyHint,
   type MenuItem,
   rollCredits,
+  statusText,
   TextMenu,
   TOUCH,
   UI,
@@ -113,11 +116,7 @@ export class Hangar extends Scene {
     this.add
       .text(480, 96, pilotTitle(p), { fontFamily: UI.font, fontSize: "22px", color: UI.text })
       .setOrigin(0.5)
-    this.status = this.add
-      .text(480, 578, "", { fontFamily: UI.mono, fontSize: "19px", color: UI.text })
-      .setOrigin(0.5)
-      .setShadow(0, 0, "#000000", 6, true, true)
-      .setPadding(9)
+    this.status = statusText(this)
     this.messageText = this.add
       .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
@@ -242,8 +241,7 @@ export class Hangar extends Scene {
   }
 
   private save(): void {
-    const p = currentPilot()
-    if (p) setPilot(withLoadout(p, this.lo))
+    saveLoadout(this.lo)
   }
 
   private exit(): void {
@@ -260,27 +258,17 @@ export class Hangar extends Scene {
   /** Top-left back button: mouse click/hover, or UP off the menu's first row. */
   private buildBackButton(): void {
     this.back = backButton(this, "HANGAR", () => this.backAction())
-    const kb = this.input.keyboard
-    kb?.on("keydown-DOWN", () => {
-      if (this.backFocused) this.setBackFocus(false)
-    })
-    kb?.on("keydown-S", () => {
-      if (this.backFocused) this.setBackFocus(false)
-    })
-    kb?.on("keydown-ENTER", () => {
-      if (this.backFocused) this.backAction()
-    })
-    kb?.on("keydown-SPACE", () => {
-      if (this.backFocused) this.backAction()
+    bindKeys(this, () => this.backFocused, {
+      down: () => this.setBackFocus(false),
+      confirm: () => this.backAction(),
     })
   }
 
   /** Keyboard focus: also disables the list so its own arrow/confirm keys don't fire. */
   private setBackFocus(on: boolean): void {
     this.backFocused = on
-    this.back.focused = on
+    this.back.focus(on)
     this.menu.enabled = !on && this.mode !== "launch"
-    this.back.look(on)
     if (this.mode === "launch") this.refreshLaunch()
   }
 
@@ -292,14 +280,7 @@ export class Hangar extends Scene {
   }
 
   private renderStatus(cr: number): void {
-    const inv = this.lo.inv
-    const shield = inv.getAmt(Obj.ENERGY)
-    const phase = inv.getAmt(Obj.SUPER_SHIELD)
-    this.status.setText(
-      `${t("hud.credits")} ${cr}   ${t("hud.shield")} ${Math.round((shield / MAX_SHIELD) * 100)}%` +
-        (phase ? `   ${t("hud.phase")} ${phase}% x${inv.getTotal(Obj.SUPER_SHIELD)}` : "") +
-        `   ${t("hud.nova")} ${inv.getAmt(Obj.MEGA_BOMB)}`,
-    )
+    this.status.setText(statusLine(this.lo.inv, cr))
   }
 
   private show(mode: Mode): void {
@@ -414,27 +395,22 @@ export class Hangar extends Scene {
   }
 
   private bindLaunchKeys(): void {
-    const kb = this.input.keyboard
-    const on = (keys: string[], fn: () => void) => {
-      for (const k of keys)
-        kb?.on(`keydown-${k}`, () => {
-          if (this.mode === "launch" && !this.backFocused) fn()
-        })
-    }
     const focus = (row: number) => {
       this.focusRow = row
       this.refreshLaunch()
     }
-    on(["UP", "W"], () => {
-      if (this.focusRow === ROW_SECTOR) this.setBackFocus(true)
-      else focus(this.focusRow - 1)
-    })
-    on(["DOWN", "S"], () => focus(Math.min(ROW_LAUNCH, this.focusRow + 1)))
-    on(["LEFT", "A"], () => this.stepLaunch(-1))
-    on(["RIGHT", "D"], () => this.stepLaunch(1))
-    on(["ENTER", "SPACE"], () => {
-      if (this.focusRow === ROW_LAUNCH) this.launch()
-      else focus(this.focusRow + 1)
+    bindKeys(this, () => this.mode === "launch" && !this.backFocused, {
+      up: () => {
+        if (this.focusRow === ROW_SECTOR) this.setBackFocus(true)
+        else focus(this.focusRow - 1)
+      },
+      down: () => focus(Math.min(ROW_LAUNCH, this.focusRow + 1)),
+      left: () => this.stepLaunch(-1),
+      right: () => this.stepLaunch(1),
+      confirm: () => {
+        if (this.focusRow === ROW_LAUNCH) this.launch()
+        else focus(this.focusRow + 1)
+      },
     })
   }
 
@@ -522,12 +498,7 @@ export class Hangar extends Scene {
           .text(640, y, text, { fontFamily: UI.mono, fontSize: `${size}px`, color })
           .setOrigin(0.5),
       )
-    line(
-      272,
-      t("hangar.topLine", { wave: this.selWave + 1, flown: st?.s ?? st?.n ?? 0, won: st?.n ?? 0 }),
-      UI.accent,
-      17,
-    )
+    line(272, topHeader(st, this.selWave), UI.accent, 17)
     if (!top.length) line(300, t("hangar.noRuns"), UI.dim)
     top.forEach((v, i) => {
       line(296 + i * 21, topRunLine(i, v), UI.text)

@@ -9,7 +9,6 @@ import {
   newPilotSave,
   type PilotSave,
   pilotNameTaken,
-  saveSettings,
 } from "../data/save"
 import { readGlobalMissions } from "../data/stats"
 import { getLang, setLang, t } from "../i18n/i18n"
@@ -20,11 +19,13 @@ import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
 import {
   backdrop,
+  bindKeys,
+  changeVolume,
+  glowText,
   ICON,
   keyHint,
   type MenuItem,
   pctLabel,
-  stepVolume,
   TextMenu,
   TOUCH,
   UI,
@@ -94,16 +95,7 @@ export class Menu extends Scene {
   create(): void {
     this.mode = "main"
     this.tick = backdrop(this)
-    const title = this.add
-      .text(480, 78, "RAPTOR", {
-        fontFamily: UI.font,
-        fontSize: "96px",
-        fontStyle: "900",
-        color: "#ffffff",
-      })
-      .setOrigin(0.5)
-      .setShadow(0, 0, UI.accent, 28, true, true)
-      .setPadding(42)
+    const title = glowText(this, 480, 78, "RAPTOR", 96, 28).setFontStyle("900")
     this.tweens.add({ targets: title, alpha: 0.85, yoyo: true, repeat: -1, duration: 1800 })
     this.add
       .text(480, 140, "CALL OF THE VOID", {
@@ -163,15 +155,13 @@ export class Menu extends Scene {
     // The link row: DOWN off the last menu item enters it, UP/DOWN and LEFT/RIGHT step through
     // the links (DOWN past the last wraps to the first menu item, UP off the first returns to
     // the menu), ENTER/SPACE opens one. Bound after the menu: its handlers run first.
-    const kb = this.input.keyboard
-    for (const k of ["UP", "W"]) kb?.on(`keydown-${k}`, () => this.stepAction(-1))
-    for (const k of ["DOWN", "S"]) kb?.on(`keydown-${k}`, () => this.stepAction(1))
-    kb?.on("keydown-LEFT", () => this.moveAction(-1))
-    kb?.on("keydown-A", () => this.moveAction(-1))
-    kb?.on("keydown-RIGHT", () => this.moveAction(1))
-    kb?.on("keydown-D", () => this.moveAction(1))
-    kb?.on("keydown-ENTER", () => this.activateAction())
-    kb?.on("keydown-SPACE", () => this.activateAction())
+    bindKeys(this, () => true, {
+      up: () => this.stepAction(-1),
+      down: () => this.stepAction(1),
+      left: () => this.moveAction(-1),
+      right: () => this.moveAction(1),
+      confirm: () => this.activateAction(),
+    })
     getAudio().playSong(this, "mainmenu")
     this.show("main")
     void checkForUpdate().then((sw) => {
@@ -357,30 +347,22 @@ export class Menu extends Scene {
   private optionsItems(): MenuItem[] {
     this.info.setText(t("menu.shieldInfo"))
     const s = loadSettings()
-    const setMusic = (v: number) => {
-      s.music = v
-      saveSettings(s)
-      getAudio().setMusicVolume(v)
-      this.show("options")
-    }
-    const setSfx = (v: number) => {
-      s.sfx = v
-      saveSettings(s)
-      getAudio().sfxVolume = v
+    const set = (kind: "music" | "sfx", d: number) => {
+      changeVolume(kind, d)
       this.show("options")
     }
     return [
       {
         label: t("menu.music"),
         detail: pctLabel(s.music),
-        action: () => setMusic(stepVolume(s.music, 0)),
-        adjust: (d) => setMusic(stepVolume(s.music, d)),
+        action: () => set("music", 0),
+        adjust: (d) => set("music", d),
       },
       {
         label: t("menu.sfx"),
         detail: pctLabel(s.sfx),
-        action: () => setSfx(stepVolume(s.sfx, 0)),
-        adjust: (d) => setSfx(stepVolume(s.sfx, d)),
+        action: () => set("sfx", 0),
+        adjust: (d) => set("sfx", d),
       },
       { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     ]

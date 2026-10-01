@@ -1,7 +1,7 @@
 // In-memory campaign state shared by the scenes (the saved copy lives in data/save.ts).
 
 import type { Loadout } from "./campaign"
-import { loadout } from "./campaign"
+import { loadout, withLoadout } from "./campaign"
 import { loadPilots, type PilotSave, savePilot } from "./data/save"
 
 let pilot: PilotSave | null = null
@@ -20,6 +20,11 @@ export function reloadPilot(): PilotSave | null {
   const name = pilot?.name
   pilot = loadPilots().find((p) => p.name === name) ?? null
   return pilot
+}
+
+/** Store the loadout in the current pilot and save it. */
+export function saveLoadout(lo: Loadout): void {
+  if (pilot) setPilot(withLoadout(pilot, lo))
 }
 
 export function pilotLoadout(): Loadout {

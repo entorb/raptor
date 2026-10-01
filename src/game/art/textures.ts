@@ -14,7 +14,7 @@ import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import { Obj } from "../sim/consts"
 import { drawBriefing } from "./briefing"
-import { makeCanvas, seeded } from "./draw"
+import { makeCanvas, seeded, softDot } from "./draw"
 import {
   drawDot,
   drawHudBar,
@@ -88,11 +88,7 @@ function stars(
     if (hue < 0.2) col = "180,200,255"
     else if (hue < 0.3) col = "255,220,180"
     const a = 0.3 + r() * 0.7
-    const g = ctx.createRadialGradient(x, y, 0, x, y, size * 2.5)
-    g.addColorStop(0, `rgba(${col},${a})`)
-    g.addColorStop(1, `rgba(${col},0)`)
-    ctx.fillStyle = g
-    ctx.fillRect(x - size * 3, y - size * 3, size * 6, size * 6)
+    softDot(ctx, x, y, size * 2.5, col, a)
   }
 }
 
@@ -200,13 +196,7 @@ export function buildTextures(scene: Scene): void {
       ][Math.floor(r() * 4)] as number[]
       // draw wrapped in both directions so the texture tiles
       for (const oy of [-1024, 0, 1024])
-        for (const ox of [-512, 0, 512]) {
-          const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad)
-          g.addColorStop(0, `rgba(${hue.join(",")},0.18)`)
-          g.addColorStop(1, `rgba(${hue.join(",")},0)`)
-          ctx.fillStyle = g
-          ctx.fillRect(x - rad + ox, y - rad + oy, rad * 2, rad * 2)
-        }
+        for (const ox of [-512, 0, 512]) softDot(ctx, x + ox, y + oy, rad, hue.join(","), 0.18)
     }
   })
 }

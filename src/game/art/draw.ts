@@ -123,6 +123,33 @@ export function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, 
   ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2))
 }
 
+/** Lit sphere: radial gradient with its highlight `off`*r up-left of the center. */
+export function sphere(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  r: number,
+  off: number,
+  inner: number,
+  stops: [number, string][],
+): void {
+  const g = ctx.createRadialGradient(x - r * off, y - r * off, r * inner, x, y, r)
+  for (const [at, c] of stops) g.addColorStop(at, c)
+  ctx.fillStyle = g
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+/** Soft round dot of color `rgb` ("r,g,b") fading from alpha `a` to 0 at radius r. */
+export function softDot(ctx: Ctx, x: number, y: number, r: number, rgb: string, a: number): void {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+  g.addColorStop(0, `rgba(${rgb},${a})`)
+  g.addColorStop(1, `rgba(${rgb},0)`)
+  ctx.fillStyle = g
+  ctx.fillRect(x - r, y - r, r * 2, r * 2)
+}
+
 export function makeCanvas(w: number, h: number): { c: HTMLCanvasElement; ctx: Ctx } {
   const c = document.createElement("canvas")
   c.width = Math.max(1, Math.ceil(w))

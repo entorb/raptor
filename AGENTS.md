@@ -30,8 +30,13 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   the inner one into its own `const`), comma operator in arrow functions (use block-bodied arrow
   with proper `await` lines instead), `void` on a non-Promise expression (use a block-bodied arrow
   instead), cognitive complexity > 15 (split branches into `private` helper methods, as in
-  `terrain.ts` `simPanel`/`simStripe`/`simGrid`), and plain `for (let i...)` over a simple
-  iteration (`for-of` instead).
+  `terrain.ts` `simPanel`/`simStripe`/`simGrid`; an `if/else` drawing two variants = two helper
+  functions, as in `icons.ts` `autoGlyph`/`cycleGlyph`), plain `for (let i...)` over a simple
+  iteration (`for-of` instead), > 7 function params (group optional ones into an options object,
+  as in `glowText(..., { glow, color })`), consecutive `push()` calls (one `push(a, b)`),
+  `await` inside a loop in scripts (sequential steps: `inOrder` promise chain in
+  `gen_screen_exports.mjs`, else `Promise.all`), and `TODO` comments (none committed; dated
+  "delete after" migrations get removed once the date passes).
 
 ## Layout
 
@@ -55,9 +60,22 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - `src/game/input/gamepad.ts` (web addition): polls the standard-mapping gamepad and dispatches
   synthetic keyboard events on `window` (keyCode patched in, Phaser reads it): D-pad/stick = arrows,
   A = Enter, B = Esc, X = Space, Start = P, LB = Alt, RB = Shift. No scene has gamepad code.
-- `ui/textMenu.ts` shared UI: `keyHint` (desktop key help, top right of every menu screen),
+- `ui/textMenu.ts` shared UI (reuse, don't re-inline): `bindKeys` (arrows/WASD/Enter/Space with a guard), `glowText` (glow title, padding 1.5x blur), `statusText`, `changeVolume`, `backButton(...).focus`, `keyHint` (desktop key help, top right of every menu screen),
   `rollCredits` (status line credits roll up: Hangar arrival via `HangarData.earned`, shop trades),
   `stepVolume`; `TextMenu` plays `Audio.ui("move"|"confirm"|"back")` menu sounds.
+- Shared helpers: reuse them, never re-implement inline:
+  - `ui/textMenu.ts`: `bindKeys(scene, guard, {up,down,left,right,confirm})` (arrows + WASD,
+    Enter/Space; registration order matters for keys bound twice), `glowText` (bold glow title,
+    padding = 1.5x blur), `header(scene, title, sub?, y?, size?)`, `statusText` (bottom status line),
+    `changeVolume(kind, d)` (step + save + apply), `backButton(...).focus(on)` (keyboard focus).
+  - `campaign.ts`: `statusLine(inv, cr)`, `levelStats`, `topHeader`, `topRunLine`, `isReplay`,
+    `refillShield`. `session.ts`: `saveLoadout(lo)`.
+  - `Game.ts` private: `specials()` (equipped special weapons), `pillButton` (Start/Continue).
+  - `art/draw.ts`: `seeded`, `glow`, `metal`, `canopy`, `roundRect`, `polyPath`, `makeCanvas`,
+    `sphere` (lit ball), `softDot` (fading radial dot, fills only its own box).
+  - `sim/consts.ts`: `XPOS`/`YPOS` circle tables; `sim/tile.ts hitSpot`; `World.syncPlayerCenter`.
+  - Art refactors must stay pixel-identical: compare all `review/art.html` canvases (`toDataURL`)
+    and the screen exports against a `git worktree` of HEAD on a second dev port (don't stash).
 - Shop: maxed items (`Inventory.full`) are dimmed with `MAX`; the card shows the max per item,
   the status line the cargo (`MAX_OBJS`); selling the last copy of a weapon needs a second sell.
 - Pause menu: volume rows (LEFT/RIGHT adjust on them), else LEFT/RIGHT step the special weapon.
