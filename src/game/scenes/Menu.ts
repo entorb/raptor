@@ -236,8 +236,8 @@ export class Menu extends Scene {
     items.push(
       { label: `${ICON.language} ${t("lang.current")}`, action: () => this.toggleLang() },
       { label: `${ICON.options} ${t("menu.options")}`, action: () => this.show("options") },
+      { label: `${ICON.exit} ${t("menu.exit")}`, action: () => this.exit() },
     )
-    items.push({ label: `${ICON.exit} ${t("menu.exit")}`, action: () => this.exit() })
     return items
   }
 

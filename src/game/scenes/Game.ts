@@ -1074,9 +1074,10 @@ export class Game extends Scene {
   ): { text: string; next: () => void } {
     const aborted = result === "abort"
     const payoutStr = payout > 0 ? ` +${payout} CR` : ""
+    const doneKey = replay ? "game.waveReplayed" : "game.waveComplete"
     const message = aborted
       ? `${tr("game.aborted")}${payoutStr}`
-      : tr(replay ? "game.waveReplayed" : "game.waveComplete", { n: this.wave + 1, cr: payout })
+      : tr(doneKey, { n: this.wave + 1, cr: payout })
     const data: HangarData = { message, earned: payout }
     const completeText = tr(sim ? "game.simComplete" : "game.waveCompleteTitle")
     return {
@@ -1118,7 +1119,7 @@ export class Game extends Scene {
       return
     }
     const glow = after.outcome === "death" ? UI.warn : UI.accent
-    const t = glowText(this, 480, 280, text, 52, 24, glow).setDepth(D.overlay).setAlpha(0)
+    const t = glowText(this, 480, 280, text, 52, 24, { glow }).setDepth(D.overlay).setAlpha(0)
     this.tweens.add({ targets: t, alpha: 1, duration: 500 })
     this.cameras.main.fadeOut(2600, 0, 0, 0)
     this.time.delayedCall(2800, next)
