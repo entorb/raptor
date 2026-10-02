@@ -38,12 +38,15 @@ bewegen
 bigsplat
 bildschirm
 biomejs
+bitcrush
+bitcrushed
 bldgbomb
 blep
 blinkflag
 blockiert
 bodenziele
 bord
+bosse
 bossflag
 breakbeat
 breite
@@ -111,6 +114,7 @@ feinde
 feindenergie
 feuer
 feuern
+feuerst
 fgame
 filecomplete
 fintrain
@@ -133,6 +137,7 @@ gcnt
 gebäude
 geflogen
 gegen
+gegner
 gekauft
 geladen
 gemacht
@@ -160,6 +165,8 @@ grüner
 gsprite
 gtile
 gunstr
+haben
+halbe
 hauptmenü
 hinzufügen
 hitbox
@@ -217,6 +224,7 @@ mazedata
 mazelevel
 meffect
 megabm
+mehr
 menlo
 menü
 microm
@@ -268,6 +276,7 @@ oldx
 onlyflag
 optionen
 ospark
+panzerung
 pfeile
 phasenschild
 phasermsg
@@ -315,6 +324,7 @@ schaden
 schadensscanner
 schiff
 schild
+schildaufladung
 schildenergie
 schnellfeuer
 schwer
@@ -325,6 +335,7 @@ sektor
 selbstzielender
 selbstzielendes
 selfcheck
+seltener
 sess
 setval
 shipfull
@@ -341,7 +352,12 @@ shootstart
 shootx
 shooty
 shotspace
+sich
 sidechain
+simbreak
+simdrive
+simelectro
+simfour
 sizerec
 skynettx
 slib
@@ -349,6 +365,7 @@ smflak
 smokeflag
 smoktral
 sobj
+softkick
 sonarcloud
 sonderwaffe
 sonderwaffen
@@ -394,6 +411,7 @@ tiley
 tileyoff
 tippen
 titems
+tkick
 todesstrahl
 torben
 trainflag
@@ -427,6 +445,7 @@ welche
 welle
 Wellen
 weltweit
+wenn
 wepdest
 werden
 wiederholen
