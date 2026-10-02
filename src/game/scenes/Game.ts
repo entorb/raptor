@@ -156,6 +156,8 @@ export class Game extends Scene {
   /** A start key went down in this scene (the Hangar's Enter must not confirm on its keyup). */
   private startArmed = false
   private shownKills = 0
+  private shieldLit = 0
+  private seenRecharges = 0
 
   constructor() {
     super("Game")
@@ -176,6 +178,8 @@ export class Game extends Scene {
     this.waiting = false
     this.startArmed = false
     this.shownKills = 0
+    this.shieldLit = 0
+    this.seenRecharges = 0
     this.weaponBar = { sig: "", items: [] }
   }
 
@@ -723,9 +727,9 @@ export class Game extends Scene {
   }
 
   /** Segments i with i / segs < value / max are lit; the split runs through the gap above them. */
-  private bar(i: number, value: number, max: number): void {
+  private bar(i: number, value: number, max: number): number {
     const b = this.hud.bars[i]
-    if (!b) return
+    if (!b) return 0
     const { w, h, segs, step } = HUD_BAR
     const lit = Math.ceil(Math.max(0, Math.min(1, value / max)) * segs)
     const split = Math.round(h - 4 - lit * step)
@@ -735,6 +739,7 @@ export class Game extends Scene {
     const shown = i !== 0 || value > 0
     b.off.setVisible(shown)
     b.on.setVisible(shown)
+    return lit
   }
 
   private updateHud(): void {
@@ -743,7 +748,11 @@ export class Game extends Scene {
     const g = this.hud.g
     g.clear()
     this.bar(0, inv.getAmt(Obj.SUPER_SHIELD), MAX_SHIELD)
-    this.bar(1, inv.getAmt(Obj.ENERGY), MAX_SHIELD)
+    const lit = this.bar(1, inv.getAmt(Obj.ENERGY), MAX_SHIELD)
+    // web: a blip when the idle recharge (not a pickup) lights one more shield segment
+    if (lit > this.shieldLit && w.recharges !== this.seenRecharges) getAudio().ui("charge")
+    this.shieldLit = lit
+    this.seenRecharges = w.recharges
     this.hud.score.setText(`${w.plr.score - this.startScore} CR`)
     // refresh on kills only: newly seen enemies would otherwise make the value creep down constantly
     if (w.enemies.killed !== this.shownKills) {
@@ -1101,11 +1110,17 @@ export class Game extends Scene {
     if (!p) return
     // web change: a completed wave refills the shield to at least 50%
     if (result === "complete") refillShield(this.lo.inv)
+    const pct = this.world.destroyedPct
+    // web change: a completed wave with every enemy destroyed pays +10% of the credits earned
+    const bonus =
+      result === "complete" && pct.enemies === 100
+        ? Math.floor((this.lo.plr.score - this.startScore) / 10)
+        : 0
+    this.lo.plr.score += bonus
     const earned = this.lo.plr.score - this.startScore
     // web change: a death or abort still keeps half the credits earned in flight
     const payout = result === "complete" ? earned : Math.floor(earned / 2)
     const replay = isReplay(p, this.sector, this.wave)
-    const pct = this.world.destroyedPct
     const after = afterWave(
       withLoadout(p, this.lo),
       result,
@@ -1116,7 +1131,7 @@ export class Game extends Scene {
     )
     const { text, next } = this.endTarget(after, result, replay, payout)
     if (result === "complete") {
-      this.showResults(text, pct, after, earned, next)
+      this.showResults(text, pct, after, { earned, bonus }, next)
       return
     }
     const glow = after.outcome === "death" ? UI.warn : UI.accent
@@ -1131,7 +1146,7 @@ export class Game extends Scene {
     title: string,
     pct: World["destroyedPct"],
     { pilot, rank }: ReturnType<typeof afterWave>,
-    earned: number,
+    { earned, bonus }: { earned: number; bonus: number },
     next: () => void,
   ): void {
     const fmt = (v: number | null) => (v === null ? "-" : `${v}%`)
@@ -1143,10 +1158,11 @@ export class Game extends Scene {
     let rankStr = ""
     if (rank === 1 && top.length > 1) rankStr = `  ·  ${tr("game.newBest")}`
     else if (rank !== null) rankStr = `  ·  ${tr("game.rank", { n: rank })}`
+    const bonusStr = bonus ? `  ·  ${tr("game.killBonus", { cr: bonus })}` : ""
     const items: GameObjects.GameObject[] = [
       this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
       glowText(this, 0, -200, title, 44, 24),
-      txt(-150, `+${earned} CR${rankStr}`, 24, UI.gold),
+      txt(-150, `+${earned} CR${bonusStr}${rankStr}`, 24, UI.gold),
       txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
       txt(-78, topHeader(st, this.wave), 19, UI.accent, UI.mono),
       ...top.map((r, i) =>

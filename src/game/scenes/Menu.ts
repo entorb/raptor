@@ -216,7 +216,9 @@ export class Menu extends Scene {
         items = this.optionsItems()
     }
     this.menu.onDownFromEnd = mode === "main" ? () => this.enterActions() : null
+    this.menu.onMove = mode === "new" ? (i) => this.diffInfo(i) : null
     this.menu.setItems(items, mode === "options")
+    if (mode === "new") this.diffInfo(0)
   }
 
   private mainItems(): MenuItem[] {
@@ -307,8 +309,14 @@ export class Menu extends Scene {
     ]
   }
 
+  /** New pilot footer: the name plus what the difficulty under the cursor means. */
+  private diffInfo(index: number): void {
+    const key = (["diff.rookieInfo", "diff.veteranInfo", "diff.eliteInfo"] as const)[index]
+    const name = t("menu.newPilotInfo", { name: this.newName })
+    this.info.setText(key ? `${t(key)}\n${name}` : name)
+  }
+
   private newItems(): MenuItem[] {
-    this.info.setText(t("menu.newPilotInfo", { name: this.newName }))
     const start = (d: number) => () => {
       const p = newPilotSave(this.newName, d)
       setPilot(withLoadout(p, loadout(p)))
