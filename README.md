@@ -22,6 +22,7 @@ A web remake of the 1994 MS-DOS vertical shooter [Raptor: Call of the Shadows](h
 - No selling of basic weapon
 - After mission accomplished: shield refilled to 50%
 - Death and abort mission now earn 50% of credits
+- Mission accomplished with 100% enemy kills: +10% credits bonus
 
 ## Development
 

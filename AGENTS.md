@@ -60,7 +60,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - `src/game/input/gamepad.ts` (web addition): polls the standard-mapping gamepad and dispatches
   synthetic keyboard events on `window` (keyCode patched in, Phaser reads it): D-pad/stick = arrows,
   A = Enter, B = Esc, X = Space, Start = P, LB = Alt, RB = Shift. No scene has gamepad code.
-- `ui/textMenu.ts` shared UI (reuse, don't re-inline): `bindKeys` (arrows/WASD/Enter/Space with a guard), `glowText` (glow title, padding 1.5x blur), `statusText`, `changeVolume`, `backButton(...).focus`, `keyHint` (desktop key help, top right of every menu screen),
+- `ui/textMenu.ts` shared UI (reuse, don't re-inline): `bindKeys` (arrows/WASD/Enter/Space with a guard), `glowText` (glow title, padding 1.5x blur), `statusText`, `changeVolume`, `backButton(...).focus`,
   `rollCredits` (status line credits roll up: Hangar arrival via `HangarData.earned`, shop trades),
   `stepVolume`; `TextMenu` plays `Audio.ui("move"|"confirm"|"back")` menu sounds.
 - Shared helpers: reuse them, never re-implement inline:
@@ -77,7 +77,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   - Art refactors must stay pixel-identical: compare all `review/art.html` canvases (`toDataURL`)
     and the screen exports against a `git worktree` of HEAD on a second dev port (don't stash).
 - Shop: maxed items (`Inventory.full`) are dimmed with `MAX`; the card shows the max per item,
-  the status line the cargo (`MAX_OBJS`); selling the last copy of a weapon needs a second sell.
+  the status line the cargo (`MAX_OBJS`).
 - Pause menu: volume rows (LEFT/RIGHT adjust on them), else LEFT/RIGHT step the special weapon.
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
@@ -101,7 +101,10 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   (`web-stats-json.php?origin=raptor`). `reportMissionStart()` on every mission launch (`Hangar.launch`, not demos, skipped in dev and on localhost);
   `readGlobalMissions()` feeds "Global Missions" at the bottom of the start screen.
 - `src/game/audio/audio.ts`: FX table (sample, DMX pitch, volume), 3D pan/volume, music (songs
-  load lazily).
+  load lazily). `WAVE_SONGS[sector][wave]`: every sector has its own music theme and every wave its
+  own song (`gen-audio.mjs SONGS`: `bravo*` = Bravo, saw/analog combat; `train*` = Training, own synth palette
+  via `voices: SIM_VOICES` (electronic: PWM pad, bitcrushed arp, acid bass, sync lead, techno kit) + `sim*` drums; tempo rises per wave, 100 -> 136 BPM). When adding more
+  sectors: add new music too (a new song per wave; a new sector theme = own `voices` remap / drums, not just new keys).
 - `src/game/campaign.ts`: WIN_MainLoop between-wave logic (pure). `session.ts`: current pilot.
   `data/save.ts`: localStorage (validate on load, it is untrusted): pilot list `raptor.pilots.v1`,
   unique names (case-insensitive), most recently saved first; autosaved by Hangar and `Game.end`.
@@ -119,7 +122,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   credits/loadout. `PilotSave.stats[b<w>|t<w>]` = completions + top-10 runs (`TopRun`: credits + enemy kill %, old saves stored plain numbers). A completed
   wave (replay or not) shows a results panel (`Game.showResults`): credits, enemies/buildings destroyed
   (`World.destroyedPct`: `Enemies.killed/seen`, `Tiles.destroyed/structs`) and the level's top 10 with
-  this run in gold; Continue (tap, Enter/Space keyup) goes to the Hangar main screen. A completed wave refills the shield to at least 50% (`Game.end`). Death and abort reload the
+  this run in gold; Continue (tap, Enter/Space keyup) goes to the Hangar main screen. A completed wave refills the shield to at least 50% (`Game.end`); 100% enemy kills pay a +10% credit bonus (`Game.end`, shown on the results panel). Death and abort reload the
   last save (`reloadPilot`): weapons lost in flight come back. The HUD shows credits earned this run.
   The Hangar back icon is only shown on the shop and launch screens (hangar has an Exit row).
 - Training sector look (`Game.create` `sim`): a holographic simulator instead of a real fight.
@@ -245,6 +248,9 @@ the swiftshader launch args, or `page.screenshot` hangs.
 - Fullscreen needs a user gesture; the menu entry is hidden where the API is unavailable (iPhone).
 - Web Audio starts suspended until the first gesture; songs are loaded on demand by
   `Audio.playSong(scene, key)`.
+- Firefox: an `<audio>` element caches a partial (range) response; a later Phaser XHR for the same
+  URL then gets status 206 and the loader rejects it (silent song, no console error). `review/sounds.ts`
+  players therefore use `?review` URLs. Never play game assets via `<audio>` under their game URL.
 - The music OGGs are up to ~1 MB; the prek large-file limit is 1024 KB.
 - PWA precache (`vite/config.prod.mjs`) excludes `assets/music/**` and the 512 px icons (first
   visit ~1.4 MB gzipped); songs go to the CacheFirst `music` runtime cache when first played.
