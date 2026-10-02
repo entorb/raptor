@@ -13,7 +13,6 @@ import {
   backButton,
   bindKeys,
   header,
-  keyHint,
   type MenuItem,
   rollCredits,
   statusText,
@@ -62,8 +61,6 @@ export class Shop extends Scene {
   private skipKey = false
   private back!: ReturnType<typeof backButton>
   private items: ObjType[] = []
-  /** item whose last copy waits for a second sell (confirm) */
-  private confirmSell: ObjType | null = null
   private credits: (cr: number) => void = () => {}
   private tabs: Tab[] = []
   private status!: GameObjects.Text
@@ -108,7 +105,6 @@ export class Shop extends Scene {
       .setStrokeStyle(1, 0x39d0ff, 0.35)
     this.buildCard()
     this.status = statusText(this, TOUCH ? 22 : 19)
-    keyHint(this, t("shop.keys"))
     this.credits = rollCredits(this, this.lo.plr.score, (cr) => this.renderStatus(cr))
     const rowH = TOUCH ? 58 : 40
     this.menu = new TextMenu(this, LIST.x, LIST.y, LIST.w, rowH, Math.floor(376 / rowH))
@@ -116,10 +112,8 @@ export class Shop extends Scene {
     this.menu.onBack = () => this.leave()
     // no wrap from the last item back to the first
     this.menu.onDownFromEnd = () => {}
-    this.confirmSell = null
     this.menu.onMove = () => {
       this.msg.setText("")
-      this.confirmSell = null
       if (this.focus !== "list") this.setFocus("list")
       this.describe()
     }
@@ -216,7 +210,6 @@ export class Shop extends Scene {
   private setTab(buy: boolean): void {
     if (buy === this.buying) return
     this.buying = buy
-    this.confirmSell = null
     this.msg.setText("")
     this.refresh(false)
     // an empty list can't be left with the arrows: park the focus on the tabs
@@ -275,12 +268,6 @@ export class Shop extends Scene {
     return it === Obj.ENERGY ? `${lib.max_cnt}%` : String(lib.max_cnt)
   }
 
-  /** Selling this removes the last copy of a weapon (no spare left): asks for a second sell. */
-  private isLast(it: ObjType): boolean {
-    const lib = OBJ_LIB[it]
-    return !this.buying && !!lib && !lib.onlyflag && this.lo.inv.getTotal(it) === 1
-  }
-
   private describe(): void {
     const c = this.card
     const it = this.items[this.menu.index]
@@ -311,8 +298,7 @@ export class Shop extends Scene {
   private tradeLabel(it: ObjType): string {
     const inv = this.lo.inv
     if (this.buying) return `${t("shop.buy")} · ${inv.getCost(it)} CR`
-    const verb = this.confirmSell === it ? t("shop.confirmSell") : t("shop.sell")
-    return `${verb} · +${inv.getResale(it)} CR`
+    return `${t("shop.sell")} · +${inv.getResale(it)} CR`
   }
 
   private tradeSelected(): void {
@@ -329,13 +315,7 @@ export class Shop extends Scene {
       if (r === Buy.GOTIT) text = t("shop.purchased", { name })
       else if (r === Buy.NOMONEY) text = t("shop.noMoney")
       this.msg.setText(text).setColor(r === Buy.GOTIT ? UI.gold : UI.warn)
-    } else if (this.isLast(it) && this.confirmSell !== it) {
-      this.confirmSell = it
-      this.msg.setText(t(TOUCH ? "shop.sellLast" : "shop.sellLastKey")).setColor(UI.warn)
-      this.describe()
-      return
     } else {
-      this.confirmSell = null
       inv.sell(it)
       this.msg.setText(t("shop.sold", { name })).setColor(UI.gold)
     }

@@ -2,7 +2,7 @@
 //   node scripts/gen-audio.mjs            sfx + music
 //   node scripts/gen-audio.mjs sfx        only public/assets/sfx/*.ogg
 //   node scripts/gen-audio.mjs music      only public/assets/music/*.ogg
-//   node scripts/gen-audio.mjs music rap2 one song
+//   node scripts/gen-audio.mjs music bravo2 one song
 // File names keep the original sample/song keys (audio.ts SFX_FILES / SONG_FILES), so the FX table
 // (pitch, volume) still applies. Output is deterministic (seeded).
 import { mkdirSync } from "node:fs"
@@ -382,6 +382,93 @@ const INST = {
       )
       return v * vel * Math.exp(-t * 2.2) * Math.min(1, t / 0.003)
     }),
+  // training sector voices: electronic simulator (PWM grid pad, bitcrushed data arp, acid bass,
+  // hard-sync lead, computer beeps, techno kit, noise sweeps)
+  grid: (f, dur, vel, seed) => {
+    const r = rng(seed)
+    const os = [0, 1].map(() => new Osc("square", r()))
+    const lp = new Biquad("lp", 1200, 2)
+    return render(dur + 1, (t) => {
+      const pw = 0.5 + 0.35 * Math.sin(2 * Math.PI * 0.4 * t)
+      lp.set(700 + 1100 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.15 * t)))
+      const v = (os[0].next(f, pw) + os[1].next(f * 1.006, 1 - pw)) / 2
+      return lp.run(v) * 0.7 * vel * adsr(t, dur, 0.3, 1, 1, 1)
+    })
+  },
+  blip: (f, dur, vel) => {
+    const o = new Osc("square")
+    let held = 0
+    let i = 0
+    return render(Math.min(dur, 0.15) + 0.06, (t) => {
+      const v = o.next(f, 0.25)
+      // ponytail: crude bitcrush (sample-hold at SR/6, 4-bit) for the digital "data" grit
+      if (i++ % 6 === 0) held = Math.round(v * 8) / 8
+      return held * vel * Math.exp(-t * 18)
+    })
+  },
+  acid: (f, dur, vel) => {
+    const o = new Osc("saw")
+    const lp = new Biquad("lp", 400, 7)
+    return render(dur + 0.05, (t) => {
+      lp.set(220 + 2400 * Math.exp(-t * 16) * vel)
+      return Math.tanh(lp.run(o.next(f)) * 1.8) * 0.7 * vel * adsr(t, dur, 0.003, 0.1, 0.8, 0.04)
+    })
+  },
+  sync: (f, dur, vel) => {
+    // hard sync: slave saw restarts with every master cycle, slave ratio sweeps down
+    let pm = 0
+    let ps = 0
+    const lp = new Biquad("lp", 4000, 1)
+    return render(dur + 0.3, (t) => {
+      const ratio = 1.5 + 1.5 * Math.exp(-t * 5)
+      pm += f / SR
+      ps += (f * ratio) / SR
+      if (pm >= 1) {
+        pm -= 1
+        ps = pm * ratio
+      }
+      ps %= 1
+      return lp.run(2 * ps - 1) * 0.45 * vel * adsr(t, dur, 0.01, 0.3, 0.7, 0.25)
+    })
+  },
+  beep: (f, dur, vel) => {
+    const a = new Osc("sine")
+    const b = new Osc("square")
+    return render(Math.min(dur, 0.25) + 0.3, (t) => {
+      const v = a.next(f) + 0.15 * b.next(f * 2, 0.5)
+      return v * vel * Math.exp(-t * 6) * Math.min(1, t / 0.002)
+    })
+  },
+  tkick: (_f, _d, vel, seed) => {
+    const o = new Osc("sine")
+    const n = noiseSrc(seed)
+    return render(0.4, (t) => {
+      const body = Math.tanh(o.next(glide(190, 48, t, 0.06)) * 2) * Math.exp(-t * 8)
+      return (body + n() * 0.3 * Math.exp(-t * 300)) * vel
+    })
+  },
+  clap: (_f, _d, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", 1500, 1.5)
+    return render(0.25, (t) => {
+      // three quick bursts, then a short tail
+      const burst = t < 0.03 ? Math.exp(-((t * 1000) % 10) * 0.35) : Math.exp(-(t - 0.03) * 22)
+      return bp.run(n()) * burst * vel * 1.6
+    })
+  },
+  tick: (_f, _d, vel, seed) => {
+    const n = noiseSrc(seed)
+    const hp = new Biquad("hp", 9000)
+    return render(0.04, (t) => hp.run(n()) * vel * Math.exp(-t * 90))
+  },
+  sweep: (_f, _d, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", 6000, 3)
+    return render(1.6, (t) => {
+      bp.set(400 + 7000 * Math.exp(-t * 2.5), 3)
+      return bp.run(n()) * vel * Math.exp(-t * 1.8)
+    })
+  },
   kick: (_f, _d, vel) => {
     const o = new Osc("sine")
     return render(
@@ -426,6 +513,28 @@ const BUS = {
   snare: { gain: 0.4, pan: 0.05, rev: 0.25, dly: 0, duck: 0 },
   hat: { gain: 0.14, pan: 0.3, rev: 0.05, dly: 0, duck: 0 },
   crash: { gain: 0.16, pan: -0.25, rev: 0.2, dly: 0, duck: 0 },
+  grid: { gain: 0.26, pan: 0, rev: 0.5, dly: 0.1, duck: 0.6, wide: true },
+  blip: { gain: 0.12, pan: 0.35, rev: 0.15, dly: 0.45, duck: 0.3 },
+  acid: { gain: 0.42, pan: 0, rev: 0, dly: 0.05, duck: 0.5 },
+  sync: { gain: 0.24, pan: -0.1, rev: 0.3, dly: 0.3, duck: 0 },
+  beep: { gain: 0.2, pan: -0.3, rev: 0.4, dly: 0.4, duck: 0.1 },
+  tkick: { gain: 0.8, pan: 0, rev: 0, dly: 0, duck: 0 },
+  clap: { gain: 0.3, pan: 0.05, rev: 0.3, dly: 0, duck: 0 },
+  tick: { gain: 0.12, pan: 0.3, rev: 0.05, dly: 0, duck: 0 },
+  sweep: { gain: 0.14, pan: -0.2, rev: 0.4, dly: 0.2, duck: 0 },
+}
+
+/** Training sector theme: compose() remaps the Bravo instruments to these voices. */
+const SIM_VOICES = {
+  pad: "grid",
+  pluck: "blip",
+  bass: "acid",
+  lead: "sync",
+  bell: "beep",
+  kick: "tkick",
+  snare: "clap",
+  hat: "tick",
+  crash: "sweep",
 }
 
 // 16th-step patterns per bar
@@ -439,6 +548,14 @@ const DRUMS = {
     hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   },
   march: { kick: [0, 8], snare: [4, 7, 12, 14, 15], hat: [] },
+  // training: electro / techno
+  simbreak: { kick: [0, 6, 10], snare: [4, 12], hat: [0, 3, 6, 8, 11, 14] },
+  simfour: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], open: true },
+  simdrive: {
+    kick: [0, 4, 8, 12],
+    snare: [4, 12],
+    hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  },
 }
 const BASS = {
   eighth: [0, 2, 4, 6, 8, 10, 12, 14],
@@ -583,7 +700,7 @@ function composeBar(c, has, si, bars, b, bar) {
 /**
  * Compose one song into note events.
  * spec: { seed, bpm, root (MIDI), mode, prog (degree per bar), sections: [[bars, "parts"]],
- *         drums, bass, arp ("up"|"updown"|"random"|null), leadInst, leadOct }
+ *         drums, bass, arp ("up"|"updown"|"random"|null), leadInst, leadOct, voices? (instrument remap) }
  */
 function compose(spec) {
   const r = rng(spec.seed)
@@ -594,7 +711,13 @@ function compose(spec) {
     r,
     mode: MODES[spec.mode],
     add: (inst, bar, st, len, midi, vel) =>
-      ev.push({ inst, t: (bar * 16 + st) * step, dur: len * step, midi, vel }),
+      ev.push({
+        inst: spec.voices?.[inst] ?? inst,
+        t: (bar * 16 + st) * step,
+        dur: len * step,
+        midi,
+        vel,
+      }),
     chordAt: (bar) => spec.prog[bar % spec.prog.length],
     motifs: [makeMotif(r), makeMotif(r)],
   }
@@ -616,7 +739,7 @@ function compose(spec) {
 function duckEnvelope(ev, n) {
   const duck = new Float32Array(n).fill(1)
   for (const e of ev) {
-    if (e.inst !== "kick") continue
+    if (e.inst !== "kick" && e.inst !== "tkick") continue
     const at = secs(e.t)
     for (let i = 0; i < secs(0.25) && at + i < n; i++)
       duck[at + i] = Math.min(duck[at + i], 1 - Math.exp(-i / SR / 0.06))
@@ -733,8 +856,8 @@ const SONGS = {
     leadInst: "bell",
     leadOct: 1,
   },
-  // waves 2, 6: driving breakbeat, E minor
-  rap2: {
+  // Bravo wave 2: driving breakbeat, E minor
+  bravo2: {
     seed: 21,
     bpm: 132,
     root: 52,
@@ -753,8 +876,8 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
   },
-  // wave 7: dark F# dorian arps
-  rap3: {
+  // Bravo wave 7: dark F# dorian arps
+  bravo7: {
     seed: 31,
     bpm: 128,
     root: 54,
@@ -773,8 +896,8 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
   },
-  // waves 3, 8: heroic C minor
-  rap4: {
+  // Bravo wave 3: heroic C minor
+  bravo3: {
     seed: 41,
     bpm: 120,
     root: 48,
@@ -850,8 +973,8 @@ const SONGS = {
       [3, 0, 16, 24],
     ],
   },
-  // waves 5, 9: intense G harmonic minor
-  rap6: {
+  // Bravo wave 5: intense G harmonic minor
+  bravo5: {
     seed: 61,
     bpm: 140,
     root: 55,
@@ -870,8 +993,8 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
   },
-  // wave 4: mysterious B phrygian, half-time
-  rap7: {
+  // Bravo wave 4: mysterious B phrygian, half-time
+  bravo4: {
     seed: 71,
     bpm: 108,
     root: 47,
@@ -890,8 +1013,8 @@ const SONGS = {
     leadInst: "bell",
     leadOct: 1,
   },
-  // wave 1: upbeat A minor four-on-the-floor
-  rap8: {
+  // Bravo wave 1: upbeat A minor four-on-the-floor
+  bravo1: {
     seed: 81,
     bpm: 126,
     root: 45,
@@ -909,6 +1032,171 @@ const SONGS = {
     arp: "up",
     leadInst: "lead",
     leadOct: 1,
+  },
+  // Bravo wave 6: relentless D minor gallop
+  bravo6: {
+    seed: 66,
+    bpm: 136,
+    root: 50,
+    mode: "minor",
+    prog: [0, 6, 5, 4],
+    sections: [
+      [4, "bass hats"],
+      [8, "pad bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "arp hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "break",
+    bass: "gallop",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+  },
+  // Bravo wave 8: tense C# phrygian drive
+  bravo8: {
+    seed: 88,
+    bpm: 130,
+    root: 49,
+    mode: "phrygian",
+    prog: [0, 1, 6, 1],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass drums"],
+      [8, "arp bass drums lead"],
+      [4, "pad bell"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "drive",
+    bass: "syncop",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+  },
+  // Bravo wave 9 (finale): epic E harmonic minor
+  bravo9: {
+    seed: 99,
+    bpm: 144,
+    root: 52,
+    mode: "harmonic",
+    prog: [0, 5, 3, 4],
+    sections: [
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad lead"],
+      [12, "pad arp bass drums lead"],
+    ],
+    drums: "drive",
+    bass: "eighth",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+  },
+  // Training sector theme: clean holographic simulator (SIM_VOICES), bright modes, sparse electro beats
+  // training wave 1: boot sequence, slow electro beeps, A minor
+  train1: {
+    seed: 201,
+    bpm: 100,
+    root: 57,
+    mode: "minor",
+    prog: [0, 5, 3, 4],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass hats"],
+      [8, "pad arp bass drums bell"],
+      [4, "pad bell"],
+    ],
+    drums: "simbreak",
+    bass: "long",
+    arp: "up",
+    leadInst: "bell",
+    leadOct: 1,
+    voices: SIM_VOICES,
+  },
+  // training wave 2: data pulse, C dorian
+  train2: {
+    seed: 202,
+    bpm: 108,
+    root: 48,
+    mode: "dorian",
+    prog: [0, 3, 0, 4],
+    sections: [
+      [4, "arp bass"],
+      [8, "pad arp bass hats"],
+      [8, "pad arp bass drums bell"],
+      [4, "arp bell"],
+      [4, "pad arp bass drums bell"],
+    ],
+    drums: "simbreak",
+    bass: "offbeat",
+    arp: "updown",
+    leadInst: "bell",
+    leadOct: 1,
+    voices: SIM_VOICES,
+  },
+  // training wave 3: electro, E minor
+  train3: {
+    seed: 203,
+    bpm: 116,
+    root: 52,
+    mode: "minor",
+    prog: [0, 6, 5, 4],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad bell hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "simfour",
+    bass: "syncop",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: SIM_VOICES,
+  },
+  // training wave 4: acid techno, F# phrygian
+  train4: {
+    seed: 204,
+    bpm: 126,
+    root: 54,
+    mode: "phrygian",
+    prog: [0, 1, 0, 6],
+    sections: [
+      [4, "arp bass"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "simfour",
+    bass: "eighth",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: SIM_VOICES,
+  },
+  // training wave 5: final exam, fast techno, D minor
+  train5: {
+    seed: 205,
+    bpm: 136,
+    root: 50,
+    mode: "minor",
+    prog: [0, 5, 6, 4],
+    sections: [
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "arp bass hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "simdrive",
+    bass: "gallop",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: SIM_VOICES,
   },
 }
 

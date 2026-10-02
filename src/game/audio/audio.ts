@@ -1,5 +1,6 @@
 // Sound effects (FX.C SND_Setup table) and music (WINDOWS.C songsg1) on Phaser's Web Audio.
 import { type Scene, Sound } from "phaser"
+import type { Sector } from "../data/save"
 import type { Fx } from "../sim/consts"
 import type { SfxEvent } from "../sim/world"
 
@@ -29,29 +30,30 @@ type SfxFile = (typeof SFX_FILES)[number]
 export const SONG_FILES = [
   "mainmenu",
   "hangar",
-  "rap2",
-  "rap3",
-  "rap4",
+  "bravo1",
+  "bravo2",
+  "bravo3",
+  "bravo4",
+  "bravo5",
+  "bravo6",
+  "bravo7",
+  "bravo8",
+  "bravo9",
+  "train1",
+  "train2",
+  "train3",
+  "train4",
+  "train5",
   "rap5",
-  "rap6",
-  "rap7",
-  "rap8",
   "fanfare",
 ] as const
 export type Song = (typeof SONG_FILES)[number]
 
-/** WINDOWS.C songsg1: music per episode 1 wave. */
-export const WAVE_SONGS: Song[] = [
-  "rap8",
-  "rap2",
-  "rap4",
-  "rap7",
-  "rap6",
-  "rap2",
-  "rap3",
-  "rap4",
-  "rap6",
-]
+/** Music per sector wave: one theme per sector, one song per wave (web change: DOS songsg1 reused songs). */
+export const WAVE_SONGS: Record<Sector, Song[]> = {
+  bravo: ["bravo1", "bravo2", "bravo3", "bravo4", "bravo5", "bravo6", "bravo7", "bravo8", "bravo9"],
+  train: ["train1", "train2", "train3", "train4", "train5"],
+}
 
 /** FX.C SND_Setup: sample, DMX pitch (128 = normal) and volume (0..127). */
 export const FX: Record<Fx, [SfxFile, number, number]> = {
@@ -121,6 +123,7 @@ export class Audio {
   private readonly manager: Sound.WebAudioSoundManager | null
   private song: Sound.BaseSound | null = null
   private songKey: Song | null = null
+  private queued: [Scene, Song] | null = null
   private boss: Sound.BaseSound | null = null
   private readonly voices = new Map<SfxFile, Sound.BaseSound[]>()
   musicVolume = 0.6
@@ -181,6 +184,14 @@ export class Audio {
   /** Switch music; songs not loaded yet are fetched on demand through `scene`'s loader. */
   playSong(scene: Scene, key: Song | null, loop = true): void {
     if (!this.manager || key === this.songKey) return
+    // a one-shot jingle (death, fanfare) finishes before the next looping song starts
+    const jingle = this.song
+    if (loop && key && jingle?.isPlaying && !(jingle as Sound.WebAudioSound).loop) {
+      if (!this.queued) jingle.once("complete", () => this.queued && this.playSong(...this.queued))
+      this.queued = [scene, key]
+      return
+    }
+    this.queued = null
     this.song?.stop()
     this.song?.destroy()
     this.song = null
@@ -196,6 +207,13 @@ export class Audio {
     else {
       scene.load.audio(cacheKey, `assets/music/${key}.ogg`)
       scene.load.once(`filecomplete-audio-${cacheKey}`, start)
+      // failed load or scene left before it finished: forget the key so the next call retries
+      const retry = () => {
+        if (this.songKey === key && !this.song) this.songKey = null
+      }
+      // the batch "complete" also fires after a failed file; a started song makes it a no-op
+      scene.load.once("complete", retry)
+      scene.events.once("shutdown", retry)
       scene.load.start()
     }
   }

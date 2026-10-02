@@ -1,7 +1,8 @@
 // Dev-only sound review page (/raptor/review/sounds.html): generated sfx and songs next to the
 // archived originals (original_game/audio, if present).
 import { FX, pitchRate, SFX_FILES, SONG_FILES, WAVE_SONGS } from "../game/audio/audio"
-import { initFilter, waveVisible } from "./filter"
+import type { Sector } from "../game/data/save"
+import { initFilter } from "./filter"
 
 const ORIG = import.meta.glob("../../original_game/audio/**/*.ogg", {
   eager: true,
@@ -24,7 +25,9 @@ function player(url: string | undefined): HTMLElement {
   const a = el("audio")
   a.controls = true
   a.preload = "none"
-  a.src = url
+  // own URL: <audio> range requests leave partial cache entries, and Firefox then answers the
+  // game's XHR for the same URL with 206, which Phaser's loader rejects (silent in-game music)
+  a.src = `${url}${url.includes("?") ? "&" : "?"}review`
   return a
 }
 
@@ -71,7 +74,7 @@ function eventButton(file: string, name: string, pitch: number, vol: number): HT
 
 {
   const body = table("sfx", "Sound effects", ["Sample", "New", "Original", "Game events"])
-  for (const f of SFX_FILES) {
+  for (const f of [...SFX_FILES].sort((a, b) => a.localeCompare(b))) {
     const events = el("div")
     for (const [name, [file, pitch, vol]] of Object.entries(FX))
       if (file === f) events.append(eventButton(f, name, pitch, vol))
@@ -84,7 +87,17 @@ function eventButton(file: string, name: string, pitch: number, vol: number): HT
   }
 }
 
-const waveRows: [HTMLElement, number[]][] = []
+/** Bravo songs replace these DOS songs (archived under the original name). */
+const DOS_SONG: Record<string, string> = {
+  bravo1: "rap8",
+  bravo2: "rap2",
+  bravo3: "rap4",
+  bravo4: "rap7",
+  bravo5: "rap6",
+  bravo7: "rap3",
+}
+
+const waveRows: [HTMLElement, Sector, number][] = []
 
 {
   const body = table("music", "Music", ["Song", "Used for", "New", "Original"])
@@ -94,21 +107,24 @@ const waveRows: [HTMLElement, number[]][] = []
     rap5: "Ship destroyed (plays once)",
     fanfare: "Mission won (plays once)",
   }
-  for (const s of SONG_FILES) {
-    const waves = WAVE_SONGS.flatMap((w, i) => (w === s ? [i + 1] : []))
-    const used = use[s] ?? (waves.length ? `Wave ${waves.join(", ")}` : "")
+  for (const s of [...SONG_FILES].sort((a, b) => a.localeCompare(b))) {
+    const at = (Object.keys(WAVE_SONGS) as Sector[]).flatMap((sec) =>
+      WAVE_SONGS[sec].flatMap((w, i): [Sector, number][] => (w === s ? [[sec, i]] : [])),
+    )
+    const used = use[s] ?? at.map(([sec, i]) => `${sec} wave ${i + 1}`).join(", ")
     const tr = row(body, [
       s,
       used,
       player(`${BASE}assets/music/${s}.ogg`),
-      player(ORIG[`../../original_game/audio/music/${s}.ogg`]),
+      player(ORIG[`../../original_game/audio/music/${DOS_SONG[s] ?? s}.ogg`]),
     ])
     // menu / hangar / death songs play in every sector and wave
-    if (!use[s] && waves.length) waveRows.push([tr, waves])
+    for (const [sec, i] of use[s] ? [] : at) waveRows.push([tr, sec, i])
   }
 }
 
 // sector / wave filter: wave songs only (sfx are not bound to a wave)
 initFilter((f) => {
-  for (const [tr, waves] of waveRows) tr.hidden = !waves.some((w) => waveVisible(f, w - 1))
+  for (const [tr, sec, w] of waveRows)
+    tr.hidden = (f.sector !== "" && f.sector !== sec) || (f.wave !== "" && Number(f.wave) !== w)
 })

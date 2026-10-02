@@ -23,7 +23,6 @@ import {
   changeVolume,
   glowText,
   ICON,
-  keyHint,
   type MenuItem,
   pctLabel,
   TextMenu,
@@ -144,7 +143,6 @@ export class Menu extends Scene {
         color: TOUCH ? "#9aa8c0" : UI.dim,
       })
       .setOrigin(0.5)
-    keyHint(this, t("hint.menu"))
     this.actions = this.actionRow(480, TOUCH ? 522 : 506)
     this.menu = new TextMenu(this, 280, 194, 400, TOUCH ? 60 : 52, TOUCH ? 5 : 6)
     this.menu.onBack = () => {

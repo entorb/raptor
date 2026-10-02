@@ -26,7 +26,6 @@ import {
   bindKeys,
   header,
   ICON,
-  keyHint,
   type MenuItem,
   rollCredits,
   statusText,
@@ -77,7 +76,6 @@ export class Hangar extends Scene {
   private title!: GameObjects.Text
   private briefs: GameObjects.Image[] = []
   private messageText!: GameObjects.Text
-  private hint!: GameObjects.Text
   private earned = 0
   private credits: (cr: number) => void = () => {}
 
@@ -120,7 +118,6 @@ export class Hangar extends Scene {
     this.messageText = this.add
       .text(480, 146, this.message, { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
-    this.hint = keyHint(this, "")
     this.credits = rollCredits(this, this.lo.plr.score - this.earned, (cr) => this.renderStatus(cr))
     this.buildLaunch(p)
     // launch keys before the menu's and the back icon's: a key that switches modes (menu Launch,
@@ -302,7 +299,6 @@ export class Hangar extends Scene {
     }
     this.menu.enabled = !launch && !this.backFocused
     this.title.setText(launch ? "MISSION BRIEFING" : "HANGAR")
-    this.hint.setText(t(launch ? "hint.launch" : "hint.menu"))
     SECTORS.forEach((s, i) => {
       const alpha = launch && s === this.selSector ? 1 : 0
       this.tweens.add({ targets: this.briefs[i], alpha, duration: 400 })
