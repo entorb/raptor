@@ -31,6 +31,15 @@ export const STRINGS = {
   "diff.easy": e("easy", "leicht"),
   "diff.normal": e("normal", "normal"),
   "diff.hard": e("hard", "schwer"),
+  "diff.rookieInfo": e(
+    "Bosses have half armor and fire less. The shield recharges while not firing.",
+    "Bosse haben halbe Panzerung und feuern seltener. Der Schild lädt sich auf, wenn du nicht feuerst.",
+  ),
+  "diff.veteranInfo": e(
+    "More enemies than Rookie. The shield recharges while not firing.",
+    "Mehr Gegner als Rekrut. Der Schild lädt sich auf, wenn du nicht feuerst.",
+  ),
+  "diff.eliteInfo": e("All enemies, no shield recharge.", "Alle Gegner, keine Schildaufladung."),
 
   "hud.credits": e("CREDITS", "CREDITS"),
   "hud.shield": e("SHIELD", "SCHILD"),
@@ -258,6 +267,7 @@ export const STRINGS = {
     "Feinde {e}  ·  Gebäude {b} zerstört",
   ),
   "game.notTop": e("This run is not in the top 10", "Dieser Flug ist nicht in den Top 10"),
+  "game.killBonus": e("100% BONUS +{cr}", "100% BONUS +{cr}"),
   "game.newBest": e("NEW BEST!", "NEUER REKORD!"),
   "game.rank": e("Rank #{n}", "Platz {n}"),
   "game.continue": e("CONTINUE", "WEITER"),

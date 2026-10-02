@@ -166,6 +166,8 @@ export class World {
   private b4_flag = false
   private objuse_flag = false
   private think_cnt = 0
+  /** web: shield recharge ticks (HUD plays a sound when a bar segment lights up) */
+  recharges = 0
   private g_oldshield = EMPTY
   private blinkflag = true
   private damage = EMPTY
@@ -311,7 +313,7 @@ export class World {
     }
     this.think_cnt++
     if (this.think_cnt > CHARGE_SHIELD) {
-      if (this.startendwave === EMPTY) this.inv.addEnergy(1)
+      if (this.startendwave === EMPTY && this.inv.addEnergy(1)) this.recharges++
       this.think_cnt = 0
     }
   }
