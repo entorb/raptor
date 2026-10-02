@@ -353,14 +353,6 @@ export class TextMenu {
   }
 }
 
-/** Desktop key help, same place (top right) on every menu screen. */
-export function keyHint(scene: Scene, text: string): GameObjects.Text {
-  return scene.add
-    .text(950, 8, text, { fontFamily: UI.font, fontSize: "13px", color: UI.dim })
-    .setOrigin(1, 0)
-    .setVisible(!TOUCH)
-}
-
 /** Volume setting in 20% steps; d = 0 cycles (100% wraps to 0%). */
 export function stepVolume(v: number, d: number): number {
   if (d === 0) return v >= 0.99 ? 0 : stepVolume(v, 1)

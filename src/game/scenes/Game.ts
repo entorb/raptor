@@ -268,7 +268,8 @@ export class Game extends Scene {
       this.input.on("pointerdown", () => this.finishDemo())
       kb?.on("keydown", () => this.finishDemo())
     }
-    getAudio().playSong(this, WAVE_SONGS[this.mapWave] ?? "rap8")
+    const songs = WAVE_SONGS[this.demo >= 0 ? "bravo" : this.sector]
+    getAudio().playSong(this, songs[this.demo >= 0 ? this.mapWave : this.wave] ?? "bravo1")
     this.game.events.on("blur", this.autoPause, this)
     this.events.once("shutdown", () => {
       this.game.events.off("blur", this.autoPause, this)
@@ -593,7 +594,7 @@ export class Game extends Scene {
   /** Filled button (panel-relative x 0) with the Enter key hint on desktop. */
   private pillButton(y: number, label: string, onTap: () => void): GameObjects.Text {
     const btn = this.add
-      .text(0, y, `${label}${this.isTouch() ? "" : "  [Enter]"}`, {
+      .text(0, y, label, {
         fontFamily: UI.font,
         fontSize: "26px",
         color: "#ffffff",

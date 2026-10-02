@@ -13,14 +13,6 @@ export const STRINGS = {
   "rotate.title": e("ROTATE YOUR DEVICE", "GERÄT DREHEN"),
   "rotate.sub": e("LANDSCAPE REQUIRED", "QUERFORMAT ERFORDERLICH"),
   "lang.current": e("English", "Deutsch"),
-  "hint.menu": e(
-    "↑↓ select   Enter confirm   Esc back",
-    "↑↓ wählen   Enter bestätigen   Esc zurück",
-  ),
-  "hint.launch": e(
-    "↑↓ row   ←→ choose   Enter confirm   Esc hangar",
-    "↑↓ Zeile   ←→ wählen   Enter bestätigen   Esc Hangar",
-  ),
 
   back: e("Back", "Zurück"),
   ok: e("OK", "OK"),
@@ -104,25 +96,12 @@ export const STRINGS = {
 
   "shop.buy": e("BUY", "KAUFEN"),
   "shop.sell": e("SELL", "VERKAUFEN"),
-  "shop.keys": e(
-    "↑↓ select   ←→ buy/sell   Enter confirm   Esc hangar",
-    "↑↓ wählen   ←→ kaufen/verkaufen   Enter bestätigen   Esc Hangar",
-  ),
   "shop.nothingBuy": e("Nothing for sale.", "Nichts zu verkaufen."),
   "shop.nothingSell": e("Nothing to sell.", "Nichts zum Verkaufen."),
   "shop.onBoard": e("On board: {n}", "An Bord: {n}"),
   "shop.notOnBoard": e("Not on board", "Nicht an Bord"),
   "shop.max": e("max {n}", "max. {n}"),
   "shop.cargo": e("CARGO", "LADUNG"),
-  "shop.sellLast": e(
-    "Last one on board: tap again to sell",
-    "Letztes an Bord: erneut tippen zum Verkaufen",
-  ),
-  "shop.sellLastKey": e(
-    "Last one on board: confirm again to sell",
-    "Letztes an Bord: erneut bestätigen zum Verkaufen",
-  ),
-  "shop.confirmSell": e("CONFIRM", "BESTÄTIGEN"),
   "shop.noRoom": e("No room on the ship", "Kein Platz im Schiff"),
   "shop.purchased": e("Purchased {name}", "{name} gekauft"),
   "shop.noMoney": e("Not enough credits", "Nicht genug Credits"),
