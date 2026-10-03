@@ -1,8 +1,8 @@
 // Generate all game audio from code (no original samples or songs: license-clean).
-//   node scripts/gen-audio.mjs            sfx + music
-//   node scripts/gen-audio.mjs sfx        only public/assets/sfx/*.ogg
-//   node scripts/gen-audio.mjs music      only public/assets/music/*.ogg
-//   node scripts/gen-audio.mjs music bravo2 one song
+//   node scripts/gen_audio.mjs            sfx + music
+//   node scripts/gen_audio.mjs sfx        only public/assets/sfx/*.ogg
+//   node scripts/gen_audio.mjs music      only public/assets/music/*.ogg
+//   node scripts/gen_audio.mjs music bravo2 one song
 // File names keep the original sample/song keys (audio.ts SFX_FILES / SONG_FILES), so the FX table
 // (pitch, volume) still applies. Output is deterministic (seeded).
 import { mkdirSync } from "node:fs"
@@ -524,17 +524,20 @@ const BUS = {
   sweep: { gain: 0.14, pan: -0.2, rev: 0.4, dly: 0.2, duck: 0 },
 }
 
-/** Training sector theme: compose() remaps the Bravo instruments to these voices. */
+/**
+ * Training sector theme: compose() remaps the Bravo instruments to these voices. The sim voices
+ * alone sound thin, so they ride on top of the Bravo pad / bass / drums for combat weight.
+ */
 const SIM_VOICES = {
-  pad: "grid",
-  pluck: "blip",
-  bass: "acid",
+  pad: ["pad", "grid"],
+  pluck: ["pluck", "blip"],
+  bass: ["bass", "acid"],
   lead: "sync",
   bell: "beep",
-  kick: "tkick",
-  snare: "clap",
+  kick: "kick",
+  snare: ["snare", "clap"],
   hat: "tick",
-  crash: "sweep",
+  crash: ["crash", "sweep"],
 }
 
 // 16th-step patterns per bar
@@ -549,7 +552,11 @@ const DRUMS = {
   },
   march: { kick: [0, 8], snare: [4, 7, 12, 14, 15], hat: [] },
   // training: electro / techno
-  simbreak: { kick: [0, 6, 10], snare: [4, 12], hat: [0, 3, 6, 8, 11, 14] },
+  simelectro: {
+    kick: [0, 3, 6, 10],
+    snare: [4, 12],
+    hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  },
   simfour: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], open: true },
   simdrive: {
     kick: [0, 4, 8, 12],
@@ -700,7 +707,7 @@ function composeBar(c, has, si, bars, b, bar) {
 /**
  * Compose one song into note events.
  * spec: { seed, bpm, root (MIDI), mode, prog (degree per bar), sections: [[bars, "parts"]],
- *         drums, bass, arp ("up"|"updown"|"random"|null), leadInst, leadOct, voices? (instrument remap) }
+ *         drums, bass, arp ("up"|"updown"|"random"|null), leadInst, leadOct, voices? (instrument remap, an array layers voices) }
  */
 function compose(spec) {
   const r = rng(spec.seed)
@@ -710,14 +717,10 @@ function compose(spec) {
     spec,
     r,
     mode: MODES[spec.mode],
-    add: (inst, bar, st, len, midi, vel) =>
-      ev.push({
-        inst: spec.voices?.[inst] ?? inst,
-        t: (bar * 16 + st) * step,
-        dur: len * step,
-        midi,
-        vel,
-      }),
+    add: (inst, bar, st, len, midi, vel) => {
+      for (const v of [spec.voices?.[inst] ?? inst].flat())
+        ev.push({ inst: v, t: (bar * 16 + st) * step, dur: len * step, midi, vel })
+    },
     chordAt: (bar) => spec.prog[bar % spec.prog.length],
     motifs: [makeMotif(r), makeMotif(r)],
   }
@@ -1093,64 +1096,65 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
   },
-  // Training sector theme: clean holographic simulator (SIM_VOICES), bright modes, sparse electro beats
-  // training wave 1: boot sequence, slow electro beeps, A minor
+  // Training sector theme: holographic simulator (SIM_VOICES), driving electro / techno, 132 -> 150 BPM
+  // training wave 1 (tutorial): launch sequence, upbeat A minor four-on-the-floor
   train1: {
-    seed: 201,
-    bpm: 100,
+    seed: 211,
+    bpm: 132,
     root: 57,
     mode: "minor",
+    prog: [0, 5, 2, 6],
+    sections: [
+      [2, "arp bass hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "arp bass hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "simfour",
+    bass: "offbeat",
+    arp: "up",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: SIM_VOICES,
+  },
+  // training wave 2: electro breakbeat, C harmonic minor
+  train2: {
+    seed: 212,
+    bpm: 136,
+    root: 48,
+    mode: "harmonic",
     prog: [0, 5, 3, 4],
     sections: [
-      [4, "pad arp"],
-      [8, "pad arp bass hats"],
-      [8, "pad arp bass drums bell"],
-      [4, "pad bell"],
-    ],
-    drums: "simbreak",
-    bass: "long",
-    arp: "up",
-    leadInst: "bell",
-    leadOct: 1,
-    voices: SIM_VOICES,
-  },
-  // training wave 2: data pulse, C dorian
-  train2: {
-    seed: 202,
-    bpm: 108,
-    root: 48,
-    mode: "dorian",
-    prog: [0, 3, 0, 4],
-    sections: [
+      [4, "arp bass hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
       [4, "arp bass"],
-      [8, "pad arp bass hats"],
-      [8, "pad arp bass drums bell"],
-      [4, "arp bell"],
-      [4, "pad arp bass drums bell"],
+      [8, "pad arp bass drums lead"],
     ],
-    drums: "simbreak",
-    bass: "offbeat",
+    drums: "simelectro",
+    bass: "syncop",
     arp: "updown",
-    leadInst: "bell",
+    leadInst: "lead",
     leadOct: 1,
     voices: SIM_VOICES,
   },
-  // training wave 3: electro, E minor
+  // training wave 3: pumping techno, E minor
   train3: {
-    seed: 203,
-    bpm: 116,
+    seed: 213,
+    bpm: 140,
     root: 52,
     mode: "minor",
     prog: [0, 6, 5, 4],
     sections: [
-      [4, "pad arp"],
+      [4, "arp bass hats"],
       [8, "pad arp bass drums"],
       [8, "pad arp bass drums lead"],
-      [4, "pad bell hats"],
-      [8, "pad arp bass drums lead"],
+      [4, "arp bass hats"],
+      [12, "pad arp bass drums lead"],
     ],
-    drums: "simfour",
-    bass: "syncop",
+    drums: "simdrive",
+    bass: "eighth",
     arp: "random",
     leadInst: "lead",
     leadOct: 1,
@@ -1158,38 +1162,38 @@ const SONGS = {
   },
   // training wave 4: acid techno, F# phrygian
   train4: {
-    seed: 204,
-    bpm: 126,
+    seed: 214,
+    bpm: 144,
     root: 54,
     mode: "phrygian",
     prog: [0, 1, 0, 6],
     sections: [
-      [4, "arp bass"],
+      [4, "arp bass hats"],
       [8, "pad arp bass drums"],
-      [8, "pad arp bass drums lead"],
-      [4, "pad arp hats"],
-      [8, "pad arp bass drums lead"],
+      [8, "arp bass drums lead"],
+      [4, "pad arp bass hats"],
+      [12, "pad arp bass drums lead"],
     ],
-    drums: "simfour",
-    bass: "eighth",
+    drums: "simelectro",
+    bass: "gallop",
     arp: "updown",
     leadInst: "lead",
     leadOct: 1,
     voices: SIM_VOICES,
   },
-  // training wave 5: final exam, fast techno, D minor
+  // training wave 5: final exam, hard techno, D harmonic minor
   train5: {
-    seed: 205,
-    bpm: 136,
+    seed: 215,
+    bpm: 150,
     root: 50,
-    mode: "minor",
-    prog: [0, 5, 6, 4],
+    mode: "harmonic",
+    prog: [0, 5, 3, 4],
     sections: [
-      [4, "pad arp hats"],
-      [8, "pad arp bass drums"],
-      [8, "pad arp bass drums lead"],
       [4, "arp bass hats"],
-      [8, "pad arp bass drums lead"],
+      [8, "pad arp bass drums"],
+      [12, "pad arp bass drums lead"],
+      [4, "arp bass hats"],
+      [12, "pad arp bass drums lead"],
     ],
     drums: "simdrive",
     bass: "gallop",

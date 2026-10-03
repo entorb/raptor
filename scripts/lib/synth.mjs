@@ -1,4 +1,4 @@
-// Tiny offline synthesizer for scripts/gen-audio.mjs: oscillators, filters, envelopes, effects.
+// Tiny offline synthesizer for scripts/gen_audio.mjs: oscillators, filters, envelopes, effects.
 // Everything works on Float32Array buffers at SR; all randomness is seeded (reproducible output).
 
 export const SR = 44100
