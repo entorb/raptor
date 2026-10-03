@@ -4,7 +4,7 @@
 //   node scripts/extract-glb.mjs --ref      also dump reference PNGs to tmp/ref/ (art design only)
 // Inputs: original_game/shareware/FILE0000.GLB, FILE0001.GLB (not committed).
 // Outputs: src/game/data/ep1.ts (committed, never hand-edit); the original audio goes to
-// original_game/audio/ (gitignored, comparison only: the game ships scripts/gen-audio.mjs sounds).
+// original_game/audio/ (gitignored, comparison only: the game ships scripts/gen_audio.mjs sounds).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
