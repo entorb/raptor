@@ -1,9 +1,6 @@
 #!/bin/sh
-SCRIPT_DIR="$(dirname "$0")"
-cd "$SCRIPT_DIR/.."
-
-# exit upon error
 set -e
+cd "$(dirname "$0")/.."
 
 echo "## Node and PNPM Versions"
 # use the versions provided by the system, never install them here (brew upgrade is done in korrekturleser only)
