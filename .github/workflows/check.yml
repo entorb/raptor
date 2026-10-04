@@ -31,7 +31,7 @@ jobs:
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
 
       - name: Run CSpell
-        uses: streetsidesoftware/cspell-action@e0668cf020899e887ee8ad4d173c31738a79eae8  # v9.0.1
+        uses: streetsidesoftware/cspell-action@6f3c77c1406bc930f944ba97e9801a22e42caf58  # v9.1.0
         with:
           files: '**/*'
           incremental_files_only: false
@@ -48,7 +48,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 1  # latest only
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86  # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
           run_install: false
 
