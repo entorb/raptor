@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/browser"
 import type { Game as PhaserGame } from "phaser"
 import { applyDocumentLang } from "./game/i18n/i18n"
 import { initGamepad } from "./game/input/gamepad"
@@ -18,6 +19,14 @@ function fitViewport(game: PhaserGame): void {
   game.events.once("ready", apply)
   window.visualViewport.addEventListener("resize", apply)
   window.addEventListener("orientationchange", apply)
+}
+
+// Error reporting, deployed prod build only (not dev server, not local preview).
+const host = location.hostname
+if (!import.meta.env.DEV && host !== "localhost" && host !== "127.0.0.1") {
+  Sentry.init({
+    dsn: "https://37a7adea86b51bc1dd537f188ceb6598@o4507139041525760.ingest.de.sentry.io/4512197581865040",
+  })
 }
 
 document.addEventListener("DOMContentLoaded", () => {
