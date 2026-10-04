@@ -1,8 +1,6 @@
 #!/bin/sh
-cd "$(dirname "$0")/.." || exit 1
-
-# exit upon error
 set -e
+cd "$(dirname "$0")/.."
 
 # cleanup
 rm -f .DS_Store
