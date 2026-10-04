@@ -12,6 +12,7 @@ exclude: >-
   (?x)^(
     \.vscode/.*
     |pnpm-lock.yaml
+    |renovate.json
     |tsconfig.json
   )$
 repos:

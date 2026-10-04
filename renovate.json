@@ -1,0 +1,67 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["security:only-security-updates"],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "automerge": true,
+  "automergeType": "branch",
+  "vulnerabilityAlerts": {
+    "automerge": false,
+    "labels": ["security"]
+  },
+  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "pre-commit": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Override Mend-hosted global approval rule",
+      "matchPackageNames": ["*"],
+      "dependencyDashboardApproval": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "enabled": true,
+      "groupName": "github actions",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* * 1-7 * 0"]
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "enabled": true,
+      "groupName": "pre-commit hooks",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* * 1-7 * 0"]
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["ruff", "pyright", "vulture", "pytest", "pytest-cov"],
+      "enabled": true,
+      "groupName": "py check tools",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* * 1-7 * 0"]
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@biomejs/biome",
+        "eslint",
+        "eslint-plugin-*",
+        "@typescript-eslint/*",
+        "vitest",
+        "@vitest/*",
+        "vue-tsc",
+        "knip",
+        "@playwright/test"
+      ],
+      "enabled": true,
+      "groupName": "js check tools",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* * 1-7 * 0"]
+    }
+  ]
+}
