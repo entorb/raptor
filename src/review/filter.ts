@@ -1,6 +1,6 @@
 // Sector / wave filter at the top of the review pages. Empty = unfiltered.
+import { TRAIN_WAVES } from "../game/campaign"
 import { MAPS } from "../game/data/ep1"
-import { DIFF_TRAIN, DIFF_WRAP } from "../game/sim/consts"
 
 export interface Filter {
   sector: "" | "bravo" | "train"
@@ -8,9 +8,7 @@ export interface Filter {
   wave: string
 }
 
-const TRAIN_WAVES = DIFF_WRAP[DIFF_TRAIN] ?? 4
-
-/** Wave (0-based) is shown by the filter: training flies only the first waves. */
+/** Sector wave (0-based) is shown by the filter: training has fewer waves than Bravo. */
 export function waveVisible(f: Filter, wave: number): boolean {
   return (f.wave === "" || Number(f.wave) === wave) && (f.sector !== "train" || wave < TRAIN_WAVES)
 }

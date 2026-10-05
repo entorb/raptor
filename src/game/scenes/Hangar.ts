@@ -2,6 +2,7 @@
 import { type GameObjects, Scene } from "phaser"
 import { seeded } from "../art/draw"
 import { BAY, PAD, PAD_TILT } from "../art/hangar"
+import { briefingTexture } from "../art/textures"
 import { getAudio } from "../audio/audio"
 import {
   defaultWave,
@@ -75,6 +76,8 @@ export class Hangar extends Scene {
   private launchBox!: Box
   private title!: GameObjects.Text
   private briefs: GameObjects.Image[] = []
+  /** The selected wave's boss + intel units over the sector backdrop (briefingTexture). */
+  private intel!: GameObjects.Image
   private messageText!: GameObjects.Text
   private earned = 0
   private credits: (cr: number) => void = () => {}
@@ -106,6 +109,8 @@ export class Hangar extends Scene {
     this.parkedShip()
     // mission briefing backdrops, one per sector, crossfaded by show()
     this.briefs = SECTORS.map((s) => this.add.image(480, 300, `brief-${s}`).setAlpha(0))
+    this.intel = this.add.image(480, 300, briefingTexture(this, this.selSector, this.selWave))
+    this.intel.setAlpha(0)
     this.panel = this.add
       .rectangle(640, 158, 360, 100, 0x05060d, 0.72)
       .setOrigin(0.5, 0)
@@ -303,6 +308,7 @@ export class Hangar extends Scene {
       const alpha = launch && s === this.selSector ? 1 : 0
       this.tweens.add({ targets: this.briefs[i], alpha, duration: 400 })
     })
+    this.tweens.add({ targets: this.intel, alpha: launch ? 1 : 0, duration: 400 })
     let items: MenuItem[] = []
     if (mode === "hangar") items = this.hangarItems()
     else this.refreshLaunch()
@@ -452,6 +458,7 @@ export class Hangar extends Scene {
       b.label.setText(t(sec === "train" ? "sector.train" : "sector.bravo"))
       this.paint(b, sec === s, row === ROW_SECTOR && sec === s)
     })
+    this.intel.setTexture(briefingTexture(this, s, this.selWave))
     const n = sectorWaves(p, s)
     const next = nextWave(p, s)
     this.waveBoxes.forEach((b, w) => {
