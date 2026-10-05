@@ -298,9 +298,9 @@ export class Game extends Scene {
   update(_time: number, delta: number): void {
     if (!this.world || this.ended) return
     const bg = (this.scroll * SCALE) / 3
-    this.stars[0]?.setTilePosition(0, -bg * 0.15)
-    this.stars[1]?.setTilePosition(0, -bg * 0.3)
-    this.stars[2]?.setTilePosition(0, -bg * 0.6)
+    this.stars[0]?.setTilePosition(0, bg * 0.15)
+    this.stars[1]?.setTilePosition(0, bg * 0.3)
+    this.stars[2]?.setTilePosition(0, bg * 0.6)
     if (this.paused) return
     if (this.waiting) {
       this.render(0)

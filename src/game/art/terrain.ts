@@ -5,7 +5,7 @@
 // The training sector (`train`) renders the same map as a simulator deck: flat gridded floor
 // plates, lit hull panels and hazard stripes instead of lichen.
 import { TILE_CELLS } from "../data/ep1"
-import { MAP_COLS, MAP_ROWS } from "../sim/consts"
+import { MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts"
 import { makeCanvas } from "./draw"
 
 const FINE = 4 // cells per tile edge (8 DOS px each)
@@ -14,6 +14,13 @@ const FH = MAP_ROWS * FINE
 /** Chunk = 8 map rows (256 DOS px); rendered at RES px per DOS px, drawn scaled to 3x. */
 export const CHUNK_ROWS = 8
 export const RES = 1.5
+/** Chunk width in DOS px: the 288 px map plus the MAP_LEFT side strips, filled by extending the edge tiles. */
+export const CHUNK_W = MAP_COLS * 32 + 2 * MAP_LEFT
+
+/** Modulo that stays positive for the negative x of the left strip. */
+function mod(a: number, n: number): number {
+  return ((a % n) + n) % n
+}
 
 function hash2(x: number, y: number, seed: number): number {
   let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 144269)
@@ -108,14 +115,14 @@ function sample(f: Float32Array, x: number, y: number): number {
 const EDGE = 0.45
 
 /**
- * Incremental chunk renderer (map rows ci*8 .. ci*8+7 -> canvas of 288*RES x 256*RES px) so the
+ * Incremental chunk renderer (map rows ci*8 .. ci*8+7 -> canvas of CHUNK_W*RES x 256*RES px) so the
  * work can be spread over several frames: call `step(budgetMs)` until it returns true.
  */
 export class ChunkJob {
   readonly canvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
   private readonly img: ImageData
-  private readonly W = Math.round(288 * RES)
+  private readonly W = Math.round(CHUNK_W * RES)
   private readonly H = Math.round(CHUNK_ROWS * 32 * RES)
   private readonly SW: number
   private readonly sol: Float32Array
@@ -151,7 +158,7 @@ export class ChunkJob {
     const { field, seed, SW } = this
     const dy = this.y0 + y / RES
     for (let x = 0; x <= this.W; x++) {
-      const dx = x / RES
+      const dx = x / RES - MAP_LEFT
       const i = y * SW + x
       const edgeNoise =
         vnoise(dx / 12, dy / 12, seed) * 0.6 + vnoise(dx / 4, dy / 4, seed + 1) * 0.4
@@ -192,11 +199,11 @@ export class ChunkJob {
   private plateColor(shade: number, dx: number, dy: number): void {
     const { seed, rgb } = this
     const plate = 0.8 + hash2(Math.floor(dx / 16), Math.floor(dy / 16), seed + 7) * 0.25
-    const seam = dx % 16 < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
+    const seam = mod(dx, 16) < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
     rgb[0] = 72 * plate * seam * shade
     rgb[1] = 84 * plate * seam * shade
     rgb[2] = 102 * plate * seam * shade
-    if ((dx + 8) % 32 < 1.4 && dy % 48 < 1.6) rgb.splice(0, 3, 90, 230, 255)
+    if (mod(dx + 8, 32) < 1.4 && dy % 48 < 1.6) rgb.splice(0, 3, 90, 230, 255)
   }
 
   /** Rock: dusty warm grey to cool slate, with glowing lichen patches. */
@@ -223,21 +230,21 @@ export class ChunkJob {
   }
 
   private simPanel(shade: number, dx: number, dy: number): void {
-    const seam = dx % 16 < 0.8 || dy % 16 < 0.8
+    const seam = mod(dx, 16) < 0.8 || dy % 16 < 0.8
     this.rgb[0] = (seam ? 60 : 44) * shade
     this.rgb[1] = (seam ? 230 : 62) * shade
     this.rgb[2] = (seam ? 190 : 78) * shade
   }
 
   private simStripe(shade: number, dx: number, dy: number): void {
-    const stripe = (dx + dy) % 24 < 5
+    const stripe = mod(dx + dy, 24) < 5
     this.rgb[0] = (stripe ? 150 : 30) * shade
     this.rgb[1] = (stripe ? 120 : 36) * shade
     this.rgb[2] = (stripe ? 30 : 48) * shade
   }
 
   private simGrid(shade: number, dx: number, dy: number): void {
-    const grid = dx % 32 < 0.8 || dy % 32 < 0.8
+    const grid = mod(dx, 32) < 0.8 || dy % 32 < 0.8
     this.rgb[0] = (grid ? 40 : 20) * shade
     this.rgb[1] = (grid ? 150 : 30) * shade
     this.rgb[2] = (grid ? 210 : 44) * shade
@@ -269,7 +276,7 @@ export class ChunkJob {
         px[o + 3] = 0
         continue
       }
-      this.surfaceColor(i, x / RES, dy)
+      this.surfaceColor(i, x / RES - MAP_LEFT, dy)
       // dark rim where the surface drops into space
       const rim = 0.4 + 0.6 * Math.min(1, (s - EDGE) / 0.12)
       px[o] = Math.min(255, (rgb[0] as number) * rim)
