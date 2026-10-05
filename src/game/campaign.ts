@@ -26,7 +26,7 @@ export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
 }
 
 // web: training opens with the beginner wave, then flies the DOS training maps 0..3
-const TRAIN_WAVES = (DIFF_WRAP[DIFF_TRAIN] ?? 4) + 1
+export const TRAIN_WAVES = (DIFF_WRAP[DIFF_TRAIN] ?? 4) + 1
 const TOP = 10
 
 /** Waves in this difficulty's campaign. */

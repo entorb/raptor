@@ -7,6 +7,7 @@ import { drawPickup } from "../game/art/icons"
 import { drawPlayer, drawUnit } from "../game/art/ships"
 import { buildField, CHUNK_ROWS, CHUNK_W, CHUNKS, RES, renderChunk } from "../game/art/terrain"
 import { STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"
+import { TRAIN_WAVES, waveMap } from "../game/campaign"
 import { ENEMY_LIB, MAPS, PIC_SIZES } from "../game/data/ep1"
 import { SCALE } from "../game/data/playfield"
 import { SPECIAL_KEYS } from "../game/input/gameInput"
@@ -83,8 +84,8 @@ function sector<T extends HTMLElement>(e: T, s: "bravo" | "train"): T {
   return e
 }
 
-/** `wave` (0-based, "unused" = not spawned) tags the section for the wave filter. */
-function section(id: string, title: string, intro = "", wave?: string): HTMLElement {
+/** `wave` (0-based sector wave, "unused" = not spawned) and `sec` tag the section for the filter. */
+function section(id: string, title: string, intro = "", wave?: string, sec?: "bravo" | "train") {
   const h = el("h2", "", title)
   h.id = id
   const a = el("a", "", title)
@@ -92,7 +93,10 @@ function section(id: string, title: string, intro = "", wave?: string): HTMLElem
   const g = el("div", "grid")
   const parts = [a, h, g]
   if (intro) parts.splice(2, 0, el("p", "", intro))
-  if (wave !== undefined) for (const e of parts) e.dataset.wave = wave
+  for (const e of parts) {
+    if (wave !== undefined) e.dataset.wave = wave
+    if (sec) e.dataset.sector = sec
+  }
   nav.append(a)
   main.append(...parts.slice(1))
   return g
@@ -250,40 +254,41 @@ const unitFrames = new Map<string, number>()
 for (const e of ENEMY_LIB)
   if (e.w) unitFrames.set(e.iname, Math.max(1, e.num_frames, unitFrames.get(e.iname) ?? 1))
 
-function enemyCard(slib: number, count: number): HTMLElement {
+/** Enemy frames for `sec`, or both sectors (unused enemies). */
+function enemyCard(slib: number, count: number, sec?: "bravo" | "train"): HTMLElement {
   const e = ENEMY_LIB[slib]
   if (!e) return el("div")
   const frames = unitFrames.get(e.iname) ?? 1
   const w = e.w * SCALE
   const h = e.h * SCALE
-  const row = el("div", "frames")
-  for (let f = 0; f < frames; f++)
-    row.append(
-      pic(
-        canvas(w, h, (ctx) => drawUnit(ctx, e.iname, w, h, f, frames)),
-        `${f}`,
-      ),
-    )
-  const sim = el("div", "frames")
-  for (let f = 0; f < frames; f++)
-    sim.append(
-      pic(
-        canvas(w, h, (ctx) => drawUnit(ctx, e.iname, w, h, f, frames, true)),
-        `train ${f}`,
-      ),
-    )
+  const rows = (["bravo", "train"] as const)
+    .filter((s) => !sec || s === sec)
+    .map((s) => {
+      const row = el("div", "frames")
+      for (let f = 0; f < frames; f++)
+        row.append(
+          pic(
+            canvas(w, h, (ctx) => drawUnit(ctx, e.iname, w, h, f, frames, s === "train")),
+            s === "train" ? `train ${f}` : `${f}`,
+          ),
+        )
+      return sector(row, s)
+    })
   const tags = [e.bossflag ? "boss" : "", e.ground ? "ground" : "air"].filter(Boolean)
   const meta = `lib #${slib} · ${e.w}x${e.h} · hits ${e.hits} · $${e.money} · ${count}x in the map`
-  return card(e.iname.replace(/_PIC$/, ""), meta, tags, [
-    sector(row, "bravo"),
-    sector(sim, "train"),
-    ...refPic(`enemy_${e.iname}`),
-  ])
+  return card(e.iname.replace(/_PIC$/, ""), meta, tags, [...rows, ...refPic(`enemy_${e.iname}`)])
 }
 
-function terrain(wave: number, flats: number[]): HTMLElement {
+/** Terrain of DOS map `index` (terrain seed) as `sec` renders it, tagged with the sector wave. */
+function terrain(
+  index: number,
+  flats: number[],
+  sec: "bravo" | "train",
+  wave: number,
+): HTMLElement {
   const d = el("details")
   d.dataset.wave = String(wave)
+  d.dataset.sector = sec
   d.append(el("summary", "", "Terrain map (bottom = start)"))
   d.addEventListener(
     "toggle",
@@ -295,19 +300,12 @@ function terrain(wave: number, flats: number[]): HTMLElement {
       const chunkH = CHUNK_ROWS * 32 * RES
       const full = canvas(CHUNK_W * RES * k, CHUNKS * chunkH * k, (ctx) => {
         for (let ci = 0; ci < CHUNKS; ci++) {
-          const c = renderChunk(field, ci, 17 + wave)
+          const c = renderChunk(field, ci, 17 + index, sec === "train")
           ctx.drawImage(c, 0, ci * chunkH * k, c.width * k, c.height * k)
         }
       })
-      box.append(sector(pic(full, "bravo"), "bravo"))
-      const sim = canvas(CHUNK_W * RES * k, CHUNKS * chunkH * k, (ctx) => {
-        for (let ci = 0; ci < CHUNKS; ci++) {
-          const c = renderChunk(field, ci, 17 + wave, true)
-          ctx.drawImage(c, 0, ci * chunkH * k, c.width * k, c.height * k)
-        }
-      })
-      box.append(sector(pic(sim, "training"), "train"))
-      const url = refUrl(`map${wave + 1}`)
+      box.append(pic(full, sec === "train" ? "training" : "bravo"))
+      const url = refUrl(`map${index + 1}`)
       if (url) {
         const img = el("img")
         img.src = url
@@ -315,7 +313,6 @@ function terrain(wave: number, flats: number[]): HTMLElement {
         box.append(pic(img, "original"))
       }
       d.append(box)
-      applyFilter()
       requestAnimationFrame(() => {
         box.scrollTop = box.scrollHeight
       })
@@ -326,22 +323,34 @@ function terrain(wave: number, flats: number[]): HTMLElement {
 }
 
 const used = new Set<string>()
-MAPS.forEach((map, wave) => {
-  // one card per picture (several library entries can share one), in spawn order
-  const byName = new Map<string, { slib: number; n: number }>()
-  for (const s of map.spawns) {
-    const slib = s[1] ?? 0
-    const e = ENEMY_LIB[slib]
-    if (!e?.w) continue
-    const cur = byName.get(e.iname)
-    if (cur) cur.n++
-    else byName.set(e.iname, { slib, n: 1 })
-    used.add(e.iname)
+for (const sec of ["bravo", "train"] as const) {
+  const waves = sec === "train" ? TRAIN_WAVES : MAPS.length
+  for (let wave = 0; wave < waves; wave++) {
+    const { index, map } = waveMap(sec, wave)
+    if (!map) continue
+    // one card per picture (several library entries can share one), in spawn order
+    const byName = new Map<string, { slib: number; n: number }>()
+    for (const s of map.spawns) {
+      const slib = s[1] ?? 0
+      const e = ENEMY_LIB[slib]
+      if (!e?.w) continue
+      const cur = byName.get(e.iname)
+      if (cur) cur.n++
+      else byName.set(e.iname, { slib, n: 1 })
+      used.add(e.iname)
+    }
+    const title = sec === "train" ? `Training wave ${wave + 1}` : `Bravo mission ${wave + 1}`
+    const intro =
+      sec === "train"
+        ? wave
+          ? `DOS map ${index + 1}`
+          : "Web-only beginner wave (map 1 terrain)"
+        : ""
+    const g = section(`${sec}${wave + 1}`, title, intro, String(wave), sec)
+    for (const { slib, n } of byName.values()) g.append(enemyCard(slib, n, sec))
+    main.append(terrain(index, map.flats, sec, wave))
   }
-  const g = section(`wave${wave + 1}`, `Mission ${wave + 1}`, "", String(wave))
-  for (const { slib, n } of byName.values()) g.append(enemyCard(slib, n))
-  main.append(terrain(wave, map.flats))
-})
+}
 
 {
   const rest = new Map<string, number>()
@@ -444,12 +453,12 @@ MAPS.forEach((map, wave) => {
 }
 
 // ---- sector / wave filter ----------------------------------------------------------------------
-const applyFilter = initFilter((f) => {
-  for (const e of document.querySelectorAll<HTMLElement>("[data-sector]"))
-    e.hidden = f.sector !== "" && e.dataset.sector !== f.sector
-  for (const e of document.querySelectorAll<HTMLElement>("[data-wave]")) {
-    const w = e.dataset.wave ?? ""
+initFilter((f) => {
+  for (const e of document.querySelectorAll<HTMLElement>("[data-sector], [data-wave]")) {
+    const sec = e.dataset.sector
+    const w = e.dataset.wave
     // "unused" enemies belong to no wave: hidden only by a wave filter
-    e.hidden = w === "unused" ? f.wave !== "" : !waveVisible(f, Number(w))
+    const waveOk = w === undefined || (w === "unused" ? f.wave === "" : waveVisible(f, Number(w)))
+    e.hidden = (f.sector !== "" && sec !== undefined && sec !== f.sector) || !waveOk
   }
 })
