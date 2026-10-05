@@ -7,13 +7,16 @@
 //   hudbar-off, hudbar-shield, hudbar-energy  HUD shield bars (dim / all lit)
 //   struct-<k>, wreck-<k>  destructible map structures (96 px)
 //   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg, shop-bg, brief-bravo, brief-train (960x600)
+//   (lazy: brief-<sector>-<wave> = briefingTexture, the wave's boss + intel units over brief-<sector>)
 // Training sector (buildTrainingTextures, on the first training mission):
 //   ut-<PICNAME>, tstruct-<k>, twreck-<k>, sim-floor, sim-grid, sim-dots
 import type { Scene } from "phaser"
+import { TRAIN_WAVES, waveMap } from "../campaign"
 import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
+import type { Sector } from "../data/save"
 import { Obj } from "../sim/consts"
-import { drawBriefing } from "./briefing"
+import { drawBriefing, drawBriefingUnits } from "./briefing"
 import { makeCanvas, seeded, softDot } from "./draw"
 import {
   drawDot,
@@ -92,11 +95,23 @@ function stars(
   }
 }
 
+/** Picture names the training waves spawn (training holograms exist only for these). */
+function trainingPics(): Set<string> {
+  const names = new Set<string>()
+  for (let w = 0; w < TRAIN_WAVES; w++)
+    for (const s of waveMap("train", w).map?.spawns ?? []) {
+      const e = ENEMY_LIB[s[1] ?? 0]
+      if (e?.w) names.add(e.iname)
+    }
+  return names
+}
+
 /** Units: one sheet per picture name, frames = max num_frames used by any library entry. */
 function buildUnits(scene: Scene, prefix: string, train: boolean): void {
   const units = new Map<string, { w: number; h: number; frames: number }>()
+  const only = train ? trainingPics() : null
   for (const e of ENEMY_LIB) {
-    if (!e.w) continue
+    if (!e.w || (only && !only.has(e.iname))) continue
     const cur = units.get(e.iname)
     const frames = Math.max(1, e.num_frames, cur?.frames ?? 1)
     units.set(e.iname, { w: e.w, h: e.h, frames })
@@ -119,6 +134,13 @@ function grid(ctx: CanvasRenderingContext2D, step: number, color: string, width:
     ctx.lineTo(512, p)
   }
   ctx.stroke()
+}
+
+/** Mission briefing overlay of a sector wave (boss + intel units, 960x600), built on first use. */
+export function briefingTexture(scene: Scene, sector: Sector, wave: number): string {
+  const key = `brief-${sector}-${wave}`
+  single(scene, key, 960, 600, (ctx) => drawBriefingUnits(ctx, sector, wave))
+  return key
 }
 
 /** Holographic training range: target drones, target pads, grid backdrop. */
