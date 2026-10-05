@@ -5,7 +5,7 @@ import { makeCanvas } from "../game/art/draw"
 import { drawDot, drawShard, drawShot, drawSmoke, drawStructure, drawWreck } from "../game/art/fx"
 import { drawPickup } from "../game/art/icons"
 import { drawPlayer, drawUnit } from "../game/art/ships"
-import { buildField, CHUNK_ROWS, CHUNKS, RES, renderChunk } from "../game/art/terrain"
+import { buildField, CHUNK_ROWS, CHUNK_W, CHUNKS, RES, renderChunk } from "../game/art/terrain"
 import { STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"
 import { ENEMY_LIB, MAPS, PIC_SIZES } from "../game/data/ep1"
 import { SCALE } from "../game/data/playfield"
@@ -293,14 +293,14 @@ function terrain(wave: number, flats: number[]): HTMLElement {
       const field = buildField(flats)
       const k = 0.5 // 0.75 px per DOS px
       const chunkH = CHUNK_ROWS * 32 * RES
-      const full = canvas(9 * 32 * RES * k, CHUNKS * chunkH * k, (ctx) => {
+      const full = canvas(CHUNK_W * RES * k, CHUNKS * chunkH * k, (ctx) => {
         for (let ci = 0; ci < CHUNKS; ci++) {
           const c = renderChunk(field, ci, 17 + wave)
           ctx.drawImage(c, 0, ci * chunkH * k, c.width * k, c.height * k)
         }
       })
       box.append(sector(pic(full, "bravo"), "bravo"))
-      const sim = canvas(9 * 32 * RES * k, CHUNKS * chunkH * k, (ctx) => {
+      const sim = canvas(CHUNK_W * RES * k, CHUNKS * chunkH * k, (ctx) => {
         for (let ci = 0; ci < CHUNKS; ci++) {
           const c = renderChunk(field, ci, 17 + wave, true)
           ctx.drawImage(c, 0, ci * chunkH * k, c.width * k, c.height * k)
