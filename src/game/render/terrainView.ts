@@ -88,7 +88,7 @@ export class TerrainView {
         this.scene.textures.remove(this.key(ci))
         continue
       }
-      img.setPosition((MAP_LEFT + shake) * SCALE, (ci * CHUNK_PX - scrollY) * SCALE)
+      img.setPosition(shake * SCALE, (ci * CHUNK_PX - scrollY) * SCALE)
     }
 
     this.syncStructures(scrollY, shake, tiles)
