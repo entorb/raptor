@@ -3,6 +3,8 @@
 //   special weapon, Enter nova bomb, 1..0,- pick a special, P/Esc pause.
 // - Touch: drag anywhere (also the letterbox strips) moves a virtual cursor relative to the ship
 //   so the finger never covers it; on-screen buttons from `buttons`.
+// - Mouse (Settings.mouse, off by default): the cursor is the ship target (system cursor stays visible),
+//   left button toggles auto-fire (and taps HUD buttons), right button = nova bomb, wheel = next/previous weapon.
 // - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = a finger on
 //   the screen (touch only; no single-shot key on desktop).
 import type { Input, Scene } from "phaser"
@@ -49,12 +51,15 @@ const DRAG_GAIN = 1.4
 export class GameInput {
   touchMode = false
   autoFire = loadSettings().autoFire
+  mouseMode = loadSettings().mouse
   buttons: TouchButton[] = []
   onButton: (id: string) => void = () => {}
   private readonly keys: Record<string, Input.Keyboard.Key> = {}
   private pointer: { x: number; y: number } | null = null
   private drag: { id: number; lastX: number; lastY: number } | null = null
   private tapButtons = new Set<string>()
+  private wheel = 0
+  private cursorHidden = false
   private selected: ObjType | null = null
   private readonly scene: Scene
   private shipCenter = { x: 160, y: 176 }
@@ -93,6 +98,10 @@ export class GameInput {
     window.addEventListener("pointermove", this.move)
     window.addEventListener("pointerup", this.up)
     window.addEventListener("pointercancel", this.up)
+    if (this.mouseMode) {
+      window.addEventListener("wheel", this.onWheel)
+      window.addEventListener("contextmenu", this.noMenu)
+    }
     scene.events.once("shutdown", () => this.destroy())
   }
 
@@ -101,6 +110,10 @@ export class GameInput {
     window.removeEventListener("pointermove", this.move)
     window.removeEventListener("pointerup", this.up)
     window.removeEventListener("pointercancel", this.up)
+    window.removeEventListener("wheel", this.onWheel)
+    window.removeEventListener("contextmenu", this.noMenu)
+    this.scene.input.setDefaultCursor("")
+    document.body.style.cursor = ""
   }
 
   toggleAutoFire(): void {
@@ -136,7 +149,10 @@ export class GameInput {
   private readonly down = (e: PointerEvent) => {
     if (e.target instanceof Element && e.target.closest("#rotate")) return
     const p = this.toGame(e)
-    if (e.pointerType === "mouse") return
+    if (e.pointerType === "mouse") {
+      if (this.mouseMode) this.mouseDown(e, p)
+      return
+    }
     this.touchMode = true
     for (const b of this.buttons) {
       if ((p.x - b.x) ** 2 + (p.y - b.y) ** 2 <= b.r ** 2) {
@@ -150,8 +166,65 @@ export class GameInput {
     this.pointer ??= { ...this.shipCenter }
   }
 
+  private mouseDown(e: PointerEvent, p: { x: number; y: number }): void {
+    this.moveMouse(p)
+    if (e.button === 2) {
+      this.tapButtons.add("mega")
+      return
+    }
+    if (e.button !== 0) return
+    // only the pause and weapon-strip buttons: the nova/swap/auto circles are mouse buttons/keys
+    const hit = this.buttons.find(
+      (b) =>
+        (b.id === "pause" || b.id.startsWith("w")) &&
+        (p.x - b.x) ** 2 + (p.y - b.y) ** 2 <= b.r ** 2,
+    )
+    if (hit) {
+      this.onButton(hit.id)
+      return
+    }
+    this.toggleAutoFire()
+  }
+
+  /** Game fullscreen (menu), any element fullscreen, or browser F11 (window = screen size). */
+  private isFullscreen(): boolean {
+    return (
+      this.scene.scale.isFullscreen ||
+      document.fullscreenElement !== null ||
+      (window.innerWidth >= screen.width - 1 && window.innerHeight >= screen.height - 1)
+    )
+  }
+
+  /** Hide the system cursor in mouse mode while flying in fullscreen (menus keep it). */
+  updateCursor(flying: boolean): void {
+    const hide = this.mouseMode && flying && this.isFullscreen()
+    if (hide === this.cursorHidden) return
+    this.cursorHidden = hide
+    this.scene.input.setDefaultCursor(hide ? "none" : "")
+    // fullscreen target (#app / body) too: the cursor shows the element under it
+    document.body.style.cursor = hide ? "none" : ""
+  }
+
+  /** The mouse cursor is the ship target (DOS coords). */
+  private moveMouse(p: { x: number; y: number }): void {
+    this.pointer = {
+      x: Math.max(0, Math.min(319, p.x / SCALE)),
+      y: Math.max(0, Math.min(199, p.y / SCALE)),
+    }
+  }
+
+  private readonly onWheel = (e: WheelEvent) => {
+    this.wheel = Math.sign(e.deltaY)
+  }
+
+  private readonly noMenu = (e: Event) => e.preventDefault()
+
   private readonly move = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" || e.pointerId !== this.drag?.id || !this.pointer) return
+    if (e.pointerType === "mouse") {
+      if (this.mouseMode) this.moveMouse(this.toGame(e))
+      return
+    }
+    if (e.pointerId !== this.drag?.id || !this.pointer) return
     const ds = this.scene.scale.displayScale
     this.pointer.x += ((e.clientX - this.drag.lastX) * ds.x * DRAG_GAIN) / SCALE
     this.pointer.y += ((e.clientY - this.drag.lastY) * ds.y * DRAG_GAIN) / SCALE
@@ -179,6 +252,8 @@ export class GameInput {
     this.selected = null
     const taps = this.tapButtons
     this.tapButtons = new Set()
+    const wheel = this.wheel
+    this.wheel = 0
     return {
       left: this.isDown("LEFT", "A"),
       right: this.isDown("RIGHT", "D"),
@@ -186,8 +261,8 @@ export class GameInput {
       down: this.isDown("DOWN", "S"),
       pointer: this.pointer,
       fire: this.autoFire,
-      cycle: taps.has("cycle") || this.isDown("SHIFT"),
-      cyclePrev: this.isDown("ALT"),
+      cycle: taps.has("cycle") || wheel > 0 || this.isDown("SHIFT"),
+      cyclePrev: wheel < 0 || this.isDown("ALT"),
       mega: taps.has("mega") || (!this.enterHeld && this.isDown("ENTER")),
       select: sel,
     }

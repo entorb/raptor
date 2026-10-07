@@ -9,6 +9,7 @@ import {
   newPilotSave,
   type PilotSave,
   pilotNameTaken,
+  saveSettings,
 } from "../data/save"
 import { readGlobalMissions } from "../data/stats"
 import { getLang, setLang, t } from "../i18n/i18n"
@@ -353,6 +354,10 @@ export class Menu extends Scene {
   private optionsItems(): MenuItem[] {
     this.info.setText(t("menu.shieldInfo"))
     const s = loadSettings()
+    const toggleMouse = () => {
+      saveSettings({ ...loadSettings(), mouse: !s.mouse })
+      this.show("options")
+    }
     const set = (kind: "music" | "sfx", d: number) => {
       changeVolume(kind, d)
       this.show("options")
@@ -369,6 +374,11 @@ export class Menu extends Scene {
         detail: pctLabel(s.sfx),
         action: () => set("sfx", 0),
         adjust: (d) => set("sfx", d),
+      },
+      {
+        label: t("menu.mouse"),
+        detail: t(s.mouse ? "on" : "off"),
+        action: () => toggleMouse(),
       },
       { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     ]

@@ -1,6 +1,6 @@
 // Gameplay: runs the DOS-exact sim at its fixed rate (FRAME_MS) and renders it with the new art,
 // interpolating positions between sim frames.
-import { type GameObjects, Scene } from "phaser"
+import { type GameObjects, Scene, TintModes } from "phaser"
 import { HUD_BAR } from "../art/fx"
 import { buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
@@ -57,6 +57,7 @@ const D = {
   terrain: 10,
   groundAnim: 20,
   groundEnemy: 22,
+  shadow: 25,
   airAnim: 30,
   airEnemy: 40,
   shots: 45,
@@ -67,6 +68,14 @@ const D = {
   hud: 90,
   overlay: 100,
 }
+
+/** shadow offset in DOS px: ship height above the ground */
+const SHADOW_DX = 14
+const SHADOW_DY = 34
+const SHADOW_LAYERS = [
+  { id: "r", color: 0x8a5cff, alpha: 0.1, scale: 1, depth: 0 },
+  { id: "c", color: 0x0a0418, alpha: 0.1, scale: 0.86, depth: 1 },
+]
 
 interface Tracked {
   obj: GameObjects.Image
@@ -296,7 +305,9 @@ export class Game extends Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (!this.world || this.ended) return
+    if (!this.world) return
+    this.input2.updateCursor(!this.paused && !this.waiting && !this.ended)
+    if (this.ended) return
     const bg = (this.scroll * SCALE) / 3
     this.stars[0]?.setTilePosition(0, bg * 0.15)
     this.stars[1]?.setTilePosition(0, bg * 0.3)
@@ -463,6 +474,30 @@ export class Game extends Scene {
     )
     if (s.hits < s.lib.hits * 0.3 && w.frame % 4 < 2) t.obj.setTint(0xff9090)
     else t.obj.clearTint()
+    if (!s.groundflag && s.lib.shadow) this.trackShadow(s, frames)
+  }
+
+  /**
+   * SHADOWS.C: flying ships cast a shadow on the ground, offset down-right, so it slides onto the
+   * screen before the ship does (the cue where it enters). Darkened silhouette of the sprite.
+   */
+  private trackShadow(s: Ship, frames: number): void {
+    // violet rim under a dark core: visible on dark and on bright terrain alike
+    for (const layer of SHADOW_LAYERS) {
+      const t = this.track(
+        `h${layer.id}${s.id}`,
+        `${this.unitPrefix}${s.lib.iname}`,
+        s.curframe % frames,
+        s.x + s.width / 2 + SHADOW_DX,
+        s.y + s.height / 2 + SHADOW_DY,
+        D.shadow,
+      )
+      t.obj.setTint(layer.color).setTintMode(TintModes.FILL)
+      t.obj
+        .setAlpha(layer.alpha)
+        .setScale(layer.scale)
+        .setDepth(D.shadow + layer.depth)
+    }
   }
 
   private drawBeams(lerp: (a: number, b: number) => number): void {
@@ -624,6 +659,21 @@ export class Game extends Scene {
   private controlsLines(): string[] {
     const fire = tr(this.input2.autoFire ? "on" : "off")
     const specials = this.specials().map(([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`)
+    const mouse = this.input2.mouseMode && !this.isTouch()
+    const keyboardLines = [
+      tr("ctl.move"),
+      tr("ctl.special"),
+      tr("ctl.nova"),
+      tr("ctl.pause"),
+      tr("ctl.autoFire", { state: fire }),
+    ]
+    const mouseLines = [
+      tr("ctl.mouseMove"),
+      tr("ctl.mouseFire", { state: fire }),
+      tr("ctl.mouseSpecial"),
+      tr("ctl.mouseNova"),
+      tr("ctl.pause"),
+    ]
     const lines = this.isTouch()
       ? [
           tr("ctl.touchSteer"),
@@ -632,13 +682,9 @@ export class Game extends Scene {
           tr("ctl.touchNova"),
           tr("ctl.touchPause"),
         ]
-      : [
-          tr("ctl.move"),
-          tr("ctl.special"),
-          tr("ctl.nova"),
-          tr("ctl.pause"),
-          tr("ctl.autoFire", { state: fire }),
-        ]
+      : mouse
+        ? mouseLines
+        : keyboardLines
     // OBJS_Think: no recharge on hard
     if (this.world.curplr_diff < DIFF_HARD) lines.push(tr("ctl.recharge"))
     if (specials.length) {

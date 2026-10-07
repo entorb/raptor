@@ -88,6 +88,7 @@ export const STRINGS = {
     "Schild lädt nur ohne Feuern auf: Autofeuer verhindert das",
   ),
   "menu.music": e("Music", "Musik"),
+  "menu.mouse": e("Mouse Control", "Maussteuerung"),
   "menu.sfx": e("Sound Effects", "Soundeffekte"),
   "menu.installApp": e("Install", "Installieren"),
   "menu.share": e("Share", "Teilen"),
@@ -204,6 +205,16 @@ export const STRINGS = {
   "ctl.autoFire": e(
     "AUTO-FIRE    Space: on/off (now {state})",
     "AUTOFEUER    Leertaste: an/aus (jetzt {state})",
+  ),
+  "ctl.mouseMove": e("MOVE         Mouse", "BEWEGEN      Maus"),
+  "ctl.mouseSpecial": e(
+    "SPECIAL      Wheel: next / prev weapon",
+    "SONDERWAFFE  Mausrad: nächste / vorige Waffe",
+  ),
+  "ctl.mouseNova": e("NOVA BOMB    Right click", "NOVA-BOMBE   Rechtsklick"),
+  "ctl.mouseFire": e(
+    "AUTO-FIRE    Left click: on/off (now {state})",
+    "AUTOFEUER    Linksklick: an/aus (jetzt {state})",
   ),
   "ctl.recharge": e(
     "             not firing recharges the shield",

@@ -36,7 +36,11 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   as in `glowText(..., { glow, color })`), consecutive `push()` calls (one `push(a, b)`),
   `await` inside a loop in scripts (sequential steps: `inOrder` promise chain in
   `gen_screen_exports.mjs`, else `Promise.all`), and `TODO` comments (none committed; dated
-  "delete after" migrations get removed once the date passes).
+  "delete after" migrations get removed once the date passes). Large repetitive key->string tables
+  (`data/ep1.ts`, `i18n/strings.ts`) false-positive on new-code duplication (any added entry
+  structurally matches dozens of existing ones): excluded via `sonar.cpd.exclusions` in
+  `.sonarcloud.properties`, not fixable by rewording/reshaping the new lines (duplication is a
+  measure, not a rule issue, so `NOSONAR` comments don't apply to it).
 
 ## Layout
 
@@ -89,6 +93,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   per `CHARGE_SHIELD` = 48 idle frames (DOS 96), firing pauses the counter (DOS reset it).
   `SPECIAL_KEYS` = number keys for special weapons in shop order (by price, not DOS order; also
   used by the mission briefing and the HUD weapon strip).
+- Mouse control (`Settings.mouse`, Options menu, default off): `GameInput` turns the cursor into the sim `pointer` (ship target), left button toggles auto-fire (taps pause + weapon strip when over them), right click = nova, wheel = next/previous weapon. The system cursor is hidden while flying in fullscreen (`updateCursor`). Mouse events are ignored when off.
 - Hidden god mode: key G in `Game` (`toggleGod`, dev builds only, `import.meta.env.DEV`): `World.god` (DOS `godmode`: no damage, no
   death) and +10000000 CR per activation; stays on for later missions (`session.ts`
   `godMode()`/`setGodMode()`, not saved). Keep it out of the briefing; it is documented in README.
