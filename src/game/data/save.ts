@@ -45,6 +45,8 @@ export interface Settings {
   sfx: number
   /** fire continuously without holding a button (default on) */
   autoFire: boolean
+  /** steer with the mouse (cursor = ship target, default off) */
+  mouse: boolean
 }
 
 const PILOTS_KEY = "raptor.pilots.v1"
@@ -151,6 +153,7 @@ export function loadSettings(): Settings {
     music: vol(s.music, 0.6),
     sfx: vol(s.sfx, 0.8),
     autoFire: typeof s.autoFire === "boolean" ? s.autoFire : true,
+    mouse: typeof s.mouse === "boolean" ? s.mouse : false,
   }
 }
 

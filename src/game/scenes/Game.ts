@@ -296,7 +296,9 @@ export class Game extends Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (!this.world || this.ended) return
+    if (!this.world) return
+    this.input2.updateCursor(!this.paused && !this.waiting && !this.ended)
+    if (this.ended) return
     const bg = (this.scroll * SCALE) / 3
     this.stars[0]?.setTilePosition(0, bg * 0.15)
     this.stars[1]?.setTilePosition(0, bg * 0.3)
@@ -624,6 +626,21 @@ export class Game extends Scene {
   private controlsLines(): string[] {
     const fire = tr(this.input2.autoFire ? "on" : "off")
     const specials = this.specials().map(([, key, t]) => `${key}  ${OBJ_LIB[t]?.name ?? ""}`)
+    const mouse = this.input2.mouseMode && !this.isTouch()
+    const keyboardLines = [
+      tr("ctl.move"),
+      tr("ctl.special"),
+      tr("ctl.nova"),
+      tr("ctl.pause"),
+      tr("ctl.autoFire", { state: fire }),
+    ]
+    const mouseLines = [
+      tr("ctl.mouseMove"),
+      tr("ctl.mouseFire", { state: fire }),
+      tr("ctl.mouseSpecial"),
+      tr("ctl.mouseNova"),
+      tr("ctl.pause"),
+    ]
     const lines = this.isTouch()
       ? [
           tr("ctl.touchSteer"),
@@ -632,13 +649,9 @@ export class Game extends Scene {
           tr("ctl.touchNova"),
           tr("ctl.touchPause"),
         ]
-      : [
-          tr("ctl.move"),
-          tr("ctl.special"),
-          tr("ctl.nova"),
-          tr("ctl.pause"),
-          tr("ctl.autoFire", { state: fire }),
-        ]
+      : mouse
+        ? mouseLines
+        : keyboardLines
     // OBJS_Think: no recharge on hard
     if (this.world.curplr_diff < DIFF_HARD) lines.push(tr("ctl.recharge"))
     if (specials.length) {
