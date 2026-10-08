@@ -151,6 +151,11 @@ function remove(w: World, i: number): void {
   if (e.end_waveflag && e.ships.length < 1) w.startendwave = 60
 }
 
+/** web: 2P co-op enemies take 50% more hits (COOP_HP), the second ship doubles the firepower. */
+function coopHits(w: World, hits: number): number {
+  return w.ships.length > 1 ? (hits * 3) >> 1 : hits
+}
+
 function add(w: World, sp: Spawn): void {
   const e = w.enemies
   if (e.ships.length >= MAX_ONSCREEN) return // DOS: EXIT_Error("Max Sprites")
@@ -174,7 +179,7 @@ function add(w: World, sp: Spawn): void {
     shootagain: NORM_SHOOT,
     shootcount: lib.shootcnt,
     shootflag: lib.shootstart,
-    hits: lib.hits,
+    hits: coopHits(w, lib.hits),
     groundflag: false,
     doneflag: false,
     move: newMove(),
@@ -440,7 +445,8 @@ function flyKami(w: World, s: Ship): void {
   s.x2 = s.x + s.width - 1
   s.y2 = s.y + s.height - 1
   if (s.kami === KAMI_CHASE) {
-    retarget(s, w.player_cx, w.player_cy, speed)
+    const target = w.nearestShip(s.x + s.hlx, s.y + s.hly)
+    retarget(s, target.cx, target.cy, speed)
     s.kami = KAMI_END
   } else pathRetarget(s, speed)
   if (s.movepos < lib.numflight - 1) s.movepos++
@@ -519,12 +525,13 @@ function shootShip(w: World, s: Ship): void {
 
 /** ENEMY_Think: ramming a ship hurts both sides. */
 function ramPlayer(w: World, s: Ship): void {
-  if (inside(s, w.player_cx, w.player_cy)) {
+  for (const p of w.ships) {
+    if (!inside(s, p.cx, p.cy)) continue
     s.hits -= PLAYERWIDTH / 2
     const suben = Math.max(s.width, s.height)
-    w.subEnergy(suben >> 2)
-    const x = w.player_cx + (w.rng.random(8) - 4)
-    const y = w.player_cy + (w.rng.random(8) - 4)
+    w.hitShip(p, suben >> 2)
+    const x = p.cx + (w.rng.random(8) - 4)
+    const y = p.cy + (w.rng.random(8) - 4)
     w.startAnim(Anim.SMALL_AIR_EXPLO, x, y)
     w.sfx("CRASH")
   }
@@ -683,7 +690,7 @@ export function enemyBaseDamage(w: World): number {
   for (const s of w.enemies.ships) {
     if (!s.lib.bossflag) continue
     if (s.y + s.hly < 0) continue
-    total += Math.trunc((s.hits * 100) / s.lib.hits)
+    total += Math.trunc((s.hits * 100) / coopHits(w, s.lib.hits))
     nums++
   }
   return nums ? Math.trunc(total / nums) : 0

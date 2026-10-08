@@ -2,7 +2,7 @@
 // sim so positions/lifetimes match the original; the renderer draws each by its `kind`.
 import { PIC_SIZES } from "../data/ep1"
 import type { Ship } from "./enemy"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const MAX_ANIMS = 100
 
@@ -73,6 +73,8 @@ export interface AnimObj {
   layer: Layer
   en: Ship | null
   edone: boolean
+  /** web: the ship a `playerflag` anim follows */
+  ship: PlayerShip
 }
 
 function get(w: World, handle: number, x: number, y: number, layer?: Layer): AnimObj | null {
@@ -90,6 +92,7 @@ function get(w: World, handle: number, x: number, y: number, layer?: Layer): Ani
     layer: layer ?? lib.layer,
     en: null,
     edone: false,
+    ship: w.cur,
   }
   w.anims.push(a)
   return a
@@ -132,8 +135,8 @@ export function animsThink(w: World): void {
 function stepAnim(w: World, cur: AnimObj): void {
   const lib = cur.lib
   if (lib.playerflag) {
-    cur.dx = w.player_cx + cur.x
-    cur.dy = w.player_cy + cur.y
+    cur.dx = cur.ship.cx + cur.x
+    cur.dy = cur.ship.cy + cur.y
   } else if (cur.en) {
     if (cur.en.removed) cur.edone = true
     if (!cur.edone) {

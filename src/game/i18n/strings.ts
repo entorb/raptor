@@ -68,8 +68,18 @@ export const STRINGS = {
     "{cr} CR  ·  Bravo-Wellen {done}/{total}  ·  Training {train}/{trainTotal}",
   ),
   "menu.yesDelete": e("Yes, delete", "Ja, löschen"),
-  "menu.newPilotInfo": e("New pilot: {name}", "Neuer Pilot: {name}"),
   "menu.pilotName": e("Pilot name", "Pilotenname"),
+  "menu.teamName": e("Team name", "Teamname"),
+  "menu.onePlayer": e("1 Player", "1 Spieler"),
+  "menu.twoPlayers": e("2 Players", "2 Spieler"),
+  "menu.playersInfo": e(
+    "2 players share credits, shop and shield.",
+    "2 Spieler teilen Credits, Shop und Schild.",
+  ),
+  "menu.needsKeyboard": e(
+    "2-player team: needs a keyboard",
+    "2-Spieler-Team: braucht eine Tastatur",
+  ),
   "menu.enterName": e("Enter a name", "Namen eingeben"),
   "menu.nameTaken": e("Name already taken", "Name bereits vergeben"),
   "menu.installHelp": e(
@@ -209,6 +219,15 @@ export const STRINGS = {
     "             not firing recharges the shield",
     "             ohne Feuern lädt das Schild auf",
   ),
+  "ctl.p1": e(
+    "PLAYER 1     Arrows · Shift/Alt weapon · Enter nova",
+    "SPIELER 1    Pfeile · Shift/Alt Waffe · Enter Nova",
+  ),
+  "ctl.p2": e(
+    "PLAYER 2     WASD · E/Q weapon · Tab nova",
+    "SPIELER 2    WASD · E/Q Waffe · Tab Nova",
+  ),
+  "ctl.specialsKeysP1": e("SELECT SPECIAL WEAPON (PLAYER 1)", "SONDERWAFFE WÄHLEN (SPIELER 1)"),
   "ctl.specialsTouch": e("SPECIAL WEAPONS ON BOARD", "SONDERWAFFEN AN BORD"),
   "ctl.specialsKeys": e("SELECT SPECIAL WEAPON", "SONDERWAFFE WÄHLEN"),
   "ctl.noSpecials": e(
@@ -228,7 +247,6 @@ export const STRINGS = {
   "game.shieldLow": e("SHIELD LOW", "SCHILD NIEDRIG"),
   "game.paused": e("PAUSED", "PAUSE"),
   "game.resume": e("Resume", "Weiter"),
-  "game.autoFireLabel": e("Auto-Fire: {state}", "Autofeuer: {state}"),
   "game.fullscreenLabel": e("Fullscreen: {state}", "Vollbild: {state}"),
   "game.abort": e("Abort Mission", "Mission abbrechen"),
   "game.pauseHint": e(

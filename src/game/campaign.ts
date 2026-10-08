@@ -8,13 +8,17 @@ import { DIFF_TRAIN, DIFF_WRAP, MAX_SHIELD, Obj } from "./sim/consts"
 import { Inventory, newPilotObjs } from "./sim/objects"
 
 export interface Loadout {
-  plr: { score: number; sweapon: number }
+  plr: { score: number; sweapon: number; sweapon2?: number }
   inv: Inventory
 }
 
 /** Build the runtime inventory for a saved pilot (fresh pilots get the starting loadout). */
 export function loadout(p: PilotSave): Loadout {
-  const plr = { score: p.score, sweapon: p.sweapon }
+  const plr = {
+    score: p.score,
+    sweapon: p.sweapon,
+    ...(p.coop ? { sweapon2: p.sweapon2 ?? -1 } : {}),
+  }
   const inv = new Inventory(plr)
   if (p.objs.length) inv.load(p.objs)
   else newPilotObjs(inv)
@@ -22,7 +26,14 @@ export function loadout(p: PilotSave): Loadout {
 }
 
 export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
-  return { ...p, score: l.plr.score, sweapon: l.plr.sweapon, objs: l.inv.save() }
+  const sweapon2 = l.plr.sweapon2
+  return {
+    ...p,
+    score: l.plr.score,
+    sweapon: l.plr.sweapon,
+    ...(sweapon2 === undefined ? {} : { sweapon2 }),
+    objs: l.inv.save(),
+  }
 }
 
 // web: training opens with the beginner wave, then flies the DOS training maps 0..3

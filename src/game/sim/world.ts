@@ -28,7 +28,7 @@ import {
 } from "./consts"
 import { EB_EASY_LEVEL, EB_HARD_LEVEL, EB_MED_LEVEL, Enemies, enemyThink, type Ship } from "./enemy"
 import { type EShot, eshotThink } from "./eshot"
-import type { Inventory } from "./objects"
+import type { Inventory, SpecialSlot } from "./objects"
 import { Rng } from "./rng"
 import {
   makeShotLibs,
@@ -116,7 +116,48 @@ const RANDOM_PITCH = new Set<Fx>([
 export interface PlayerState {
   score: number
   sweapon: number
+  /** web: player 2's special weapon (2P co-op) */
+  sweapon2?: number
 }
+
+/** web: one player ship (DOS globals playerx, playery, playerpic, ...); 2P co-op flies two. */
+export class PlayerShip {
+  x: number
+  y: number
+  cx = 0
+  cy = 0
+  basepic = 3
+  pic = 4
+  oldx: number
+  addx = 0
+  addy = 0
+  /** per ship: `cur_shoot` is its fire cooldown */
+  shotLib: ShotLib[] = makeShotLibs()
+  b2 = false
+  b3 = false
+  b4 = false
+  /** fly-off target x (DOS: the screen center); 2P: own lane per ship */
+  exitX = 160
+
+  constructor(
+    readonly slot: SpecialSlot,
+    x = PLAYERINITX,
+    y = PLAYERINITY,
+  ) {
+    this.x = x
+    this.y = y
+    this.oldx = x
+    this.syncCenter()
+  }
+
+  syncCenter(): void {
+    this.cx = this.x + PLAYERWIDTH / 2
+    this.cy = this.y + PLAYERHEIGHT / 2
+  }
+}
+
+/** web: 2P start offset from the DOS start position */
+const COOP_START_DX = 40
 
 /** difficulty -> ENEMY bit mask (LOADSAVE.C RAP_SetPlayerDiff) */
 export function diffMask(diff: number): number {
@@ -136,21 +177,14 @@ export class World {
 
   tiles = new Tiles()
   enemies = new Enemies()
-  shotLib: ShotLib[] = makeShotLibs()
   shots: Shot[] = []
   eshots: EShot[] = []
   bonus = new Bonuses()
   anims: AnimObj[] = []
 
-  playerx = PLAYERINITX
-  playery = PLAYERINITY
-  player_cx = PLAYERINITX + PLAYERWIDTH / 2
-  player_cy = PLAYERINITY + PLAYERHEIGHT / 2
-  playerbasepic = 3
-  playerpic = 4
-  private oldx = PLAYERINITX
-  private g_addx = 0
-  private g_addy = 0
+  ships: PlayerShip[]
+  /** the ship being processed (fires, gets hit); always ships[0] in 1P */
+  cur: PlayerShip
   private control_pause = false
 
   gl_cnt = 0
@@ -161,9 +195,6 @@ export class World {
   startfadeflag = false
   fadeflag = false
   fadecnt = 0
-  private b2_flag = false
-  private b3_flag = false
-  private b4_flag = false
   private objuse_flag = false
   private think_cnt = 0
   /** web: shield recharge ticks (HUD plays a sound when a bar segment lights up) */
@@ -174,7 +205,7 @@ export class World {
 
   /** per-frame outputs for the view (cleared at the start of each step) */
   sfxEvents: SfxEvent[] = []
-  turretBeams: { x: number; y: number }[] = []
+  turretBeams: { x: number; y: number; ship: PlayerShip }[] = []
   kills: { id: number; x: number; y: number; w: number; h: number; ground: boolean }[] = []
   pickups: { type: ObjType; x: number; y: number }[] = []
   /** FX_BOSS1 loops while a boss (song != -1) was spawned */
@@ -195,11 +226,22 @@ export class World {
     inv: Inventory,
     diff: number,
     map: WaveMap | undefined = MAPS[wave],
+    players = 1,
   ) {
+    this.ships =
+      players > 1
+        ? [
+            // player 2 (WASD, left hand) starts left, player 1 (arrows) right
+            new PlayerShip("sweapon", PLAYERINITX + COOP_START_DX),
+            new PlayerShip("sweapon2", PLAYERINITX - COOP_START_DX),
+          ]
+        : [new PlayerShip("sweapon")]
+    this.cur = this.ships[0] as PlayerShip
     this.plr = player
     this.inv = inv
     this.curplr_diff = diff
     inv.plr = player
+    if (players > 1 && (player.sweapon2 ?? EMPTY) === EMPTY) inv.getNext(1, "sweapon2")
     inv.onAdd = () => {
       this.g_oldshield = EMPTY
     }
@@ -262,6 +304,26 @@ export class World {
 
   get shield(): number {
     return this.inv.getAmt(Obj.ENERGY)
+  }
+
+  /** web: the ship closest to x/y (enemy aim); P1 on a tie */
+  nearestShip(x: number, y: number): PlayerShip {
+    let best = this.cur
+    let bestD = Infinity
+    for (const s of this.ships) {
+      const d = (s.cx - x) ** 2 + (s.cy - y) ** 2
+      if (d < bestD) {
+        best = s
+        bestD = d
+      }
+    }
+    return best
+  }
+
+  /** `cur` takes the hit (phase shield glow, weapon loss). */
+  hitShip(s: PlayerShip, amt: number): number {
+    this.cur = s
+    return this.subEnergy(amt)
   }
 
   get dead(): boolean {
@@ -333,54 +395,49 @@ export class World {
   }
 
   /** IPT_MovePlayer */
-  private movePlayer(inp: FrameInput): void {
+  private movePlayer(s: PlayerShip, inp: FrameInput): void {
     if (!this.control_pause) {
       if (inp.pointer) {
-        this.g_addx = this.mouseAxis(Math.round(inp.pointer.x) - (this.playerx + PLAYERWIDTH / 2))
-        this.g_addy = this.mouseAxis(Math.round(inp.pointer.y) - (this.playery + PLAYERHEIGHT / 2))
+        s.addx = this.mouseAxis(Math.round(inp.pointer.x) - (s.x + PLAYERWIDTH / 2))
+        s.addy = this.mouseAxis(Math.round(inp.pointer.y) - (s.y + PLAYERHEIGHT / 2))
       } else {
-        this.g_addx = this.keyAccel(inp.left, inp.right, this.g_addx, MAX_ADDX)
-        this.g_addy = this.keyAccel(inp.up, inp.down, this.g_addy, MAX_ADDY)
+        s.addx = this.keyAccel(inp.left, inp.right, s.addx, MAX_ADDX)
+        s.addy = this.keyAccel(inp.up, inp.down, s.addy, MAX_ADDY)
       }
     }
-    this.applyMove()
+    this.applyMove(s)
   }
 
-  private clampPlayer(): void {
-    if (this.playery < MINPLAYERY) {
-      this.playery = MINPLAYERY
-      this.g_addy = 0
-    } else if (this.playery > MAXPLAYERY) {
-      this.playery = MAXPLAYERY
-      this.g_addy = 0
+  private clampPlayer(s: PlayerShip): void {
+    if (s.y < MINPLAYERY) {
+      s.y = MINPLAYERY
+      s.addy = 0
+    } else if (s.y > MAXPLAYERY) {
+      s.y = MAXPLAYERY
+      s.addy = 0
     }
-    if (this.playerx < PLAYERMINX) {
-      this.playerx = PLAYERMINX
-      this.g_addx = 0
-    } else if (this.playerx + PLAYERWIDTH > PLAYERMAXX) {
-      this.playerx = PLAYERMAXX - PLAYERWIDTH
-      this.g_addx = 0
+    if (s.x < PLAYERMINX) {
+      s.x = PLAYERMINX
+      s.addx = 0
+    } else if (s.x + PLAYERWIDTH > PLAYERMAXX) {
+      s.x = PLAYERMAXX - PLAYERWIDTH
+      s.addx = 0
     }
   }
 
-  private applyMove(): void {
-    this.playerx += this.g_addx
-    this.playery += this.g_addy
-    if (this.startendwave === EMPTY) this.clampPlayer()
-    const delta = Math.min(3, Math.abs(this.playerx - this.oldx) >> 2)
-    if (this.playerx < this.oldx) {
-      if (this.playerpic < this.playerbasepic + delta) this.playerpic++
-    } else if (this.playerx > this.oldx) {
-      if (this.playerpic > this.playerbasepic - delta) this.playerpic--
-    } else if (this.playerpic > this.playerbasepic) this.playerpic--
-    else if (this.playerpic < this.playerbasepic) this.playerpic++
-    this.oldx = this.playerx
-    this.syncPlayerCenter()
-  }
-
-  private syncPlayerCenter(): void {
-    this.player_cx = this.playerx + PLAYERWIDTH / 2
-    this.player_cy = this.playery + PLAYERHEIGHT / 2
+  private applyMove(s: PlayerShip): void {
+    s.x += s.addx
+    s.y += s.addy
+    if (this.startendwave === EMPTY) this.clampPlayer(s)
+    const delta = Math.min(3, Math.abs(s.x - s.oldx) >> 2)
+    if (s.x < s.oldx) {
+      if (s.pic < s.basepic + delta) s.pic++
+    } else if (s.x > s.oldx) {
+      if (s.pic > s.basepic - delta) s.pic--
+    } else if (s.pic > s.basepic) s.pic--
+    else if (s.pic < s.basepic) s.pic++
+    s.oldx = s.x
+    s.syncCenter()
   }
 
   /** DEMO_Think (playback): recorded buttons and player position; null when the demo is over. */
@@ -391,42 +448,44 @@ export class World {
       this.end_wave = true
       return null
     }
-    this.playerx = r.px
-    this.playery = r.py
-    this.syncPlayerCenter()
-    this.playerpic = r.pic
+    const s = this.ships[0] as PlayerShip
+    s.x = r.px
+    s.y = r.py
+    s.syncCenter()
+    s.pic = r.pic
     return r
   }
 
   /** Fire, cycle-weapon and mega-bomb buttons (the latter two fire once per press). */
-  private buttons(but: boolean[]): void {
+  private buttons(s: PlayerShip, but: boolean[]): void {
     if (but[0]) {
       this.use(Obj.FORWARD_GUNS)
       this.use(Obj.PLASMA_GUNS)
       this.use(Obj.MICRO_MISSLE)
-      if (this.plr.sweapon !== EMPTY) this.use(this.plr.sweapon as ObjType)
+      const sw = this.plr[s.slot] ?? EMPTY
+      if (sw !== EMPTY) this.use(sw as ObjType)
     }
-    if (!but[1]) this.b2_flag = false
-    else if (!this.b2_flag) {
+    if (!but[1]) s.b2 = false
+    else if (!s.b2) {
       this.sfx("SWEP")
-      this.b2_flag = true
-      this.inv.getNext()
+      s.b2 = true
+      this.inv.getNext(1, s.slot)
     }
-    if (!but[3]) this.b4_flag = false
-    else if (!this.b4_flag) {
+    if (!but[3]) s.b4 = false
+    else if (!s.b4) {
       this.sfx("SWEP")
-      this.b4_flag = true
-      this.inv.getNext(-1)
+      s.b4 = true
+      this.inv.getNext(-1, s.slot)
     }
-    if (!but[2]) this.b3_flag = false
-    else if (!this.b3_flag) {
-      this.b3_flag = true
+    if (!but[2]) s.b3 = false
+    else if (!s.b3) {
+      s.b3 = true
       this.use(Obj.MEGA_BOMB)
     }
   }
 
-  /** One Do_Game iteration. Returns false once the wave is over (end_wave). */
-  step(inp: FrameInput): boolean {
+  /** One Do_Game iteration (2P: one input per ship). Returns false once the wave is over (end_wave). */
+  step(inp: FrameInput | FrameInput[]): boolean {
     if (this.end_wave) return false
     this.sfxEvents = []
     this.turretBeams = []
@@ -436,15 +495,20 @@ export class World {
     this.g_flash = 0
     this.frame++
 
-    let but = [inp.fire, inp.cycle, inp.mega, !!inp.cyclePrev]
+    const inputs = Array.isArray(inp) ? inp : [inp]
+    let demoBut: boolean[] | null = null
     if (this.demo) {
       const r = this.demoStep()
       if (!r) return false
-      but = [!!r.b[0], !!r.b[1], !!r.b[2], false]
-    } else this.movePlayer(inp)
+      demoBut = [!!r.b[0], !!r.b[1], !!r.b[2], false]
+    } else for (const [i, s] of this.ships.entries()) this.movePlayer(s, inputs[i] ?? NO_INPUT)
 
-    if (inp.select !== null) this.inv.makeSpecial(inp.select)
-    this.buttons(but)
+    for (const [i, s] of this.ships.entries()) {
+      const p = inputs[i] ?? NO_INPUT
+      this.cur = s
+      if (p.select !== null) this.inv.makeSpecial(p.select, s.slot)
+      this.buttons(s, demoBut ?? [p.fire, p.cycle, p.mega, !!p.cyclePrev])
+    }
 
     if (this.startendwave !== EMPTY) {
       if (this.startendwave === 0) this.end_wave = true
@@ -497,14 +561,16 @@ export class World {
     this.g_oldshield = shield
   }
 
-  /** RAP_DisplayStats: explosions while the player ship dies. */
+  /** RAP_DisplayStats: explosions while the player ship dies (2P: both ships, shared shield). */
   private playerDeath(): void {
     const r = this.rng
-    // Watcom evaluates call arguments right to left
-    let y = this.playery + r.random(32)
-    this.startAnim(Anim.MED_AIR_EXPLO, this.playerx + r.random(32), y)
-    y = this.playery + r.random(32)
-    this.startAnim(Anim.SMALL_AIR_EXPLO, this.playerx + r.random(32), y)
+    for (const s of this.ships) {
+      // Watcom evaluates call arguments right to left
+      let y = s.y + r.random(32)
+      this.startAnim(Anim.MED_AIR_EXPLO, s.x + r.random(32), y)
+      y = s.y + r.random(32)
+      this.startAnim(Anim.SMALL_AIR_EXPLO, s.x + r.random(32), y)
+    }
     if (this.startendwave > END_EXPLODE) {
       r.random(2)
       this.sfx("AIREXPLO")
@@ -514,10 +580,16 @@ export class World {
     this.draw_player = false
     this.sfx("AIREXPLO")
     this.sfx("AIREXPLO2")
-    this.startAnim(Anim.LARGE_AIR_EXPLO, this.player_cx, this.player_cy)
+    for (const s of this.ships) this.shipExplodes(s)
+  }
+
+  /** RAP_DisplayStats: the final burst around a ship. */
+  private shipExplodes(s: PlayerShip): void {
+    const r = this.rng
+    this.startAnim(Anim.LARGE_AIR_EXPLO, s.cx, s.cy)
     for (let loop = 0; loop < (PLAYERWIDTH * PLAYERHEIGHT) / 2; loop++) {
-      const x = this.playerx - PLAYERWIDTH / 2 + r.random(PLAYERWIDTH * 2)
-      const yy = this.playery - PLAYERHEIGHT / 2 + r.random(PLAYERHEIGHT * 2)
+      const x = s.x - PLAYERWIDTH / 2 + r.random(PLAYERWIDTH * 2)
+      const yy = s.y - PLAYERHEIGHT / 2 + r.random(PLAYERHEIGHT * 2)
       if (loop & 1) this.startAnim(Anim.LARGE_AIR_EXPLO, x, yy)
       else this.startAAnim(Anim.MED_AIR_EXPLO2, x, yy)
     }
@@ -528,15 +600,26 @@ export class World {
     if (this.startendwave === END_FLYOFF) {
       this.control_pause = true
       this.sfx("FLYBY")
+      this.flyLanes()
     }
     if (this.startendwave >= END_FLYOFF) return
-    let x = 0
-    if (this.playerx < 160 - 8) x = 8
-    else if (this.playerx > 160 + 8) x = -8
-    // IPT_FMovePlayer
-    this.g_addx = x
-    this.g_addy = -4
-    if (!this.demo) this.applyMove()
+    for (const s of this.ships) {
+      let x = 0
+      if (s.x < s.exitX - 8) x = 8
+      else if (s.x > s.exitX + 8) x = -8
+      // IPT_FMovePlayer
+      s.addx = x
+      s.addy = -4
+      if (!this.demo) this.applyMove(s)
+    }
+  }
+
+  /** web: 2P ships fly off in separate lanes, the left one left of center (they never cross). */
+  private flyLanes(): void {
+    const [left, right] = [...this.ships].sort((a, b) => a.x - b.x)
+    if (!left || !right) return
+    left.exitX = 160 - COOP_START_DX
+    right.exitX = 160 + COOP_START_DX
   }
 
   /** RAP_DisplayStats: blinking warning, weapon loss on shield hits. */
@@ -545,7 +628,7 @@ export class World {
       this.blinkflag = !this.blinkflag
       if (this.blinkflag && this.damage) this.damage--
     }
-    if (shield < this.g_oldshield && sup < 1 && this.inv.loseObj()) {
+    if (shield < this.g_oldshield && sup < 1 && this.inv.loseObj(this.cur.slot)) {
       this.sfx("CRASH")
       this.damage = 2
     }

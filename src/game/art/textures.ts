@@ -1,6 +1,7 @@
 // Builds every procedural texture once (Boot). Keys:
 //   u-<PICNAME>      enemy/unit frames "0".."n-1" (3x original size)
 //   player           frames "0".."6" (DOS playerpic, 3 = level)
+//   player2          same, 2P co-op player 2 (PLAYER2_PAL)
 //   shot-<PICNAME>   shots (3x original size)
 //   pickup-<type>    bonus icons (48 px, hex badge)
 //   icon-<type>      item icons (96 px, shop)
@@ -30,7 +31,7 @@ import {
 } from "./fx"
 import { drawHangar } from "./hangar"
 import { drawButtonIcon, drawIcon, drawPickup } from "./icons"
-import { drawPlayer, drawUnit } from "./ships"
+import { drawPlayer, drawUnit, PLAYER2_PAL } from "./ships"
 import { drawShop } from "./shop"
 
 export const STRUCT_KINDS = 4
@@ -170,6 +171,9 @@ export function buildTextures(scene: Scene): void {
 
   addFrames(scene, "player", 32 * SCALE, 32 * SCALE, 7, (ctx, f) =>
     drawPlayer(ctx, 32 * SCALE, 32 * SCALE, 3 - f),
+  )
+  addFrames(scene, "player2", 32 * SCALE, 32 * SCALE, 7, (ctx, f) =>
+    drawPlayer(ctx, 32 * SCALE, 32 * SCALE, 3 - f, PLAYER2_PAL),
   )
 
   for (const key of Object.keys(PIC_SIZES)) {
