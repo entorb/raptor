@@ -59,6 +59,16 @@ export const PLAYER_PAL: Palette = {
   glass: "#7fe7ff",
 }
 
+/** web: 2P co-op player 2, amber hull (glow tint `Game.ts P2_TINT`) */
+export const PLAYER2_PAL: Palette = {
+  dark: "#33200f",
+  mid: "#b8783f",
+  light: "#fff3e6",
+  accent: "#ffa040",
+  engine: "#ffa040",
+  glass: "#ffd27f",
+}
+
 type Draw = (ctx: Ctx, w: number, h: number, t: number, r: () => number, p: Palette) => void
 
 function engines(ctx: Ctx, xs: number[], y: number, r: number, color: string): void {
@@ -1999,8 +2009,7 @@ export function drawUnit(
  * the lowered wing (left for bank < 0) shrinks and darkens, the raised one stays wide and lit,
  * the hull shows its side on the lowered side.
  */
-export function drawPlayer(ctx: Ctx, w: number, h: number, bank: number): void {
-  const p = PLAYER_PAL
+export function drawPlayer(ctx: Ctx, w: number, h: number, bank: number, p = PLAYER_PAL): void {
   const k = bank / 3 // -1..1, roll direction
   const roll = Math.abs(k) * ((55 * Math.PI) / 180)
   const cx = w / 2 - k * w * 0.03

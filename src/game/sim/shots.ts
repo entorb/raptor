@@ -10,7 +10,7 @@ import {
 } from "./enemy"
 import { initMobj, type MoveObj, moveSobj, newMove } from "./move"
 import { tileBomb, tileDamageAll, tileIsHit } from "./tile"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const MAX_SHOTS = 70
 
@@ -264,6 +264,8 @@ export interface Shot {
   starty: number
   lib: ShotLib
   cnt: number
+  /** web: the ship that fired it (fplrx/fplry shots follow it) */
+  owner: PlayerShip
 }
 
 function get(w: World, lib: ShotLib, x: number, y: number): Shot | null {
@@ -277,10 +279,11 @@ function get(w: World, lib: ShotLib, x: number, y: number): Shot | null {
     curframe: 0,
     doneflag: false,
     delayflag: lib.delayflag,
-    startx: w.player_cx,
-    starty: w.player_cy,
+    startx: w.cur.cx,
+    starty: w.cur.cy,
     lib,
     cnt: 0,
+    owner: w.cur,
   }
   w.shots.push(s)
   return s
@@ -360,12 +363,12 @@ function shootForwardLaser(w: World, lib: ShotLib, cx: number, cy: number, pic: 
 
 /** SHOTS_PlayerShoot */
 export function playerShoot(w: World, type: ObjType): boolean {
-  const lib = w.shotLib[type]
+  const lib = w.cur.shotLib[type]
   if (!lib || lib.cur_shoot) return false
   lib.cur_shoot = lib.shoot_rate
-  const pic = w.playerpic
-  const cx = w.player_cx
-  const cy = w.player_cy
+  const pic = w.cur.pic
+  const cx = w.cur.cx
+  const cy = w.cur.cy
   // SHOTS_Get happens before the switch: a full list returns FALSE without firing
   if (w.shots.length >= MAX_SHOTS) return false
 
@@ -445,7 +448,7 @@ function spark(w: World, x: number, y: number): void {
 /** Beam shots stop at the first enemy they damage (`enemy.hits !== -1`). */
 function beamTarget(w: World, shot: Shot, lib: ShotLib): void {
   for (const enemy of w.enemies.ships) {
-    if (shot.x > enemy.x && shot.x < enemy.x2 && enemy.y < w.player_cy && enemy.y > -30) {
+    if (shot.x > enemy.x && shot.x < enemy.x2 && enemy.y < shot.owner.cy && enemy.y > -30) {
       enemy.hits -= lib.hits
       if (enemy.hits !== -1) {
         shot.move.y2 = enemy.y + enemy.hly
@@ -473,8 +476,8 @@ function placeShot(w: World, shot: Shot, lib: ShotLib): void {
       beamTarget(w, shot, lib)
       break
   }
-  if (lib.fplrx) shot.x += w.player_cx - shot.startx
-  if (lib.fplry) shot.y += w.player_cy - shot.starty
+  if (lib.fplrx) shot.x += shot.owner.cx - shot.startx
+  if (lib.fplry) shot.y += shot.owner.cy - shot.starty
 }
 
 /** SHOTS_Think: leaving the screen, animation end, doneflag. Returns true to skip the hit tests. */
@@ -585,10 +588,11 @@ export function shotsThink(w: World): void {
 }
 
 function decrementShootRate(w: World): void {
-  for (let t = 0; t <= LAST_WEAPON; t++) {
-    const l = w.shotLib[t]
-    if (l && l.cur_shoot > 0) l.cur_shoot--
-  }
+  for (const s of w.ships)
+    for (let t = 0; t <= LAST_WEAPON; t++) {
+      const l = s.shotLib[t]
+      if (l && l.cur_shoot > 0) l.cur_shoot--
+    }
 }
 
 /** SHOTS_Think: per-shot update; returns true once the shot should be removed. */
@@ -621,7 +625,7 @@ export function shotsAfterDisplay(w: World): void {
   for (let i = 0; i < w.shots.length; i++) {
     const s = w.shots[i] as Shot
     if (s.lib.beam === "line") {
-      w.turretBeams.push({ x: s.move.x, y: s.move.y })
+      w.turretBeams.push({ x: s.move.x, y: s.move.y, ship: s.owner })
       w.shots.splice(i--, 1)
       continue
     }

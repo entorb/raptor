@@ -37,3 +37,14 @@ it("drops malformed stats and top-10 runs", () => {
   store.set("raptor.pilots.v1", JSON.stringify([{ ...newPilotSave("A"), stats }]))
   expect(loadPilots()[0]?.stats).toEqual({ b0: { n: 3, top: [{ cr: 500, pct: 80 }, { cr: 100 }] } })
 })
+
+it("keeps the 2P co-op flag and player 2's weapon, drops junk", () => {
+  const coop = { ...newPilotSave("Team", 1, true), sweapon2: 3 }
+  store.set(
+    "raptor.pilots.v1",
+    JSON.stringify([coop, { ...newPilotSave("B"), coop: "yes", sweapon2: 3 }]),
+  )
+  const [a, b] = loadPilots()
+  expect([a?.coop, a?.sweapon2]).toEqual([true, 3])
+  expect([b?.coop, b?.sweapon2]).toEqual([undefined, undefined])
+})

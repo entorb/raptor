@@ -6,6 +6,10 @@ export interface PilotSave {
   name: string
   score: number
   sweapon: number
+  /** web: 2P co-op team (desktop keyboard, fixed at creation); `name` is the team name */
+  coop?: boolean
+  /** 2P co-op: player 2's special weapon */
+  sweapon2?: number
   /** 0-based next wave of the Bravo sector (game_wave[0]) */
   wave: number
   /** Bravo sector difficulty (DIFF_EASY..DIFF_HARD) */
@@ -119,8 +123,11 @@ function normalize(p: PilotSave): PilotSave {
         },
       ]),
   )
+  const { coop, sweapon2, ...rest } = p
   const q: PilotSave = {
-    ...p,
+    ...rest,
+    ...(coop === true ? { coop } : {}),
+    ...(coop === true && Number.isInteger(sweapon2) ? { sweapon2 } : {}),
     sector: SECTORS.includes(p.sector as Sector) ? p.sector : "bravo",
     stats,
   }
@@ -158,8 +165,9 @@ export function saveSettings(s: Settings): void {
   write(SETTINGS_KEY, s)
 }
 
-export function newPilotSave(name: string, diff = DIFF_NORMAL): PilotSave {
+export function newPilotSave(name: string, diff = DIFF_NORMAL, coop = false): PilotSave {
   return {
+    ...(coop ? { coop } : {}),
     name,
     score: 0,
     sweapon: -1,

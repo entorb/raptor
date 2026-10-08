@@ -1,6 +1,8 @@
 // In-game controls -> sim FrameInput.
 // - Keyboard: arrows/WASD move (DOS keyboard acceleration), Space toggles auto-fire, Shift/Alt next/previous
 //   special weapon, Enter nova bomb, 1..0,- pick a special, P/Esc pause.
+// - 2P co-op (desktop): player 1 = arrows, Shift/Alt, Enter, 1..0,-; player 2 = WASD, E/Q next/previous
+//   special, Tab nova. Space toggles auto-fire for both.
 // - Touch: drag anywhere (also the letterbox strips) moves a virtual cursor relative to the ship
 //   so the finger never covers it; on-screen buttons from `buttons`.
 // - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = a finger on
@@ -58,9 +60,12 @@ export class GameInput {
   private selected: ObjType | null = null
   private readonly scene: Scene
   private shipCenter = { x: 160, y: 176 }
+  /** 2P co-op: `read` returns one input per ship */
+  private readonly twoPlayer: boolean
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, twoPlayer = false) {
     this.scene = scene
+    this.twoPlayer = twoPlayer
     const kb = scene.input.keyboard
     if (kb) {
       const names = [
@@ -75,6 +80,9 @@ export class GameInput {
         "SHIFT",
         "ALT",
         "ENTER",
+        "Q",
+        "E",
+        "TAB",
         "G",
         ...SPECIAL_KEYS.map(([k]) => k),
       ]
@@ -173,12 +181,13 @@ export class GameInput {
   }
 
   /** Called once per sim frame. */
-  read(): FrameInput {
+  read(): FrameInput | FrameInput[] {
     if (!this.isDown("ENTER")) this.enterHeld = false
     const sel = this.selected
     this.selected = null
     const taps = this.tapButtons
     this.tapButtons = new Set()
+    if (this.twoPlayer) return this.readTwo(sel)
     return {
       left: this.isDown("LEFT", "A"),
       right: this.isDown("RIGHT", "D"),
@@ -191,5 +200,34 @@ export class GameInput {
       mega: taps.has("mega") || (!this.enterHeld && this.isDown("ENTER")),
       select: sel,
     }
+  }
+
+  /** 2P co-op: player 1 on the arrows, player 2 on WASD (keyboard only). */
+  private readTwo(sel: ObjType | null): FrameInput[] {
+    const p1: FrameInput = {
+      left: this.isDown("LEFT"),
+      right: this.isDown("RIGHT"),
+      up: this.isDown("UP"),
+      down: this.isDown("DOWN"),
+      pointer: null,
+      fire: this.autoFire,
+      cycle: this.isDown("SHIFT"),
+      cyclePrev: this.isDown("ALT"),
+      mega: !this.enterHeld && this.isDown("ENTER"),
+      select: sel,
+    }
+    const p2: FrameInput = {
+      left: this.isDown("A"),
+      right: this.isDown("D"),
+      up: this.isDown("W"),
+      down: this.isDown("S"),
+      pointer: null,
+      fire: this.autoFire,
+      cycle: this.isDown("E"),
+      cyclePrev: this.isDown("Q"),
+      mega: this.isDown("TAB"),
+      select: null,
+    }
+    return [p1, p2]
   }
 }

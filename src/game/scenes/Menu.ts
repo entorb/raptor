@@ -46,8 +46,9 @@ type Mode =
   | "pilots"
   | "pilot"
   | "delete"
-  | "name"
+  | "players"
   | "new"
+  | "name"
   | "options"
   | "install"
   | "update"
@@ -84,6 +85,9 @@ export class Menu extends Scene {
   /** pilot picked in the "pilots" list, name typed in "name" mode */
   private picked: PilotSave | null = null
   private newName = ""
+  /** new pilot: picked in "players" (2P co-op team) and "new" (difficulty), before the name */
+  private newCoop = false
+  private newDiff = DIFF_NORMAL
   /** newer service worker waiting for the player's OK (asked on every visit to the start screen) */
   private waitingSw: ServiceWorker | null = null
 
@@ -146,8 +150,9 @@ export class Menu extends Scene {
     this.actions = this.actionRow(480, TOUCH ? 522 : 506)
     this.menu = new TextMenu(this, 280, 194, 400, TOUCH ? 60 : 52, TOUCH ? 5 : 6)
     this.menu.onBack = () => {
-      if (this.mode === "new") this.show("name")
-      else if (["pilot", "delete", "name"].includes(this.mode)) this.show("pilots")
+      if (this.mode === "name") this.show("new")
+      else if (this.mode === "new") this.newPilotStart()
+      else if (["pilot", "delete", "players"].includes(this.mode)) this.show("pilots")
       else if (this.mode !== "main") this.show("main")
     }
     // The link row: DOWN off the last menu item enters it, UP/DOWN and LEFT/RIGHT step through
@@ -200,11 +205,14 @@ export class Menu extends Scene {
         }
         items = this.pilotItems(this.picked, mode)
         break
-      case "name":
-        items = this.nameItems()
+      case "players":
+        items = this.playersItems()
         break
       case "new":
         items = this.newItems()
+        break
+      case "name":
+        items = this.nameItems()
         break
       case "install":
         items = this.installItems()
@@ -252,13 +260,14 @@ export class Menu extends Scene {
     // most recently played first (savePilot keeps the list in that order)
     const items: MenuItem[] = loadPilots().map((p) => ({
       label: pilotTitle(p),
+      ...(p.coop ? { detail: "2P", dim: TOUCH } : {}),
       action: () => {
         this.picked = p
         this.show("pilot")
       },
     }))
     items.push(
-      { label: `${ICON.add} ${t("menu.newPilot")}`, action: () => this.show("name") },
+      { label: `${ICON.add} ${t("menu.newPilot")}`, action: () => this.newPilotStart(true) },
       { label: `${ICON.back} ${t("back")}`, action: () => this.show("main") },
     )
     return items
@@ -267,10 +276,13 @@ export class Menu extends Scene {
   private pilotItems(p: PilotSave, mode: "pilot" | "delete"): MenuItem[] {
     const items: MenuItem[] = []
     if (mode === "pilot") {
-      this.info.setText(`${pilotTitle(p)}: ${p.score} CR`)
+      // 2P co-op teams fly on one keyboard: not on touch devices
+      const blocked = p.coop === true && TOUCH
+      this.info.setText(blocked ? t("menu.needsKeyboard") : `${pilotTitle(p)}: ${p.score} CR`)
       items.push(
         {
           label: `${ICON.play} ${t("menu.fly")}`,
+          disabled: blocked,
           action: () => {
             setPilot(p, false)
             this.scene.start("Hangar")
@@ -305,28 +317,52 @@ export class Menu extends Scene {
     return [
       { label: "", action: () => input.focus() },
       { label: `${ICON.confirm} ${t("ok")}`, action: () => this.submitName() },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.show("new") },
+    ]
+  }
+
+  /**
+   * New pilot, step 1: one or two players (desktop only; touch starts at the difficulty).
+   * `fresh` clears the name typed by an earlier attempt.
+   */
+  private newPilotStart(fresh = false): void {
+    if (fresh) this.newName = ""
+    if (TOUCH) {
+      this.newCoop = false
+      this.show("new")
+    } else this.show("players")
+  }
+
+  private playersItems(): MenuItem[] {
+    this.info.setText(t("menu.playersInfo"))
+    const pick = (coop: boolean) => () => {
+      this.newCoop = coop
+      this.show("new")
+    }
+    return [
+      { label: t("menu.onePlayer"), action: pick(false) },
+      { label: t("menu.twoPlayers"), action: pick(true) },
       { label: `${ICON.back} ${t("back")}`, action: () => this.show("pilots") },
     ]
   }
 
-  /** New pilot footer: the name plus what the difficulty under the cursor means. */
+  /** New pilot footer: what the difficulty under the cursor means. */
   private diffInfo(index: number): void {
     const key = (["diff.rookieInfo", "diff.veteranInfo", "diff.eliteInfo"] as const)[index]
-    const name = t("menu.newPilotInfo", { name: this.newName })
-    this.info.setText(key ? `${t(key)}\n${name}` : name)
+    this.info.setText(key ? t(key) : "")
   }
 
+  /** New pilot, step 2: difficulty, then the name. */
   private newItems(): MenuItem[] {
-    const start = (d: number) => () => {
-      const p = newPilotSave(this.newName, d)
-      setPilot(withLoadout(p, loadout(p)))
-      this.scene.start("Hangar")
+    const pick = (d: number) => () => {
+      this.newDiff = d
+      this.show("name")
     }
     return [
-      { label: t("diff.rookie"), detail: t("diff.easy"), action: start(DIFF_EASY) },
-      { label: t("diff.veteran"), detail: t("diff.normal"), action: start(DIFF_NORMAL) },
-      { label: t("diff.elite"), detail: t("diff.hard"), action: start(DIFF_HARD) },
-      { label: `${ICON.back} ${t("back")}`, action: () => this.show("name") },
+      { label: t("diff.rookie"), detail: t("diff.easy"), action: pick(DIFF_EASY) },
+      { label: t("diff.veteran"), detail: t("diff.normal"), action: pick(DIFF_NORMAL) },
+      { label: t("diff.elite"), detail: t("diff.hard"), action: pick(DIFF_HARD) },
+      { label: `${ICON.back} ${t("back")}`, action: () => this.newPilotStart() },
     ]
   }
 
@@ -379,7 +415,7 @@ export class Menu extends Scene {
     const el = document.createElement("input")
     el.type = "text"
     el.maxLength = MAX_NAME
-    el.placeholder = t("menu.pilotName")
+    el.placeholder = t(this.newCoop ? "menu.teamName" : "menu.pilotName")
     el.value = this.newName
     el.autocomplete = "off"
     el.style.cssText =
@@ -388,7 +424,7 @@ export class Menu extends Scene {
     el.addEventListener("keydown", (e) => {
       e.stopPropagation()
       if (e.key === "Enter") this.submitName()
-      else if (e.key === "Escape") this.show("pilots")
+      else if (e.key === "Escape") this.show("new")
     })
     el.addEventListener("focus", () => this.setMenuKeys(false))
     el.addEventListener("blur", () => this.setMenuKeys(true))
@@ -420,7 +456,10 @@ export class Menu extends Scene {
     }
     this.closeNameInput()
     this.newName = name
-    this.show("new")
+    // New pilot, step 3: the name (2P: the team name) creates the pilot
+    const p = newPilotSave(name, this.newDiff, this.newCoop)
+    setPilot(withLoadout(p, loadout(p)))
+    this.scene.start("Hangar")
   }
 
   /**
