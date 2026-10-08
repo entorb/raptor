@@ -41,7 +41,7 @@ import {
 import { enemyBaseDamage, type Ship } from "../sim/enemy"
 import { ES_LASER } from "../sim/eshot"
 import { Inventory, OBJ_LIB } from "../sim/objects"
-import { type DemoFrame, World } from "../sim/world"
+import { type DemoFrame, type PlayerShip, World } from "../sim/world"
 import { bindKeys, changeVolume, glowText, pctLabel, UI } from "../ui/textMenu"
 import type { HangarData } from "./Hangar"
 
@@ -67,6 +67,17 @@ const D = {
   hud: 90,
   overlay: 100,
 }
+
+/** One player ship's sprites (2P co-op: two). */
+interface ShipView {
+  img: GameObjects.Image
+  glow: GameObjects.Image
+  shield: GameObjects.Image
+  prev: { x: number; y: number }
+}
+
+/** 2P co-op: player 2's engine glow / weapon strip frame */
+const P2_TINT = 0xffa040
 
 interface Tracked {
   obj: GameObjects.Image
@@ -116,10 +127,7 @@ export class Game extends Scene {
   private scroll = 0
   private tracked = new Map<string, Tracked>()
   private beams!: GameObjects.Graphics
-  private player!: GameObjects.Image
-  private playerGlow!: GameObjects.Image
-  private shieldFx!: GameObjects.Image
-  private prevPlayer = { x: 0, y: 0 }
+  private views: ShipView[] = []
   private seenAnims = new Set<number>()
   private hud!: {
     g: GameObjects.Graphics
@@ -127,6 +135,8 @@ export class Game extends Scene {
     bars: { off: GameObjects.Image; on: GameObjects.Image }[]
     score: GameObjects.Text
     special: GameObjects.Image
+    /** 2P co-op: player 2's special weapon */
+    special2: GameObjects.Image | null
     warn: GameObjects.Text
     banner: GameObjects.Text
     weaponName: GameObjects.Text
@@ -139,6 +149,7 @@ export class Game extends Scene {
     items: { t: ObjType; x: number; objs: GameObjects.GameObject[] }[]
   } = { sig: "", items: [] }
   private lastWeapon = -1
+  private lastWeapon2 = -1
   private novaBtn: GameObjects.Image | null = null
   private touchIcons: GameObjects.Image[] = []
   private stars!: GameObjects.TileSprite[]
@@ -187,6 +198,7 @@ export class Game extends Scene {
     this.novaBtn = null
     this.touchIcons = []
     let diff: number
+    let players = 1
     let frames: DemoFrame[] | null = null
     if (this.demo >= 0) {
       const rec = DEMOS[this.demo % DEMOS.length] as number[][]
@@ -207,12 +219,13 @@ export class Game extends Scene {
       }
       this.lo = loadout(p)
       diff = sectorDiff(p, this.sector)
+      if (p.coop) players = 2
     }
     this.startScore = this.lo.plr.score
     // demos fly bravo maps; the sector wave may differ from the DOS map (training beginner wave)
     const { index, map } = waveMap(frames ? "bravo" : this.sector, this.wave)
     this.mapWave = index
-    this.world = new World(index, this.lo.plr, this.lo.inv, diff, map)
+    this.world = new World(index, this.lo.plr, this.lo.inv, diff, map, players)
     if (frames) this.world.playDemo(frames)
     else this.world.god = godMode()
 
@@ -227,22 +240,9 @@ export class Game extends Scene {
     this.terrain.prepare(this.scroll)
     this.fx = new Effects(this, D.groundAnim, D.airAnim, sim)
     this.beams = this.add.graphics().setDepth(D.shots).setBlendMode("ADD")
-    this.playerGlow = this.add
-      .image(0, 0, "dot")
-      .setDepth(D.player - 1)
-      .setBlendMode("ADD")
-      .setTint(0x39d0ff)
-    this.player = this.add.image(0, 0, "player", "3").setDepth(D.player)
-    this.shieldFx = this.add
-      .image(0, 0, "dot")
-      .setDepth(D.high)
-      .setBlendMode("ADD")
-      .setTint(0x46e0ff)
-      .setScale(4)
-      .setAlpha(0)
-    this.prevPlayer = { x: this.world.player_cx, y: this.world.player_cy }
+    this.views = this.world.ships.map((s, i) => this.shipView(s, i))
 
-    this.input2 = new GameInput(this)
+    this.input2 = new GameInput(this, players > 1)
     this.input2.onButton = (id) => {
       if (id === "pause") this.togglePause()
       else if (id === "auto") this.input2.toggleAutoFire()
@@ -280,6 +280,23 @@ export class Game extends Scene {
       getAudio().stopAll()
       this.terrain.destroy()
     })
+  }
+
+  private shipView(s: PlayerShip, i: number): ShipView {
+    const glow = this.add
+      .image(0, 0, "dot")
+      .setDepth(D.player - 1)
+      .setBlendMode("ADD")
+      .setTint(i ? P2_TINT : 0x39d0ff)
+    const img = this.add.image(0, 0, i ? "player2" : "player", "3").setDepth(D.player)
+    const shield = this.add
+      .image(0, 0, "dot")
+      .setDepth(D.high)
+      .setBlendMode("ADD")
+      .setTint(0x46e0ff)
+      .setScale(4)
+      .setAlpha(0)
+    return { img, glow, shield, prev: { x: s.cx, y: s.cy } }
   }
 
   private autoPause(): void {
@@ -321,8 +338,12 @@ export class Game extends Scene {
       t.py = t.y
     }
     this.prevScroll = this.scrollY()
-    this.prevPlayer = { x: w.player_cx, y: w.player_cy }
-    this.input2.setShip(w.player_cx, w.player_cy)
+    w.ships.forEach((s, i) => {
+      const v = this.views[i]
+      if (v) v.prev = { x: s.cx, y: s.cy }
+    })
+    const p1 = w.ships[0] as PlayerShip
+    this.input2.setShip(p1.cx, p1.cy)
     const nova = w.shots.find((s) => s.lib.type === Obj.MEGA_BOMB)
     const novaAt = nova && { x: nova.x + nova.lib.hlx, y: nova.y + nova.lib.hly }
     const running = w.step(this.input2.read())
@@ -332,7 +353,9 @@ export class Game extends Scene {
       this.shakeAmt = Math.max(this.shakeAmt, 10)
     }
     const audio = getAudio()
-    audio.play(w.sfxEvents, w.player_cx, w.player_cy)
+    // 2P: listen from between the ships
+    const ear = (k: "cx" | "cy") => w.ships.reduce((a, s) => a + s[k], 0) / w.ships.length
+    audio.play(w.sfxEvents, ear("cx"), ear("cy"))
     audio.bossLoop(w.bossLoop)
     for (const k of w.kills) this.fx.wreck(k.x, k.y, k.w, k.h)
     for (const p of w.pickups) this.pickupText(p.type, p.x, p.y)
@@ -396,12 +419,22 @@ export class Game extends Scene {
     }
 
     this.drawBeams(lerp)
+    for (const [i, s] of w.ships.entries()) this.renderShip(s, this.views[i], lerp)
+    this.updateHud()
+  }
 
-    const px = lerp(this.prevPlayer.x, w.player_cx) * SCALE
-    const py = lerp(this.prevPlayer.y, w.player_cy) * SCALE
-    this.player.setVisible(w.draw_player).setFrame(String(Math.max(0, Math.min(6, w.playerpic))))
-    this.player.setPosition(px, py)
-    this.playerGlow
+  private renderShip(
+    s: PlayerShip,
+    v: ShipView | undefined,
+    lerp: (a: number, b: number) => number,
+  ): void {
+    if (!v) return
+    const w = this.world
+    const px = lerp(v.prev.x, s.cx) * SCALE
+    const py = lerp(v.prev.y, s.cy) * SCALE
+    v.img.setVisible(w.draw_player).setFrame(String(Math.max(0, Math.min(6, s.pic))))
+    v.img.setPosition(px, py)
+    v.glow
       .setVisible(w.draw_player)
       .setPosition(px, py + 44)
       .setScale(
@@ -409,11 +442,8 @@ export class Game extends Scene {
         2.2 + 0.3 * Math.sin(this.time.now * 0.07),
       )
       .setAlpha(0.8)
-    const shieldHit = w.anims.some((a) => a.lib.kind === "SHIPGLOW_BLK")
-    this.shieldFx
-      .setPosition(px, py)
-      .setAlpha(shieldHit ? 0.55 : Math.max(0, this.shieldFx.alpha - 0.05))
-    this.updateHud()
+    const shieldHit = w.anims.some((a) => a.lib.kind === "SHIPGLOW_BLK" && a.ship === s)
+    v.shield.setPosition(px, py).setAlpha(shieldHit ? 0.55 : Math.max(0, v.shield.alpha - 0.05))
   }
 
   /** Mark every visible sim object as seen (creating/updating its sprite). */
@@ -490,9 +520,12 @@ export class Game extends Scene {
       g.fillStyle(0xff2e2e, 0.4).fillRect(x - 6, e.y * SCALE, 12, (e.move.y2 - e.y) * SCALE)
       g.fillStyle(0xffe0e0, 0.9).fillRect(x - 2, e.y * SCALE, 4, (e.move.y2 - e.y) * SCALE)
     }
-    const pcx = lerp(this.prevPlayer.x, w.player_cx) * SCALE
-    const pcy = lerp(this.prevPlayer.y, w.player_cy) * SCALE
     for (const b of w.turretBeams) {
+      const i = w.ships.indexOf(b.ship)
+      const v = this.views[i]
+      if (!v) continue
+      const pcx = lerp(v.prev.x, b.ship.cx) * SCALE
+      const pcy = lerp(v.prev.y, b.ship.cy) * SCALE
       g.lineStyle(9, 0xff3dd2, 0.35).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
       g.lineStyle(3, 0xffffff, 0.95).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
     }
@@ -543,7 +576,13 @@ export class Game extends Scene {
         .setPadding(15)
     const score = hudNum(57, 0)
     // below the kill counter, right-aligned with it
-    const special = this.add.image(868, 96, "pickup-3").setDepth(D.hud).setScale(0.9)
+    // 2P: player 1's weapon left of player 2's
+    const coop = this.world.ships.length > 1
+    const special = this.add
+      .image(coop ? 814 : 868, 96, "pickup-3")
+      .setDepth(D.hud)
+      .setScale(0.9)
+    const special2 = coop ? this.add.image(868, 96, "pickup-3").setDepth(D.hud).setScale(0.9) : null
     const warn = this.add
       .text(480, MAP_BOTTOM * SCALE, "", {
         fontFamily: UI.font,
@@ -568,12 +607,13 @@ export class Game extends Scene {
     this.input2.onGod = () => this.toggleGod()
     const weaponName = glowText(this, 480, 62, "", 24, 12).setDepth(D.hud).setAlpha(0)
     this.lastWeapon = this.world.plr.sweapon
+    this.lastWeapon2 = this.world.plr.sweapon2 ?? -1
     const novas = Array.from({ length: 5 }, (_, i) =>
       this.add.image(64 + i * 22, 578, "shot-MEGABM_BLK").setDepth(D.hud),
     )
     // mirrors the credits (57, 21): glyphs end at x 888 = 960 - 72
     const killPct = hudNum(903, 1)
-    this.hud = { g, bars, score, special, warn, banner, weaponName, novas, killPct }
+    this.hud = { g, bars, score, special, special2, warn, banner, weaponName, novas, killPct }
     if (this.demo < 0) {
       this.input2.buttons = [
         { id: "pause", x: 40, y: 40, r: 44 },
@@ -632,19 +672,26 @@ export class Game extends Scene {
           tr("ctl.touchNova"),
           tr("ctl.touchPause"),
         ]
-      : [
-          tr("ctl.move"),
-          tr("ctl.special"),
-          tr("ctl.nova"),
-          tr("ctl.pause"),
-          tr("ctl.autoFire", { state: fire }),
-        ]
+      : this.keyboardLines(fire)
     // OBJS_Think: no recharge on hard
     if (this.world.curplr_diff < DIFF_HARD) lines.push(tr("ctl.recharge"))
     if (specials.length) {
-      lines.push("", tr(this.isTouch() ? "ctl.specialsTouch" : "ctl.specialsKeys"), ...specials)
+      lines.push("", tr(this.specialsHeader()), ...specials)
     } else lines.push("", tr("ctl.noSpecials"))
     return lines
+  }
+
+  private keyboardLines(fire: string): string[] {
+    const keys =
+      this.world.ships.length > 1
+        ? [tr("ctl.p1"), tr("ctl.p2")]
+        : [tr("ctl.move"), tr("ctl.special"), tr("ctl.nova")]
+    return [...keys, tr("ctl.pause"), tr("ctl.autoFire", { state: fire })]
+  }
+
+  private specialsHeader() {
+    if (this.isTouch()) return "ctl.specialsTouch"
+    return this.world.ships.length > 1 ? "ctl.specialsKeysP1" : "ctl.specialsKeys"
   }
 
   /** Briefing panel with the start button, its top at `top` (below the banner) when it fits. */
@@ -762,7 +809,10 @@ export class Game extends Scene {
     const sw = w.plr.sweapon
     this.hud.special.setVisible(sw >= 0)
     if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
-    this.updateWeaponBar(sw)
+    const sw2 = w.plr.sweapon2 ?? -1
+    this.hud.special2?.setVisible(sw2 >= 0)
+    if (sw2 >= 0) this.hud.special2?.setTexture(`pickup-${sw2}`)
+    this.updateWeaponBar(sw, sw2)
     // nova bombs + phase shields
     const nova = inv.getAmt(Obj.MEGA_BOMB)
     for (const [i, img] of this.hud.novas.entries()) img.setVisible(i < nova)
@@ -800,8 +850,11 @@ export class Game extends Scene {
     g.fillStyle(0xffffff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
   }
 
-  /** Rebuild the weapon strip when the weapons on board change; flash the name on a switch. */
-  private updateWeaponBar(sw: number): void {
+  /**
+   * Rebuild the weapon strip when the weapons on board change; flash the name on a switch.
+   * 2P: player 2's pick (`sw2`) gets an outer frame in its ship tint.
+   */
+  private updateWeaponBar(sw: number, sw2: number): void {
     const list = this.specials()
     const sig = list.map(([, , t]) => t).join()
     const bar = this.weaponBar
@@ -809,14 +862,27 @@ export class Game extends Scene {
     const g = this.hud.g
     for (const it of bar.items) {
       const on = it.t === sw
-      for (const o of it.objs) (o as GameObjects.Image).setAlpha(on ? 1 : 0.5)
+      const on2 = it.t === sw2
+      for (const o of it.objs) (o as GameObjects.Image).setAlpha(on || on2 ? 1 : 0.5)
       if (on) g.lineStyle(2, 0x39d0ff, 0.9).strokeRoundedRect(it.x - 24, 551, 48, 46, 8)
+      if (on2) g.lineStyle(2, P2_TINT, 0.9).strokeRoundedRect(it.x - 27, 548, 54, 52, 10)
     }
-    if (sw === this.lastWeapon) return
-    this.lastWeapon = sw
+    const coop = this.world.ships.length > 1
+    if (sw !== this.lastWeapon) {
+      this.lastWeapon = sw
+      this.flashWeapon(sw, coop ? "P1 " : "")
+    }
+    if (coop && sw2 !== this.lastWeapon2) {
+      this.lastWeapon2 = sw2
+      this.flashWeapon(sw2, "P2 ")
+    }
+  }
+
+  /** Flash a weapon switch at the top center. */
+  private flashWeapon(sw: number, prefix: string): void {
     const name = this.hud.weaponName
     this.tweens.killTweensOf(name)
-    name.setText(sw >= 0 ? (OBJ_LIB[sw]?.name ?? "") : "").setAlpha(1)
+    name.setText(sw >= 0 ? `${prefix}${OBJ_LIB[sw]?.name ?? ""}` : "").setAlpha(1)
     this.tweens.add({ targets: name, alpha: 0, delay: 1200, duration: 500 })
   }
 
@@ -917,13 +983,7 @@ export class Game extends Scene {
     }
     const items: GameObjects.Text[] = []
     items.push(mk(0, tr("game.resume"), () => this.togglePause()))
-    const fireLabel = () =>
-      tr("game.autoFireLabel", { state: tr(this.input2.autoFire ? "on" : "off") })
-    const fire = mk(0, fireLabel(), () => {
-      this.input2.toggleAutoFire()
-      fire.setText(fireLabel())
-    })
-    items.push(fire, this.pauseVolume("music"), this.pauseVolume("sfx"))
+    items.push(this.pauseVolume("music"), this.pauseVolume("sfx"))
     // hidden where the Fullscreen API is missing (iPhone), like the menu entry
     if (this.scale.fullscreen.available) {
       const fsLabel = () =>

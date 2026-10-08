@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1"
 import { BEGINNER_MAP } from "../data/training"
-import { DIFF_NORMAL, DIFF_TRAIN, MAP_SIZE, Obj } from "./consts"
+import { DIFF_NORMAL, DIFF_TRAIN, END_FLYOFF, MAP_SIZE, Obj, PLAYERWIDTH } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, moveEobj, moveSobj, newMove } from "./move"
 import { Buy, Inventory, newPilotObjs } from "./objects"
 import { Rng } from "./rng"
-import { CHARGE_SHIELD, NO_INPUT, World } from "./world"
+import { CHARGE_SHIELD, NO_INPUT, type PlayerState, World } from "./world"
 
 describe("MOVEOBJ", () => {
   it("MoveEobj stops exactly on the target and returns leftover speed", () => {
@@ -178,5 +178,77 @@ describe("shield recharge (web: firing pauses, not resets)", () => {
     // burst every 10 frames: DOS never recharged this way
     for (let f = 0; f < CHARGE_SHIELD * 3; f++) w.step(f % 10 === 0 ? fire : NO_INPUT)
     expect(inv.getAmt(Obj.ENERGY)).toBeGreaterThan(75)
+  })
+})
+
+describe("2P co-op (web)", () => {
+  const coop = () => {
+    const plr: PlayerState = { score: 0, sweapon: -1 }
+    const inv = new Inventory(plr)
+    newPilotObjs(inv)
+    plr.score = 99999999
+    for (const t of [Obj.AIR_MISSLE, Obj.DUMB_MISSLE]) inv.buy(t)
+    const w = new World(0, plr, inv, DIFF_NORMAL, MAPS[0], 2)
+    return { plr, inv, w }
+  }
+  const [p1, p2] = [0, 1]
+  const fire = { ...NO_INPUT, fire: true }
+
+  it("flies two ships with their own fire cooldown", () => {
+    const { w } = coop()
+    expect(w.ships).toHaveLength(2)
+    w.step([fire, fire])
+    const owners = new Set(w.shots.map((s) => w.ships.indexOf(s.owner)))
+    expect([...owners].sort()).toEqual([p1, p2])
+  })
+
+  it("picks specials per player; a used-up weapon moves both slots", () => {
+    const { plr, inv, w } = coop()
+    expect([plr.sweapon, plr.sweapon2]).toEqual([Obj.AIR_MISSLE, Obj.AIR_MISSLE])
+    w.step([NO_INPUT, { ...NO_INPUT, cycle: true }])
+    expect([plr.sweapon, plr.sweapon2]).toEqual([Obj.AIR_MISSLE, Obj.DUMB_MISSLE])
+    inv.sell(Obj.DUMB_MISSLE)
+    expect(plr.sweapon2).toBe(Obj.AIR_MISSLE)
+  })
+
+  it("aims at the nearest ship and hurts the shared shield from either ship", () => {
+    const { inv, w } = coop()
+    const [a, b] = w.ships
+    expect(w.nearestShip(0, 160)).toBe(b)
+    expect(w.nearestShip(319, 160)).toBe(a)
+    const before = inv.getAmt(Obj.ENERGY)
+    w.hitShip(b as NonNullable<typeof b>, 5)
+    expect(inv.getAmt(Obj.ENERGY)).toBe(before - 5)
+    expect(w.cur).toBe(b)
+  })
+
+  it("flies off in separate lanes after the wave", () => {
+    const { w } = coop()
+    w.god = true
+    for (const s of w.ships) s.x = 150
+    w.startendwave = END_FLYOFF + 1
+    let gap = 0
+    for (let f = 0; f < 20; f++) {
+      w.step([NO_INPUT, NO_INPUT])
+      gap = Math.abs((w.ships[0]?.x ?? 0) - (w.ships[1]?.x ?? 0))
+    }
+    expect(gap).toBeGreaterThanOrEqual(PLAYERWIDTH)
+  })
+
+  it("gives enemies 50% more hits", () => {
+    const run = (players: number) => {
+      const plr = { score: 0, sweapon: -1 }
+      const inv = new Inventory(plr)
+      newPilotObjs(inv)
+      const w = new World(0, plr, inv, DIFF_NORMAL, MAPS[0], players)
+      w.god = true
+      for (let f = 0; f < 3000 && !w.enemies.ships.length; f++) w.step(NO_INPUT)
+      const s = w.enemies.ships[0]
+      return { hits: s?.hits ?? 0, lib: s?.lib.hits ?? 0 }
+    }
+    const { hits: hits1, lib: lib1 } = run(1)
+    expect(hits1).toBe(lib1)
+    expect(lib1).toBeGreaterThan(0)
+    expect(run(2).hits).toBe((lib1 * 3) >> 1)
   })
 })

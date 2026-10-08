@@ -155,6 +155,10 @@ export interface InvObj {
 export const Buy = { GOTIT: 0, NOMONEY: 1, SHIPFULL: 2, ERROR: 3 } as const
 export type Buy = (typeof Buy)[keyof typeof Buy]
 
+/** Which player field holds a ship's special weapon (web: `sweapon2` = 2P co-op player 2). */
+export type SpecialSlot = "sweapon" | "sweapon2"
+const SLOTS: SpecialSlot[] = ["sweapon", "sweapon2"]
+
 export const MAX_OBJS = 20
 /** Phase shields on board (web: separate objects, max 5) */
 export const MAX_PHASE = 5
@@ -170,7 +174,7 @@ export class Inventory {
   onAdd: () => void = () => {}
 
   constructor(
-    public plr: { score: number; sweapon: number },
+    public plr: { score: number; sweapon: number; sweapon2?: number },
     public reg = true,
   ) {}
 
@@ -227,7 +231,7 @@ export class Inventory {
     if (this.p_objs[type] === null) {
       cur.inuse = true
       this.p_objs[type] = cur
-      if (this.plr.sweapon === EMPTY && lib.specialw) this.plr.sweapon = type
+      if (lib.specialw) for (const k of this.slots()) if (this.plr[k] === EMPTY) this.plr[k] = type
     }
     return Buy.GOTIT
   }
@@ -238,11 +242,21 @@ export class Inventory {
     this.remove(cur)
     this.p_objs[type] = null
     this.equip(type)
-    if (type === this.plr.sweapon) this.getNext()
+    this.dropSpecial(type)
   }
 
-  getNext(dir = 1): void {
-    let idx = WEAPON_ORDER.indexOf(this.plr.sweapon as ObjType)
+  /** Slots in use: `sweapon2` only once 2P co-op set it. */
+  private slots(): SpecialSlot[] {
+    return SLOTS.filter((k) => this.plr[k] !== undefined)
+  }
+
+  /** Every slot holding `type` steps to the next special weapon (it ran out, was lost or sold). */
+  private dropSpecial(type: ObjType): void {
+    for (const k of this.slots()) if (this.plr[k] === type) this.getNext(1, k)
+  }
+
+  getNext(dir = 1, slot: SpecialSlot = "sweapon"): void {
+    let idx = WEAPON_ORDER.indexOf((this.plr[slot] ?? EMPTY) as ObjType)
     let setval = EMPTY
     for (const _ of WEAPON_ORDER) {
       idx = (idx + dir + WEAPON_ORDER.length) % WEAPON_ORDER.length
@@ -253,7 +267,7 @@ export class Inventory {
         break
       }
     }
-    this.plr.sweapon = setval
+    this.plr[slot] = setval
   }
 
   /** OBJS_Use: `shoot` is SHOTS_PlayerShoot. */
@@ -266,7 +280,7 @@ export class Inventory {
       this.remove(cur)
       this.p_objs[type] = null
       this.equip(type)
-      if (this.plr.sweapon === type) this.getNext()
+      this.dropSpecial(type)
     }
     return true
   }
@@ -290,7 +304,7 @@ export class Inventory {
           this.remove(cur)
           this.p_objs[type] = null
           this.equip(type)
-          if (this.plr.sweapon === type) this.getNext()
+          this.dropSpecial(type)
         }
         return 0
       }
@@ -382,9 +396,9 @@ export class Inventory {
   }
 
   /** OBJS_MakeSpecial */
-  makeSpecial(type: ObjType): boolean {
+  makeSpecial(type: ObjType, slot: SpecialSlot = "sweapon"): boolean {
     if (!this.p_objs[type] || !OBJ_LIB[type]?.specialw) return false
-    this.plr.sweapon = type
+    this.plr[slot] = type
     return true
   }
 
@@ -405,9 +419,10 @@ export class Inventory {
     return cur.num
   }
 
-  /** OBJS_LoseObj: lose the current special weapon, else the last losable item. */
-  loseObj(): boolean {
-    if (this.plr.sweapon === EMPTY) {
+  /** OBJS_LoseObj: lose the current special weapon (of the hit ship), else the last losable item. */
+  loseObj(slot: SpecialSlot = "sweapon"): boolean {
+    const sw = this.plr[slot] ?? EMPTY
+    if (sw === EMPTY) {
       for (let type = Obj.LAST_OBJECT - 1; type >= 0; type--) {
         if (this.p_objs[type] && OBJ_LIB[type]?.loseit) {
           this.del(type as ObjType)
@@ -415,7 +430,7 @@ export class Inventory {
         }
       }
     } else {
-      this.del(this.plr.sweapon as ObjType)
+      this.del(sw as ObjType)
     }
     return true
   }

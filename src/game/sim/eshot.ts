@@ -3,7 +3,7 @@ import { PIC_SIZES } from "../data/ep1"
 import { Anim, type Fx, PLAYERHEIGHT, PLAYERWIDTH, XPOS, YPOS } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, type MoveObj, moveSobj, newMove } from "./move"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const MAX_ESHOT = 80
 
@@ -89,7 +89,7 @@ export function eshotShoot(w: World, enemy: Ship, gun: number): void {
   const fx = (f: Fx) => w.sfx3d(f, x, y)
   switch (type) {
     case ES_ATPLAYER:
-    case ES_COCONUTS:
+    case ES_COCONUTS: {
       if (type === ES_COCONUTS) {
         w.rng.random(6) // monkeys[random(6)] picks one of six chatter samples
         fx("MONKEY")
@@ -100,10 +100,12 @@ export function eshotShoot(w: World, enemy: Ship, gun: number): void {
       }
       m.x -= cur.lib.xoff
       m.y -= cur.lib.yoff
-      m.x2 = w.player_cx
-      m.y2 = w.player_cy
+      const target = w.nearestShip(m.x, m.y)
+      m.x2 = target.cx
+      m.y2 = target.cy
       cur.speed = 1
       break
+    }
     case ES_ANGLELEFT:
     case ES_ANGLERIGHT:
     case ES_ATDOWN:
@@ -170,10 +172,15 @@ function thinkLaser(w: World, shot: EShot, lib: EShotLib): void {
   shot.x = shot.en.x + (shot.en.lib.shootx[shot.gun_num] ?? 0) - 4
   shot.y = shot.en.y + (shot.en.lib.shooty[shot.gun_num] ?? 0)
   shot.move.y2 = 200
-  const dx = Math.abs(shot.x - w.player_cx)
-  if (dx < PLAYERWIDTH / 2 && shot.y < w.player_cy) {
-    shot.move.y2 = w.player_cy + w.rng.random(4) - 2
-    w.subEnergy(lib.hits)
+  // web: the beam stops at the first ship below its gun (2P)
+  let hit: PlayerShip | null = null
+  for (const s of w.ships) {
+    if (Math.abs(shot.x - s.cx) < PLAYERWIDTH / 2 && shot.y < s.cy && (!hit || s.cy < hit.cy))
+      hit = s
+  }
+  if (hit) {
+    shot.move.y2 = hit.cy + w.rng.random(4) - 2
+    w.hitShip(hit, lib.hits)
   }
 }
 
@@ -205,12 +212,13 @@ function thinkShot(w: World, shot: EShot, lib: EShotLib): void {
   moveShot(w, shot, lib)
   if (shot.y >= 200 || shot.y < 0) shot.doneflag = true
   if (shot.x >= 320 || shot.x < 0) shot.doneflag = true
-  const dx = Math.abs(shot.x - w.player_cx)
-  const dy = Math.abs(shot.y - w.player_cy)
-  if (dx < PLAYERWIDTH / 2 && dy < PLAYERHEIGHT / 2) {
+  const hit = w.ships.find(
+    (s) => Math.abs(shot.x - s.cx) < PLAYERWIDTH / 2 && Math.abs(shot.y - s.cy) < PLAYERHEIGHT / 2,
+  )
+  if (hit) {
     w.startAnim(Anim.SMALL_AIR_EXPLO, shot.x, shot.y)
     shot.doneflag = true
-    w.subEnergy(lib.hits)
+    w.hitShip(hit, lib.hits)
   }
 }
 

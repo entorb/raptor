@@ -117,9 +117,9 @@ function stepBonus(w: World, cur: Bonus): boolean {
     cur.curframe++
     if (cur.curframe >= (FRAMES[cur.type] ?? 1)) cur.curframe = 0
   }
-  const x2 = w.playerx + PLAYERWIDTH
-  const y2 = w.playery + PLAYERHEIGHT
-  const touched = cur.x > w.playerx && cur.x < x2 && cur.y > w.playery && cur.y < y2
+  const touched = w.ships.some(
+    (s) => cur.x > s.x && cur.x < s.x + PLAYERWIDTH && cur.y > s.y && cur.y < s.y + PLAYERHEIGHT,
+  )
   if (touched && !cur.dflag && w.inv.getAmt(Obj.ENERGY) > 0 && collect(w, cur)) return true
   if (cur.dflag) {
     cur.countdown--
