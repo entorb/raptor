@@ -1728,47 +1728,62 @@ const hDisc: Holo = (ctx, w, h, _t, c) => {
   bullseye(ctx, cx, cy, R * 0.4, c)
 }
 
+type VehicleKind = "treads" | "wheels" | "boxes" | "tanks" | "pad" | "hatches"
+
+const VEHICLE_PATTERN: Record<
+  VehicleKind,
+  (ctx: CanvasRenderingContext2D, w: number, h: number) => void
+> = {
+  treads(ctx, w, h) {
+    for (let x = w * 0.12; x < w * 0.9; x += w * 0.08) {
+      ctx.moveTo(x, h * 0.12)
+      ctx.lineTo(x, h * 0.28)
+      ctx.moveTo(x, h * 0.72)
+      ctx.lineTo(x, h * 0.88)
+    }
+  },
+  wheels(ctx, w, h) {
+    for (const x of [0.18, 0.4, 0.62, 0.84]) {
+      ctx.moveTo(w * x + h * 0.1, h * 0.2)
+      ctx.arc(w * x, h * 0.2, h * 0.1, 0, Math.PI * 2)
+      ctx.moveTo(w * x + h * 0.1, h * 0.8)
+      ctx.arc(w * x, h * 0.8, h * 0.1, 0, Math.PI * 2)
+    }
+  },
+  boxes(ctx, w, h) {
+    for (const x of [0.2, 0.4, 0.6]) ctx.rect(w * x, h * 0.25, w * 0.14, h * 0.5)
+  },
+  tanks(ctx, w, h) {
+    for (const x of [0.25, 0.5, 0.75]) {
+      ctx.moveTo(w * x + h * 0.28, h / 2)
+      ctx.arc(w * x, h / 2, h * 0.28, 0, Math.PI * 2)
+    }
+  },
+  pad(ctx, w, h) {
+    ctx.moveTo(w * 0.42, h * 0.25)
+    ctx.lineTo(w * 0.42, h * 0.75)
+    ctx.moveTo(w * 0.58, h * 0.25)
+    ctx.lineTo(w * 0.58, h * 0.75)
+    ctx.moveTo(w * 0.42, h / 2)
+    ctx.lineTo(w * 0.58, h / 2)
+  },
+  hatches(ctx, w, h) {
+    for (const x of [0.3, 0.7])
+      for (const y of [0.3, 0.7]) {
+        ctx.moveTo(w * x + h * 0.12, h * y)
+        ctx.arc(w * x, h * y, h * 0.12, 0, Math.PI * 2)
+      }
+  },
+}
+
 /** Ground vehicle hull (moves sideways): rounded slab with a `kind` specific inner pattern. */
-function vehicle(kind: "treads" | "wheels" | "boxes" | "tanks" | "pad" | "hatches"): Holo {
+function vehicle(kind: VehicleKind): Holo {
   return (ctx, w, h, _t, c) => {
     const cy = h / 2
     roundRect(ctx, w * 0.03, h * 0.08, w * 0.94, h * 0.84, Math.min(w, h) * 0.3)
     holo(ctx, h, c)
     ctx.beginPath()
-    if (kind === "treads")
-      for (let x = w * 0.12; x < w * 0.9; x += w * 0.08) {
-        ctx.moveTo(x, h * 0.12)
-        ctx.lineTo(x, h * 0.28)
-        ctx.moveTo(x, h * 0.72)
-        ctx.lineTo(x, h * 0.88)
-      }
-    else if (kind === "wheels")
-      for (const x of [0.18, 0.4, 0.62, 0.84]) {
-        ctx.moveTo(w * x + h * 0.1, h * 0.2)
-        ctx.arc(w * x, h * 0.2, h * 0.1, 0, Math.PI * 2)
-        ctx.moveTo(w * x + h * 0.1, h * 0.8)
-        ctx.arc(w * x, h * 0.8, h * 0.1, 0, Math.PI * 2)
-      }
-    else if (kind === "boxes")
-      for (const x of [0.2, 0.4, 0.6]) ctx.rect(w * x, h * 0.25, w * 0.14, h * 0.5)
-    else if (kind === "tanks")
-      for (const x of [0.25, 0.5, 0.75]) {
-        ctx.moveTo(w * x + h * 0.28, cy)
-        ctx.arc(w * x, cy, h * 0.28, 0, Math.PI * 2)
-      }
-    else if (kind === "pad") {
-      ctx.moveTo(w * 0.42, h * 0.25)
-      ctx.lineTo(w * 0.42, h * 0.75)
-      ctx.moveTo(w * 0.58, h * 0.25)
-      ctx.lineTo(w * 0.58, h * 0.75)
-      ctx.moveTo(w * 0.42, cy)
-      ctx.lineTo(w * 0.58, cy)
-    } else
-      for (const x of [0.3, 0.7])
-        for (const y of [0.3, 0.7]) {
-          ctx.moveTo(w * x + h * 0.12, h * y)
-          ctx.arc(w * x, h * y, h * 0.12, 0, Math.PI * 2)
-        }
+    VEHICLE_PATTERN[kind](ctx, w, h)
     trace(ctx, c, 0.8)
     bullseye(ctx, w / 2, cy, Math.min(w, h) * 0.16, c)
   }

@@ -122,6 +122,13 @@ function demoLoadout(): Loadout {
   return { plr, inv }
 }
 
+const demoFrame = (r: number[]): DemoFrame => ({
+  b: [r[0] ?? 0, r[1] ?? 0, r[2] ?? 0, r[3] ?? 0],
+  px: r[4] ?? 0,
+  py: r[5] ?? 0,
+  pic: r[6] ?? 0,
+})
+
 export class Game extends Scene {
   private world!: World
   private lo!: Loadout
@@ -215,12 +222,7 @@ export class Game extends Scene {
     let frames: DemoFrame[] | null = null
     if (this.demo >= 0) {
       const rec = DEMOS[this.demo % DEMOS.length] as number[][]
-      frames = rec.map((r) => ({
-        b: [r[0] ?? 0, r[1] ?? 0, r[2] ?? 0, r[3] ?? 0],
-        px: r[4] ?? 0,
-        py: r[5] ?? 0,
-        pic: r[6] ?? 0,
-      }))
+      frames = rec.map(demoFrame)
       this.wave = frames[0]?.py ?? 0
       this.lo = demoLoadout()
       diff = DIFF_HARD
@@ -262,6 +264,19 @@ export class Game extends Scene {
       else if (id.startsWith("w")) this.input2.selectWeapon(Number(id.slice(1)) as ObjType)
     }
     this.createHud()
+    this.bindSceneKeys()
+    this.bindDemoExit()
+    const songs = WAVE_SONGS[this.demo >= 0 ? "bravo" : this.sector]
+    getAudio().playSong(this, songs[this.demo >= 0 ? this.mapWave : this.wave] ?? "bravo1")
+    this.game.events.on("blur", this.autoPause, this)
+    this.events.once("shutdown", () => {
+      this.game.events.off("blur", this.autoPause, this)
+      getAudio().stopAll()
+      this.terrain.destroy()
+    })
+  }
+
+  private bindSceneKeys(): void {
     const kb = this.input.keyboard
     kb?.on("keydown-ESC", () => (this.demo >= 0 ? this.finishDemo() : this.togglePause()))
     kb?.on("keydown-P", () => this.demo < 0 && this.togglePause())
@@ -281,18 +296,12 @@ export class Game extends Scene {
       kb?.on(`keydown-${k}`, () => (this.startArmed = this.waiting))
       kb?.on(`keyup-${k}`, () => this.startArmed && this.startMission())
     }
-    if (this.demo >= 0) {
-      this.input.on("pointerdown", () => this.finishDemo())
-      kb?.on("keydown", () => this.finishDemo())
-    }
-    const songs = WAVE_SONGS[this.demo >= 0 ? "bravo" : this.sector]
-    getAudio().playSong(this, songs[this.demo >= 0 ? this.mapWave : this.wave] ?? "bravo1")
-    this.game.events.on("blur", this.autoPause, this)
-    this.events.once("shutdown", () => {
-      this.game.events.off("blur", this.autoPause, this)
-      getAudio().stopAll()
-      this.terrain.destroy()
-    })
+  }
+
+  private bindDemoExit(): void {
+    if (this.demo < 0) return
+    this.input.on("pointerdown", () => this.finishDemo())
+    this.input.keyboard?.on("keydown", () => this.finishDemo())
   }
 
   private shipView(s: PlayerShip, i: number): ShipView {
@@ -466,6 +475,11 @@ export class Game extends Scene {
     if (w.draw_player)
       for (const [i, s] of w.ships.entries())
         this.trackShadow(`p${i}`, i ? "player2" : "player", playerFrame(s), s.cx, s.cy, true)
+    this.trackShots(w)
+    this.trackBonuses(w)
+  }
+
+  private trackShots(w: World): void {
     for (const s of w.shots) {
       if (s.lib.beam === "beam" || s.lib.beam === "line") continue
       const t = this.track(
@@ -483,6 +497,9 @@ export class Game extends Scene {
       const key = `shot-${e.lib.key}`
       this.track(`q${e.id}`, key, "__BASE", e.x + e.lib.xoff, e.y + e.lib.yoff, D.eshots)
     }
+  }
+
+  private trackBonuses(w: World): void {
     for (const b of w.bonuses) {
       const t = this.track(
         `b${b.id}`,
@@ -862,36 +879,45 @@ export class Game extends Scene {
       this.shownKills = w.enemies.killed
       this.hud.killPct.setText(`${tr("game.kills")} ${w.destroyedPct.enemies ?? 0}%`)
     }
-    const sw = w.plr.sweapon
-    this.hud.special.setVisible(sw >= 0)
-    if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
-    const sw2 = w.plr.sweapon2 ?? -1
-    this.hud.special2?.setVisible(sw2 >= 0)
-    if (sw2 >= 0) this.hud.special2?.setTexture(`pickup-${sw2}`)
-    this.updateWeaponBar(sw, sw2)
+    this.updateSpecialIcons()
     // nova bombs + phase shields
     const nova = inv.getAmt(Obj.MEGA_BOMB)
     for (const [i, img] of this.hud.novas.entries()) img.setVisible(i < nova)
     const phase = inv.getTotal(Obj.SUPER_SHIELD)
     for (let i = 0; i < phase; i++) g.lineStyle(3, 0x46e0ff, 0.95).strokeCircle(64 + i * 22, 22, 7)
-    // damage scanner (boss integrity)
-    if (inv.isEquip(Obj.DETECT)) {
-      const dmg = enemyBaseDamage(w)
-      if (dmg > 0) {
-        g.fillStyle(0x05060d, 0.7).fillRoundedRect(330, 534, 300, 18, 5)
-        g.fillStyle(0xff4050, 0.95).fillRoundedRect(333, 537, (294 * dmg) / 100, 12, 4)
-      }
-    }
-    let warn = ""
-    if (w.weaponLost) warn = tr("game.weaponLost")
-    else if (w.lowShield) warn = tr("game.shieldLow")
-    this.hud.warn.setText(warn)
+    this.drawScanner(g)
+    this.hud.warn.setText(this.warning())
     const touch = this.input2.touchMode && this.demo < 0
     this.novaBtn?.setVisible(touch && nova > 0)
     const canSwap = this.specials().length > 1
     for (const i of this.touchIcons) i.setVisible(touch)
     this.touchIcons[0]?.setVisible(touch && canSwap)
     if (touch) this.drawTouchButtons(g)
+  }
+
+  private updateSpecialIcons(): void {
+    const plr = this.world.plr
+    const sw = plr.sweapon
+    this.hud.special.setVisible(sw >= 0)
+    if (sw >= 0) this.hud.special.setTexture(`pickup-${sw}`)
+    const sw2 = plr.sweapon2 ?? -1
+    this.hud.special2?.setVisible(sw2 >= 0)
+    if (sw2 >= 0) this.hud.special2?.setTexture(`pickup-${sw2}`)
+    this.updateWeaponBar(sw, sw2)
+  }
+
+  /** Damage scanner (boss integrity). */
+  private drawScanner(g: GameObjects.Graphics): void {
+    if (!this.world.inv.isEquip(Obj.DETECT)) return
+    const dmg = enemyBaseDamage(this.world)
+    if (dmg <= 0) return
+    g.fillStyle(0x05060d, 0.7).fillRoundedRect(330, 534, 300, 18, 5)
+    g.fillStyle(0xff4050, 0.95).fillRoundedRect(333, 537, (294 * dmg) / 100, 12, 4)
+  }
+
+  private warning(): string {
+    if (this.world.weaponLost) return tr("game.weaponLost")
+    return this.world.lowShield ? tr("game.shieldLow") : ""
   }
 
   private drawTouchButtons(g: GameObjects.Graphics): void {
@@ -923,6 +949,10 @@ export class Game extends Scene {
       if (on) g.lineStyle(2, 0x39d0ff, 0.9).strokeRoundedRect(it.x - 24, 551, 48, 46, 8)
       if (on2) g.lineStyle(2, P2_TINT, 0.9).strokeRoundedRect(it.x - 27, 548, 54, 52, 10)
     }
+    this.flashSwitches(sw, sw2)
+  }
+
+  private flashSwitches(sw: number, sw2: number): void {
     const coop = this.world.ships.length > 1
     if (sw !== this.lastWeapon) {
       this.lastWeapon = sw
@@ -1037,9 +1067,11 @@ export class Game extends Scene {
       this.pauseItems.push({ t, fn })
       return t
     }
-    const items: GameObjects.Text[] = []
-    items.push(mk(0, tr("game.resume"), () => this.togglePause()))
-    items.push(this.pauseVolume("music"), this.pauseVolume("sfx"))
+    const items: GameObjects.Text[] = [
+      mk(0, tr("game.resume"), () => this.togglePause()),
+      this.pauseVolume("music"),
+      this.pauseVolume("sfx"),
+    ]
     // hidden where the Fullscreen API is missing (iPhone), like the menu entry
     if (this.scale.fullscreen.available) {
       const fsLabel = () =>
