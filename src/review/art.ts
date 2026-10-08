@@ -340,12 +340,8 @@ for (const sec of ["bravo", "train"] as const) {
       used.add(e.iname)
     }
     const title = sec === "train" ? `Training wave ${wave + 1}` : `Bravo mission ${wave + 1}`
-    const intro =
-      sec === "train"
-        ? wave
-          ? `DOS map ${index + 1}`
-          : "Web-only beginner wave (map 1 terrain)"
-        : ""
+    const trainIntro = wave ? `DOS map ${index + 1}` : "Web-only beginner wave (map 1 terrain)"
+    const intro = sec === "train" ? trainIntro : ""
     const g = section(`${sec}${wave + 1}`, title, intro, String(wave), sec)
     for (const { slib, n } of byName.values()) g.append(enemyCard(slib, n, sec))
     main.append(terrain(index, map.flats, sec, wave))

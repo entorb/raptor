@@ -226,14 +226,18 @@ export class Inventory {
       return Buy.GOTIT
     }
     if (this.objs.length >= MAX_OBJS) return Buy.SHIPFULL
-    const cur: InvObj = { type, num: lib.start_cnt, inuse: false }
-    this.objs.push(cur)
-    if (this.p_objs[type] === null) {
-      cur.inuse = true
-      this.p_objs[type] = cur
-      if (lib.specialw) for (const k of this.slots()) if (this.plr[k] === EMPTY) this.plr[k] = type
-    }
+    this.addObj(type, lib.start_cnt, !!lib.specialw)
     return Buy.GOTIT
+  }
+
+  /** New object; the first of its type is equipped (and picked up by empty special slots). */
+  private addObj(type: ObjType, num: number, specialw: boolean): void {
+    const cur: InvObj = { type, num, inuse: false }
+    this.objs.push(cur)
+    if (this.p_objs[type] !== null) return
+    cur.inuse = true
+    this.p_objs[type] = cur
+    if (specialw) for (const k of this.slots()) if (this.plr[k] === EMPTY) this.plr[k] = type
   }
 
   del(type: ObjType): void {

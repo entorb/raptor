@@ -501,7 +501,7 @@ export class World {
       const r = this.demoStep()
       if (!r) return false
       demoBut = [!!r.b[0], !!r.b[1], !!r.b[2], false]
-    } else for (const [i, s] of this.ships.entries()) this.movePlayer(s, inputs[i] ?? NO_INPUT)
+    } else this.moveShips(inputs)
 
     for (const [i, s] of this.ships.entries()) {
       const p = inputs[i] ?? NO_INPUT
@@ -528,6 +528,16 @@ export class World {
     // display-phase logic
     tileScroll(this)
     shotsAfterDisplay(this)
+    this.stepFade()
+    return !this.end_wave
+  }
+
+  private moveShips(inputs: FrameInput[]): void {
+    for (const [i, s] of this.ships.entries()) this.movePlayer(s, inputs[i] ?? NO_INPUT)
+  }
+
+  /** Mega bomb flash: advance the shake, then start a new one. */
+  private stepFade(): void {
     if (this.fadeflag) {
       if (this.fadecnt >= FADE_FRAMES - 1) this.fadeflag = false
       else this.fadecnt++
@@ -540,7 +550,6 @@ export class World {
       this.fadeflag = true
       this.fadecnt = 0
     }
-    return !this.end_wave
   }
 
   /** Screen shake offset (mega bomb) in DOS pixels. */
