@@ -36,7 +36,9 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   as in `glowText(..., { glow, color })`), consecutive `push()` calls (one `push(a, b)`),
   `await` inside a loop in scripts (sequential steps: `inOrder` promise chain in
   `gen_screen_exports.mjs`, else `Promise.all`), and `TODO` comments (none committed; dated
-  "delete after" migrations get removed once the date passes).
+  "delete after" migrations get removed once the date passes). Repetitive key->string tables
+  (`data/ep1.ts`, `i18n/strings.ts`) are excluded from duplication (`sonar.cpd.exclusions` in
+  `.sonarcloud.properties`): every new entry matches dozens of others; don't reshape them.
 
 ## Layout
 
@@ -47,16 +49,22 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   `Game` (fixed-step sim at `FRAME_MS`, rendering with interpolation).
 - `src/game/render/`: `terrainView.ts` (scrolling terrain chunks, destructible modules),
   `effects.ts` (particles for the original ANIMS).
-- `src/game/art/`: procedural Canvas2D art: `ships.ts` (unit archetypes per original picture name,
-  `SPECS`; `drawPlayer` = 7 bank frames drawn as a roll: lowered wing short/dark, raised wing wide/lit), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
-  `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing backdrop per sector, crossfaded by `Hangar.show`), `terrain.ts` (terrain chunks), `textures.ts`
+- Shadows (`Game.trackShadow`, SHADOWS.C rules): enemies with `lib.shadow` and the player
+  (while `draw_player`). Ground: 3 px left, 4 px down (`D.groundShadow`, under ground enemies).
+  Sky + player: 10 px left, 20 px down, then projected 200/280 toward (160, 100), also scaled
+  200/280 (`D.skyShadow`, above ground enemies). Look = violet rim + dark core (`SHADOW_LAYERS`).
+- `src/game/art/`: procedural Canvas2D art: `ships.ts` (one distinct design per original picture name,
+  `SPECS`: own silhouette per enemy, hull tint by threat (pale fodder, steel fighters, copper light
+  gunships, crimson armored, hazard yellow kamikaze, gunmetal specialists, violet elite); turrets via
+  `turretOf(sides, guns, len, aim?)`; keep new enemies distinguishable from all others in their waves; `drawPlayer` = 7 bank frames drawn as a roll: lowered wing short/dark, raised wing wide/lit), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
+  `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing room per sector, crossfaded by `Hangar.show`; over it the per-wave `brief-<sector>-<wave>` overlay, `textures.ts briefingTexture`, built on first use: the wave's toughest boss on the scan table + 4 signature enemies on the intel cards, `briefingUnits`: types new to the wave first, then the most frequent; no bonus carriers/critters), `terrain.ts` (terrain chunks), `textures.ts`
   (texture keys, built once in `Boot`).
 - `src/game/i18n/`: EN (default) + DE. `strings.ts` = `STRINGS` (`en`/`de` per key, `{name}` placeholders),
   `i18n.ts` = `t(key, params)`, `setLang` (localStorage `raptor.lang`, also sets `<html lang>` + the `#rotate`
   overlay). Toggle = main menu item (restarts the scene). All UI text goes through `t()`: never
   cache a translated string in a module constant. Headers (RAPTOR, CALL OF THE VOID, HANGAR, SUPPLY SHOP,
   MISSION BRIEFING) and item names (`OBJ_LIB`) stay English. `Game.ts` imports it as `tr` (local `t` vars).
-  `strings.ts` is excluded from cspell.
+  German words in `strings.ts` go into `cspell-words.txt`.
 - `src/game/input/gamepad.ts` (web addition): polls the standard-mapping gamepad and dispatches
   synthetic keyboard events on `window` (keyCode patched in, Phaser reads it): D-pad/stick = arrows,
   A = Enter, B = Esc, X = Space, Start = P, LB = Alt, RB = Shift. No scene has gamepad code.
@@ -73,7 +81,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   - `Game.ts` private: `specials()` (equipped special weapons), `pillButton` (Start/Continue).
   - `art/draw.ts`: `seeded`, `glow`, `metal`, `canopy`, `roundRect`, `polyPath`, `makeCanvas`,
     `sphere` (lit ball), `softDot` (fading radial dot, fills only its own box).
-  - `sim/consts.ts`: `XPOS`/`YPOS` circle tables; `sim/tile.ts hitSpot`; `World.syncPlayerCenter`.
+  - `sim/consts.ts`: `XPOS`/`YPOS` circle tables; `sim/tile.ts hitSpot`; `PlayerShip.syncCenter`.
   - Art refactors must stay pixel-identical: compare all `review/art.html` canvases (`toDataURL`)
     and the screen exports against a `git worktree` of HEAD on a second dev port (don't stash).
 - Shop: maxed items (`Inventory.full`) are dimmed with `MAX`; the card shows the max per item,
@@ -81,12 +89,25 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - Pause menu: volume rows (LEFT/RIGHT adjust on them), else LEFT/RIGHT step the special weapon.
 - `src/game/input/gameInput.ts`: keyboard, touch (relative
   drag anywhere incl. letterbox, on-screen NOVA/SWAP/pause buttons). Auto-fire
-  (`Settings.autoFire`, default on) fires continuously; toggles: Options menu, pause menu, Space key (in flight, not while paused/waiting).
+  (`Settings.autoFire`, default on) fires continuously; toggles: touch AUTO button, Space key (in flight, not while paused/waiting).
   When off, fire = a finger on the screen (no single-shot key on desktop). Note: like DOS `OBJS_Think`,
   the shield only recharges while not firing, so auto-fire means no recharge. Web change: +1
   per `CHARGE_SHIELD` = 48 idle frames (DOS 96), firing pauses the counter (DOS reset it).
   `SPECIAL_KEYS` = number keys for special weapons in shop order (by price, not DOS order; also
   used by the mission briefing and the HUD weapon strip).
+- 2P co-op (web addition, desktop keyboard only): fixed per pilot at creation (`PilotSave.coop`,
+  `name` = team name; new pilot flow `Menu`: players -> difficulty -> name, the players step is
+  skipped on `TOUCH`; coop saves are listed "2P" and not flyable on touch). Shared inventory,
+  credits and shield (both ships explode at 0); each player has an own special weapon
+  (`PlayerState.sweapon` / `sweapon2`, `Inventory` methods take a `SpecialSlot`; a weapon that
+  runs out / is lost / sold moves every slot holding it). Sim: `World.ships: PlayerShip[]`
+  (1 or 2, ctor `players`), `World.cur` = ship being processed (fires, gets hit via `hitShip`),
+  own fire cooldown (`PlayerShip.shotLib`), `Shot.owner` / `AnimObj.ship` for followers; enemy
+  aim and kamikaze chase target `nearestShip`; hits/pickups test every ship; no ship-vs-ship
+  collision; fly-off in own lanes (`flyLanes`, left ship left of center); enemies get 50% more hits (`enemy.ts coopHits`). With one ship every loop is a single
+  iteration: 1P RNG order stays DOS-exact (`demo.test.ts`). Keys (`GameInput.readTwo`): P1 arrows,
+  Shift/Alt, Enter, 1..0,-; P2 WASD, E/Q, Tab; Space = auto-fire for both; gamepad = P1.
+  P2 art: `player2` texture (`ships.ts PLAYER2_PAL`, amber; `Game.ts P2_TINT`).
 - Hidden god mode: key G in `Game` (`toggleGod`, dev builds only, `import.meta.env.DEV`): `World.god` (DOS `godmode`: no damage, no
   death) and +10000000 CR per activation; stays on for later missions (`session.ts`
   `godMode()`/`setGodMode()`, not saved). Keep it out of the briefing; it is documented in README.
@@ -101,7 +122,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   deployed prod build only (skipped in dev and on localhost, like `stats.ts`).
 - `src/game/data/stats.ts`: global mission counter shared with the other entorb.net pages
   (`web-stats-json.php?origin=raptor`). `reportMissionStart()` on every mission launch (`Hangar.launch`, not demos, skipped in dev and on localhost);
-  `readGlobalMissions()` feeds "Global Missions" at the bottom of the start screen.
+  a failed write is counted offline in `raptor.statsPending` (localStorage) and sent after the next successful write, like `../flashcards`; `readGlobalMissions()` feeds "Global Missions" at the bottom of the start screen.
 - `src/game/audio/audio.ts`: FX table (sample, DMX pitch, volume), 3D pan/volume, music (songs
   load lazily). `WAVE_SONGS[sector][wave]`: every sector has its own music theme and every wave its
   own song (`gen_audio.mjs SONGS`: `bravo*` = Bravo, saw/analog combat; `train*` = Training, own synth palette
@@ -122,14 +143,18 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   preselects `p.sector` + `defaultWave` (next unfinished), any `playable` wave, the level's top 10
   below. A wave != `nextWave` is a replay: `afterWave(p, result, sector, wave, earned)` keeps
   credits/loadout. `PilotSave.stats[b<w>|t<w>]` = completions + top-10 runs (`TopRun`: credits + enemy kill %, old saves stored plain numbers). A completed
-  wave (replay or not) shows a results panel (`Game.showResults`): credits, enemies/buildings destroyed
-  (`World.destroyedPct`: `Enemies.killed/seen`, `Tiles.destroyed/structs`) and the level's top 10 with
-  this run in gold; Continue (tap, Enter/Space keyup) goes to the Hangar main screen. A completed wave refills the shield to at least 50% (`Game.end`); 100% enemy kills pay a +10% credit bonus (`Game.end`, shown on the results panel). Death and abort reload the
+  wave (replay or not) shows a results panel (`Game.showResults`): credits, a mission report
+  (`Game.reportRows`: enemies/buildings destroyed, damage taken, shots fired; 2P: one column per
+  player with a header in the engine glow color + credits earned each, scaled to the payout) from
+  `PlayerShip.stats` (kills/buildings credited to the last hitter: `Ship.hitBy`, `Tiles.hitBy`,
+  `World.hitter` = `shooter` during SHOTS_Think, else `cur`; boss money is split evenly) and the
+  level's top 10 with this run in gold; a death shows the same panel (red title, half payout); Continue (tap, Enter/Space keyup) goes to the Hangar main screen. A completed wave refills the shield to at least 50% (`Game.end`); 100% enemy kills pay a +10% credit bonus (`Game.end`, shown on the results panel). Death and abort reload the
   last save (`reloadPilot`): weapons lost in flight come back. The HUD shows credits earned this run.
   The Hangar back icon is only shown on the shop and launch screens (hangar has an Exit row).
 - Training sector look (`Game.create` `sim`): a holographic simulator instead of a real fight.
-  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones (armed ground units = red octagon emplacements with a gun, never the square passive `tstruct-` pads)
-  (`ships.ts drawTrainingUnit`, one shape per unit role), `tstruct-/twreck-` target pads, `sim-*`
+  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones (`ships.ts TRAIN_LOOK`: own shape + color per picture, the
+  bullseye takes the unit color; armed ground units = polygon/round `emplacement`s with guns, never
+  the square passive `tstruct-` pads), `tstruct-/twreck-` target pads, `sim-*`
   grid backdrop; `ChunkJob(..., train)` renders the map as a gridded deck; `Effects(..., sim)` uses
   cyan "derez" explosions; banners say SIMULATION. Sim/gameplay is identical to Bravo.
 - Hangar background: `art/hangar.ts` (`hangar-bg`, open bay door = transparent `BAY`); the
@@ -157,7 +182,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   `node scripts/gen_audio.mjs sfx|music [name]`. Needs a native ffmpeg (`FFMPEG_BIN` overrides
   ffmpeg-static). Songs are ~60 s seamless loops (reverb tails wrap), vorbis q2 to stay < 1 MB.
 - `src/review/`: dev-only pages (not in the prod build): `art.html` (all procedural sprites next to
-  `tmp/ref` originals, enemies per mission) and `sounds.html` (new vs archived audio); both share
+  `tmp/ref` originals, enemies per sector wave via `campaign.ts waveMap`: Bravo missions 1-9, Training waves 1-5) and `sounds.html` (new vs archived audio); both share
   the sector/wave filter `filter.ts` (empty = unfiltered).
 - `original_game/dosraptor/`: original DOS source (reference, gitignored).
 
@@ -244,6 +269,7 @@ the swiftshader launch args, or `page.screenshot` hangs.
 - Canvas textures: `textures.addCanvas` + `texture.add(frameName, 0, x, y, w, h)` for frames;
   single images use frame `"__BASE"`.
 - `Math.random` is not used (Sonar S2245); visuals use seeded noise (`art/draw.ts seeded`).
+- Old iOS (iPhone 7, iOS 15 Safari): no `ctx.roundRect` (use `art/draw.ts roundRect`, it has an `arcTo` fallback), no canvas `ctx.filter` (ignored, Hangar shadow unblurred), no Ogg Vorbis (< iOS 17: the loader skips all samples, so `Audio` disables itself via `device.audio.ogg`, or any play throws "key not found in cache"; deliberately OGG only, no second format).
 - Vite 8 / rolldown needs `manualChunks` as a function. `base` must match the deploy dir.
 - `#app` must not use `100dvh` + flex (stale height on Chrome Android); keep `100svh` and
   Phaser `CENTER_BOTH`. Landscape is enforced by the CSS `#rotate` overlay.

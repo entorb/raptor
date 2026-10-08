@@ -2,10 +2,17 @@
 
 A web remake of the 1994 MS-DOS vertical shooter [Raptor: Call of the Shadows](https://en.wikipedia.org/wiki/Raptor:_Call_of_the_Shadows) (Cygnus Studios / Apogee / Scott Host). Moved theme to space and redrawn with modern procedural art and sound. Logic, weapons, enemy formations, and flight paths are ported 1:1 from the released [DOS source code](https://github.com/skynettx/raptor).
 
+- Play at [entorb.net/raptor/](https://entorb.net/raptor/)
 - Play in web browser or install as (PWA) app
 - Play by keyboard on desktop or by touch on phone
   (for gamepad support use a tool like [AntiMicroX](https://github.com/AntiMicroX/antimicrox))
-- Play at [entorb.net/raptor](https://entorb.net/raptor)
+- Local Coop: 2 players on one keyboard (desktop)
+
+![raptor-promo](promo/raptor-promo.jpg)
+
+## Share / Promote
+
+If you like the game, please spread the word, see [promo/](promo/README.md) for posts in social media.
 
 ## Privacy
 
@@ -21,8 +28,9 @@ A web remake of the 1994 MS-DOS vertical shooter [Raptor: Call of the Shadows](h
 - Replay of each mission allowed
 - No selling of basic weapon
 - After mission accomplished: shield refilled to 50%
-- Death and abort mission now earn 50% of credits
+- Death and abort mission earn 50% of credits
 - Mission accomplished with 100% enemy kills: +10% credits bonus
+- 2-player co-op mode (desktop): shared credits, shop and shield; enemies get 50% more hit points
 
 ## Development
 

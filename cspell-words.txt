@@ -1,5 +1,6 @@
 abbrechen
 abgebrochen
+abgefeuert
 abgeschlossen
 abgeworfen
 abschüsse
@@ -29,6 +30,7 @@ atplayer
 auch
 audiolib
 autofeuer
+basepic
 beenden
 beforeinstallprompt
 bereits
@@ -48,6 +50,7 @@ bodenziele
 bord
 bosse
 bossflag
+braucht
 breakbeat
 breite
 bresenham
@@ -59,6 +62,7 @@ chans
 crossfaded
 csprite
 curframe
+curlib
 curplr
 dann
 delayflag
@@ -70,6 +74,7 @@ dethpow
 dethry
 deutsch
 dflag
+diesen
 dieser
 doneflag
 doomjs
@@ -101,6 +106,7 @@ eobj
 eplasma
 erfasst
 erforderlich
+erlitten
 erneut
 esbuild
 eshot
@@ -220,6 +226,7 @@ mapspot
 maxloop
 maxplayery
 maxspeed
+maxz
 mazedata
 mazelevel
 meffect
@@ -281,6 +288,7 @@ pfeile
 phasenschild
 phasermsg
 picname
+piloten
 pilotenname
 plasmageschosse
 platz
@@ -329,6 +337,7 @@ schildenergie
 schnellfeuer
 schwer
 schwere
+schüsse
 segoe
 segs
 sektor
@@ -401,7 +410,9 @@ tappable
 targ
 targt
 tasm
+tastatur
 tdead
+teamname
 teilen
 tileable
 tiledelay
@@ -422,9 +433,11 @@ tspots
 tstruct
 tweens
 twreck
+unblurred
 unequips
 ungelenkte
 unten
+verdient
 verfügbar
 vergeben
 verhindert
