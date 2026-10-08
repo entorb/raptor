@@ -1,6 +1,6 @@
 // Gameplay: runs the DOS-exact sim at its fixed rate (FRAME_MS) and renders it with the new art,
 // interpolating positions between sim frames.
-import { type GameObjects, Scene } from "phaser"
+import { type GameObjects, Scene, TintModes } from "phaser"
 import { HUD_BAR } from "../art/fx"
 import { buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
@@ -55,8 +55,10 @@ export interface GameData {
 const D = {
   stars: 0,
   terrain: 10,
+  groundShadow: 15,
   groundAnim: 20,
   groundEnemy: 22,
+  skyShadow: 23,
   airAnim: 30,
   airEnemy: 40,
   shots: 45,
@@ -68,6 +70,14 @@ const D = {
   overlay: 100,
 }
 
+/** shadow look: violet rim under a dark core, visible on dark space and bright terrain alike */
+const SHADOW_LAYERS = [
+  { id: "r", color: 0x8a5cff, alpha: 0.1, scale: 1, depth: 0 },
+  { id: "c", color: 0x0a0418, alpha: 0.1, scale: 0.86, depth: 1 },
+]
+/** SHADOWS.C SHADOW_Draw: G3D_DIST / (MAXZ - view z) = 200 / (1280 - 1000), toward (160, 100) */
+const SKY_SHADOW = 200 / 280
+
 /** One player ship's sprites (2P co-op: two). */
 interface ShipView {
   img: GameObjects.Image
@@ -78,6 +88,9 @@ interface ShipView {
 
 /** 2P co-op: player 2's engine glow / weapon strip frame */
 const P2_TINT = 0xffa040
+
+/** player bank frame (0..6) */
+const playerFrame = (s: PlayerShip) => String(Math.max(0, Math.min(6, s.pic)))
 
 interface Tracked {
   obj: GameObjects.Image
@@ -432,7 +445,7 @@ export class Game extends Scene {
     const w = this.world
     const px = lerp(v.prev.x, s.cx) * SCALE
     const py = lerp(v.prev.y, s.cy) * SCALE
-    v.img.setVisible(w.draw_player).setFrame(String(Math.max(0, Math.min(6, s.pic))))
+    v.img.setVisible(w.draw_player).setFrame(playerFrame(s))
     v.img.setPosition(px, py)
     v.glow
       .setVisible(w.draw_player)
@@ -449,6 +462,10 @@ export class Game extends Scene {
   /** Mark every visible sim object as seen (creating/updating its sprite). */
   private trackWorld(w: World): void {
     for (const s of w.enemies.ships) this.trackShip(w, s)
+    // RAP.C: SHADOW_Add for the player while draw_player (2P: both ships)
+    if (w.draw_player)
+      for (const [i, s] of w.ships.entries())
+        this.trackShadow(`p${i}`, i ? "player2" : "player", playerFrame(s), s.cx, s.cy, true)
     for (const s of w.shots) {
       if (s.lib.beam === "beam" || s.lib.beam === "line") continue
       const t = this.track(
@@ -493,6 +510,45 @@ export class Game extends Scene {
     )
     if (s.hits < s.lib.hits * 0.3 && w.frame % 4 < 2) t.obj.setTint(0xff9090)
     else t.obj.clearTint()
+    // ENEMY_Think: curlib->shadow -> SHADOW_GAdd (ground) / SHADOW_Add (air)
+    if (s.lib.shadow)
+      this.trackShadow(
+        `e${s.id}`,
+        `${this.unitPrefix}${s.lib.iname}`,
+        s.curframe % frames,
+        s.x + s.width / 2,
+        s.y + s.height / 2,
+        !s.groundflag,
+      )
+  }
+
+  /**
+   * SHADOWS.C: a darkened silhouette of the sprite (center cx/cy, DOS px). Ground (SHADOW_GAdd):
+   * 3 px left, 4 px down. Sky (SHADOW_Add): 10 px left, 20 px down, then projected toward the
+   * screen center, so it shrinks and slides onto the screen before the ship does.
+   */
+  private trackShadow(
+    key: string,
+    tex: string,
+    frame: string | number,
+    cx: number,
+    cy: number,
+    sky: boolean,
+  ): void {
+    const x = sky ? 160 + (cx - 10 - 160) * SKY_SHADOW : cx - 3
+    const y = sky ? 100 + (cy + 20 - 100) * SKY_SHADOW : cy + 4
+    const depth = sky ? D.skyShadow : D.groundShadow
+    for (const layer of SHADOW_LAYERS) {
+      const k = `h${layer.id}${key}`
+      const fresh = !this.tracked.has(k)
+      const { obj } = this.track(k, tex, frame, x, y, depth + layer.depth)
+      if (fresh)
+        obj
+          .setTint(layer.color)
+          .setTintMode(TintModes.FILL)
+          .setAlpha(layer.alpha)
+          .setScale(layer.scale * (sky ? SKY_SHADOW : 1))
+    }
   }
 
   private drawBeams(lerp: (a: number, b: number) => number): void {
