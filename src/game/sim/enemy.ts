@@ -15,7 +15,7 @@ import {
 } from "./consts"
 import { eshotShoot } from "./eshot"
 import { initMobj, type MoveObj, moveEobj, moveMobj, newMove } from "./move"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const NORM_SHOOT = -1
 const START_SHOOT = 0
@@ -95,6 +95,8 @@ export interface Ship {
   suckagain: number
   /** web: counted in `Enemies.seen` (entered the screen or was destroyed) */
   seen: boolean
+  /** web: ship that last damaged it (mission report credit) */
+  hitBy?: PlayerShip
   /** set when ENEMY_Remove freed the slot (DOS sets item = ~0) */
   removed: boolean
 }
@@ -296,6 +298,7 @@ export function enemyDamage(w: World, f: Filter, x: number, y: number, damage: n
     if (f === "air" && s.groundflag) continue
     if (inside(s, x, y)) {
       s.hits -= damage
+      s.hitBy = w.hitter
       if (f !== "all" && w.curplr_diff === DIFF_TRAIN) s.hits -= damage
       return true
     }
@@ -309,6 +312,7 @@ export function enemyDamageEnergy(w: World, x: number, y: number, damage: number
     if (s.groundflag) continue
     if (inside(s, x, y)) {
       s.hits--
+      s.hitBy = w.hitter
       if (s.lib.suck) {
         if (s.suckagain > 0) s.suckagain -= damage
         else {
@@ -528,6 +532,7 @@ function ramPlayer(w: World, s: Ship): void {
   for (const p of w.ships) {
     if (!inside(s, p.cx, p.cy)) continue
     s.hits -= PLAYERWIDTH / 2
+    s.hitBy = p
     const suben = Math.max(s.width, s.height)
     w.hitShip(p, suben >> 2)
     const x = p.cx + (w.rng.random(8) - 4)
@@ -542,6 +547,12 @@ function killShip(w: World, s: Ship): void {
   const lib = s.lib
   w.plr.score += lib.money
   w.enemies.killed++
+  const by = (s.hitBy ?? w.ships[0]) as PlayerShip
+  by.stats.kills++
+  // web: a boss's money is split evenly between the players (the killer gets an odd credit)
+  const share = lib.bossflag ? Math.floor(lib.money / w.ships.length) : 0
+  for (const sh of w.ships) sh.stats.credits += share
+  by.stats.credits += lib.money - share * w.ships.length
   w.sfx3d("AIREXPLO", s.x + s.hlx)
   explodeShip(w, s)
   if (lib.bonus !== EMPTY) w.bonusAdd(lib.bonus as ObjType, s.x, s.y)

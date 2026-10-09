@@ -222,6 +222,44 @@ describe("2P co-op (web)", () => {
     expect(w.cur).toBe(b)
   })
 
+  it("credits shots, kills, buildings and damage to the ship that caused them (mission report)", () => {
+    const { plr, w } = coop()
+    const [a, b] = w.ships as [NonNullable<(typeof w.ships)[0]>, NonNullable<(typeof w.ships)[1]>]
+    w.hitShip(a, 3)
+    expect([a.stats.damage, b.stats.damage]).toEqual([3, 0])
+    w.god = true
+    const start = plr.score
+    for (let f = 0; f < 3000; f++) w.step([NO_INPUT, fire])
+    // P1 never fires: its kills are rams only
+    expect(a.stats.shots).toBe(0)
+    expect(b.stats.shots).toBeGreaterThan(0)
+    expect(b.stats.kills).toBeGreaterThan(0)
+    expect(a.stats.kills + b.stats.kills).toBe(w.enemies.killed)
+    expect(a.stats.buildings + b.stats.buildings).toBe(w.tiles.destroyed)
+    expect(a.stats.credits + b.stats.credits).toBe(plr.score - start)
+  })
+
+  it("splits a boss's money evenly between the players", () => {
+    const plr: PlayerState = { score: 0, sweapon: -1 }
+    const inv = new Inventory(plr)
+    newPilotObjs(inv)
+    const w = new World(0, plr, inv, DIFF_TRAIN, BEGINNER_MAP, 2)
+    w.god = true
+    let boss: Ship | undefined
+    for (let f = 0; f < 5000 && !boss && w.step([NO_INPUT, NO_INPUT]); f++)
+      boss = w.enemies.ships.find((s) => s.lib.bossflag)
+    if (!boss) throw new Error("no boss")
+    const [a, b] = w.ships as [NonNullable<(typeof w.ships)[0]>, NonNullable<(typeof w.ships)[1]>]
+    const before = [a.stats.credits, b.stats.credits]
+    boss.hits = 0
+    boss.hitBy = b
+    w.step([NO_INPUT, NO_INPUT])
+    const half = boss.lib.money >> 1
+    expect(boss.lib.money).toBeGreaterThan(0)
+    expect(a.stats.credits - (before[0] ?? 0)).toBe(half)
+    expect(b.stats.credits - (before[1] ?? 0)).toBe(boss.lib.money - half)
+  })
+
   it("flies off in separate lanes after the wave", () => {
     const { w } = coop()
     w.god = true
