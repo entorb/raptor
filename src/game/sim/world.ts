@@ -138,6 +138,8 @@ export class PlayerShip {
   b4 = false
   /** fly-off target x (DOS: the screen center); 2P: own lane per ship */
   exitX = 160
+  /** web: mission report (shield damage taken, projectiles fired, credits (kills, buildings, pickups) / kills / buildings by this ship) */
+  stats = { damage: 0, shots: 0, credits: 0, kills: 0, buildings: 0 }
 
   constructor(
     readonly slot: SpecialSlot,
@@ -185,6 +187,8 @@ export class World {
   ships: PlayerShip[]
   /** the ship being processed (fires, gets hit); always ships[0] in 1P */
   cur: PlayerShip
+  /** web: owner of the shot being processed (SHOTS_Think), else null */
+  shooter: PlayerShip | null = null
   private control_pause = false
 
   gl_cnt = 0
@@ -320,6 +324,11 @@ export class World {
     return best
   }
 
+  /** web: the ship credited with damage dealt right now (mission report) */
+  get hitter(): PlayerShip {
+    return this.shooter ?? this.cur
+  }
+
   /** `cur` takes the hit (phase shield glow, weapon loss). */
   hitShip(s: PlayerShip, amt: number): number {
     this.cur = s
@@ -354,7 +363,10 @@ export class World {
     }
     if (!this.inv.p_objs[Obj.ENERGY]) return 0
     this.sfx("HIT")
-    return this.inv.subAmt(Obj.ENERGY, amt)
+    const before = this.shield
+    const left = this.inv.subAmt(Obj.ENERGY, amt)
+    this.cur.stats.damage += before - this.shield
+    return left
   }
 
   private use(type: ObjType): void {

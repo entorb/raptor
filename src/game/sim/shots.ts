@@ -285,6 +285,7 @@ function get(w: World, lib: ShotLib, x: number, y: number): Shot | null {
     cnt: 0,
     owner: w.cur,
   }
+  w.cur.stats.shots++
   w.shots.push(s)
   return s
 }
@@ -341,6 +342,7 @@ function shootTurret(w: World, lib: ShotLib, cx: number, cy: number): boolean {
   w.sfx("TURRET")
   const a = get(w, lib, cx, cy) as Shot
   enemy.hits -= lib.hits
+  enemy.hitBy = w.hitter
   a.move.x = enemy.move.x + r.random(enemy.width) - 1
   a.move.y = enemy.move.y + r.random(enemy.height) - 1
   a.move.x2 = cx
@@ -450,6 +452,7 @@ function beamTarget(w: World, shot: Shot, lib: ShotLib): void {
   for (const enemy of w.enemies.ships) {
     if (shot.x > enemy.x && shot.x < enemy.x2 && enemy.y < shot.owner.cy && enemy.y > -30) {
       enemy.hits -= lib.hits
+      enemy.hitBy = w.hitter
       if (enemy.hits !== -1) {
         shot.move.y2 = enemy.y + enemy.hly
         return
@@ -569,7 +572,10 @@ function finishShot(w: World, shot: Shot, lib: ShotLib): boolean {
   if (lib.type === Obj.MEGA_BOMB) {
     w.eshots.length = 0
     tileDamageAll(w)
-    for (const enemy of w.enemies.ships) enemy.hits -= lib.hits
+    for (const enemy of w.enemies.ships) {
+      enemy.hits -= lib.hits
+      enemy.hitBy = w.hitter
+    }
     w.startfadeflag = true
     w.startAnim(Anim.SUPER_SHIELD, 0, 0)
     return true
@@ -583,8 +589,10 @@ export function shotsThink(w: World): void {
 
   for (let i = 0; i < w.shots.length; i++) {
     const shot = w.shots[i] as Shot
+    w.shooter = shot.owner
     if (stepShot(w, shot)) w.shots.splice(i--, 1)
   }
+  w.shooter = null
 }
 
 function decrementShootRate(w: World): void {
