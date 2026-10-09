@@ -2,7 +2,7 @@
 // Tile "items" are FLATS indices; a tile is destructible while eitems != titems.
 import { FLATS } from "../data/ep1"
 import { Anim, MAP_BLOCKSIZE, MAP_COLS, MAP_LEFT, MAP_ONSCREEN, MAP_ROWS, MAP_SIZE } from "./consts"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const MAX_STILES = MAP_ONSCREEN * MAP_COLS
 const MAX_TILEDELAY = (MAP_ONSCREEN + 1) * MAP_COLS
@@ -44,6 +44,8 @@ export class Tiles {
   /** web: destructible structures in the map / destroyed so far (mission stats) */
   structs = 0
   destroyed = 0
+  /** web: ship that last damaged each map spot (mission report credit) */
+  hitBy: (PlayerShip | null)[] = []
 
   /** TILE_CacheLevel */
   load(flats: number[]): void {
@@ -55,6 +57,7 @@ export class Tiles {
     this.tdead.fill(0)
     this.structs = 0
     this.destroyed = 0
+    this.hitBy = new Array(MAP_SIZE).fill(null)
     for (let i = 0; i < MAP_SIZE; i++) {
       const f = flats[i] ?? 0
       this.money[i] = FLATS.bounty[f] ?? 0
@@ -78,6 +81,7 @@ function doDamage(w: World, mapspot: number, damage: number): void {
     const x = ix + (xlookup[loop] as number)
     if (x < 0 || x >= MAP_COLS) continue
     t.hits[spot] = (t.hits[spot] as number) - damage
+    t.hitBy[spot] = t.hitBy[mapspot] ?? w.hitter
   }
 }
 
@@ -85,8 +89,10 @@ function doDamage(w: World, mapspot: number, damage: number): void {
 export function tileDamageAll(w: World): void {
   const t = w.tiles
   for (const ts of t.tspots) {
-    if (t.eitems[ts.mapspot] !== t.titems[ts.mapspot])
+    if (t.eitems[ts.mapspot] !== t.titems[ts.mapspot]) {
       t.hits[ts.mapspot] = (t.hits[ts.mapspot] as number) - 20
+      t.hitBy[ts.mapspot] = w.hitter
+    }
   }
 }
 
@@ -124,10 +130,15 @@ function thinkSpots(w: World): void {
       ts.y = y
       ts.item = t.titems[mapspot] as number
       if ((t.hits[mapspot] as number) < 0 && !t.tdead[mapspot]) {
-        if (t.titems[mapspot] !== t.eitems[mapspot]) t.destroyed++
+        const by = (t.hitBy[mapspot] ?? w.ships[0]) as PlayerShip
+        if (t.titems[mapspot] !== t.eitems[mapspot]) {
+          t.destroyed++
+          by.stats.buildings++
+        }
         w.sfx3d("GEXPLO", x + 16, y + 16)
         doDamage(w, mapspot, 5)
         w.plr.score += t.money[mapspot] as number
+        by.stats.credits += t.money[mapspot] as number
         explode(w, n, 10)
         w.startAnim(Anim.LARGE_GROUND_EXPLO1, x + 16, y + 16)
         t.tdead[mapspot] = 1
@@ -205,6 +216,7 @@ function hitSpot(w: World, damage: number, x: number, y: number): TileSpot | nul
     const over = x >= ts.x && x < ts.x + MAP_BLOCKSIZE && y >= ts.y && y < ts.y + MAP_BLOCKSIZE
     if (over && t.eitems[ts.mapspot] !== t.titems[ts.mapspot]) {
       t.hits[ts.mapspot] = (t.hits[ts.mapspot] as number) - damage
+      t.hitBy[ts.mapspot] = w.hitter
       return ts
     }
   }

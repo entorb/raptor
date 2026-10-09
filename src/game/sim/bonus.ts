@@ -10,7 +10,7 @@ import {
   YPOS,
 } from "./consts"
 import { OBJ_LIB } from "./objects"
-import type { World } from "./world"
+import type { PlayerShip, World } from "./world"
 
 const MAX_BONUS = 12
 const MAX_MONEY = MAX_BONUS - 3
@@ -83,12 +83,14 @@ function remove(w: World, i: number): void {
 }
 
 /** Player touches a pickup: collect it. Returns true when the bonus is used up. */
-function collect(w: World, cur: Bonus): boolean {
+function collect(w: World, cur: Bonus, ship: PlayerShip): boolean {
   w.sfx("BONUS")
   if (cur.type === Obj.ENERGY) w.inv.addEnergy(MAX_SHIELD / 4)
   else w.inv.add(cur.type)
   w.pickups.push({ type: cur.type, x: cur.x, y: cur.y })
-  if (!OBJ_LIB[cur.type]?.moneyflag) return true
+  const lib = OBJ_LIB[cur.type]
+  if (!lib?.moneyflag) return true
+  ship.stats.credits += lib.cost
   cur.dflag = true
   cur.countdown = 50
   return false
@@ -117,10 +119,10 @@ function stepBonus(w: World, cur: Bonus): boolean {
     cur.curframe++
     if (cur.curframe >= (FRAMES[cur.type] ?? 1)) cur.curframe = 0
   }
-  const touched = w.ships.some(
+  const touched = w.ships.find(
     (s) => cur.x > s.x && cur.x < s.x + PLAYERWIDTH && cur.y > s.y && cur.y < s.y + PLAYERHEIGHT,
   )
-  if (touched && !cur.dflag && w.inv.getAmt(Obj.ENERGY) > 0 && collect(w, cur)) return true
+  if (touched && !cur.dflag && w.inv.getAmt(Obj.ENERGY) > 0 && collect(w, cur, touched)) return true
   if (cur.dflag) {
     cur.countdown--
     if (cur.countdown <= 0) return true

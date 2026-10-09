@@ -88,6 +88,8 @@ interface ShipView {
 
 /** 2P co-op: player 2's engine glow / weapon strip frame */
 const P2_TINT = 0xffa040
+/** report header colors: the players' engine glow */
+const PLAYER_COLORS = ["#39d0ff", "#ffa040"]
 
 /** player bank frame (0..6) */
 const playerFrame = (s: PlayerShip) => String(Math.max(0, Math.min(6, s.pic)))
@@ -1279,45 +1281,98 @@ export class Game extends Scene {
     )
     const { text, next } = this.endTarget(after, result, replay, payout)
     if (result === "complete") {
-      this.showResults(text, pct, after, { earned, bonus }, next)
+      this.showResults(text, after, { earned, bonus }, next)
       return
     }
-    const glow = after.outcome === "death" ? UI.warn : UI.accent
-    const t = glowText(this, 480, 280, text, 52, 24, { glow }).setDepth(D.overlay).setAlpha(0)
+    // mission failed: the report too (with the half payout kept), after the explosion
+    if (after.outcome === "death") {
+      this.time.delayedCall(1500, () =>
+        this.showResults(text, after, { earned: payout, bonus }, next),
+      )
+      return
+    }
+    const t = glowText(this, 480, 280, text, 52, 24).setDepth(D.overlay).setAlpha(0)
     this.tweens.add({ targets: t, alpha: 1, duration: 500 })
     this.cameras.main.fadeOut(2600, 0, 0, 0)
     this.time.delayedCall(2800, next)
   }
 
-  /** Completed wave: destroyed percentages and the level's top 10 (this run in gold), then Continue. */
+  /**
+   * Mission report rows (label + one value per ship); 2P adds the credits each pilot earned,
+   * scaled to the `payout` (half on a death, +bonus on 100% kills; P2 takes the rounding).
+   */
+  private reportRows(payout: number): [string, string[]][] {
+    const w = this.world
+    const pct = (n: number, of: number) => (of ? `${Math.floor((n * 100) / of)}%` : "-")
+    const ss = w.ships.map((sh) => sh.stats)
+    const rows: [string, string[]][] = [
+      [tr("game.repEnemies"), ss.map((st) => pct(st.kills, w.enemies.seen))],
+      [tr("game.repBuildings"), ss.map((st) => pct(st.buildings, w.tiles.structs))],
+      [tr("game.repDamage"), ss.map((st) => `${Math.round((st.damage * 100) / MAX_SHIELD)}%`)],
+      [tr("game.repShots"), ss.map((st) => `${st.shots}`)],
+    ]
+    if (ss.length > 1) {
+      const total = ss.reduce((n, st) => n + st.credits, 0)
+      const p1 = total ? Math.floor(((ss[0]?.credits ?? 0) * payout) / total) : 0
+      rows.unshift([tr("game.repCredits"), [`${p1} CR`, `${payout - p1} CR`]])
+    }
+    return rows
+  }
+
+  /** Completed or failed wave: mission report (per player in 2P) and the level's top 10 (this run in gold), then Continue. */
   private showResults(
     title: string,
-    pct: World["destroyedPct"],
-    { pilot, rank }: ReturnType<typeof afterWave>,
+    { pilot, rank, outcome }: ReturnType<typeof afterWave>,
     { earned, bonus }: { earned: number; bonus: number },
     next: () => void,
   ): void {
-    const fmt = (v: number | null) => (v === null ? "-" : `${v}%`)
+    const failed = outcome === "death"
     const st = pilot.stats?.[levelKey(this.sector, this.wave)]
     const top = st?.top ?? []
-    const txt = (y: number, s: string, size: number, color: string, font = UI.font) =>
-      this.add.text(0, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
+    const txt = (y: number, s: string, size: number, color: string, font = UI.font, x = 0) =>
+      this.add.text(x, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
     // a new personal best (rank 1) or the place this run took in the top 10
     let rankStr = ""
     if (rank === 1 && top.length > 1) rankStr = `  ·  ${tr("game.newBest")}`
     else if (rank !== null) rankStr = `  ·  ${tr("game.rank", { n: rank })}`
     const bonusStr = bonus ? `  ·  ${tr("game.killBonus", { cr: bonus })}` : ""
+    // report table: label column + one value column per ship (2P: colored player header row)
+    const rows = this.reportRows(earned)
+    const coop = this.world.ships.length > 1
+    const cols = coop ? [90, 220] : [160]
+    const rowH = 21
+    const tableH = (rows.length + (coop ? 1 : 0)) * rowH
+    const h = 462 + tableH
+    const top0 = -h / 2
+    let y = top0 + 128
+    const table: GameObjects.GameObject[] = []
+    if (coop) {
+      for (const [i, x] of cols.entries()) {
+        const c = PLAYER_COLORS[i] as string
+        table.push(txt(y, tr("game.player", { n: i + 1 }), 18, c, UI.font, x).setFontStyle("bold"))
+      }
+      y += rowH
+    }
+    for (const [label, vals] of rows) {
+      table.push(txt(y, label, 18, UI.dim, UI.font, -250).setOrigin(0, 0.5))
+      for (const [i, x] of cols.entries())
+        table.push(txt(y, vals[i] ?? "", 18, UI.text, UI.mono, x))
+      y += rowH
+    }
+    y += 16
     const items: GameObjects.GameObject[] = [
-      this.add.rectangle(0, 0, 640, 500, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
-      glowText(this, 0, -200, title, 44, 24),
-      txt(-150, `+${earned} CR${bonusStr}${rankStr}`, 24, UI.gold),
-      txt(-116, tr("game.destroyed", { e: fmt(pct.enemies), b: fmt(pct.buildings) }), 20, UI.text),
-      txt(-78, topHeader(st, this.wave), 19, UI.accent, UI.mono),
+      this.add.rectangle(0, 0, 640, h, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
+      glowText(this, 0, top0 + 50, title, 44, 24, { glow: failed ? UI.warn : UI.accent }),
+      txt(top0 + 96, `+${earned} CR${bonusStr}${rankStr}`, 24, UI.gold),
+      ...table,
+      txt(y, topHeader(st, this.wave), 19, UI.accent, UI.mono),
       ...top.map((r, i) =>
-        txt(-52 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
+        txt(y + 26 + i * 21, topRunLine(i, r), 18, rank === i + 1 ? UI.gold : UI.text, UI.mono),
       ),
     ]
-    if (rank === null) items.push(txt(-48 + top.length * 21, tr("game.notTop"), 18, UI.warn))
+    // a failed run never enters the top 10
+    if (rank === null && !failed)
+      items.push(txt(y + 30 + top.length * 21, tr("game.notTop"), 18, UI.warn))
     let done = false
     const go = () => {
       if (done) return
@@ -1325,7 +1380,7 @@ export class Game extends Scene {
       this.cameras.main.fadeOut(400, 0, 0, 0)
       this.time.delayedCall(450, next)
     }
-    items.push(this.pillButton(208, tr("game.continue"), go))
+    items.push(this.pillButton(h / 2 - 42, tr("game.continue"), go))
     // continue on keyup of a key pressed now: a key still held from the fight must not skip this
     let armed = false
     for (const k of ["ENTER", "SPACE"]) {
