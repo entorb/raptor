@@ -120,7 +120,18 @@ export function canopy(ctx: Ctx, x: number, y: number, rx: number, ry: number, t
 
 export function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath()
-  ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2))
+  const rr = Math.min(r, w / 2, h / 2)
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, rr)
+    return
+  }
+  // Safari < 16 (iOS 15) has no CanvasRenderingContext2D.roundRect
+  ctx.moveTo(x + rr, y)
+  ctx.arcTo(x + w, y, x + w, y + h, rr)
+  ctx.arcTo(x + w, y + h, x, y + h, rr)
+  ctx.arcTo(x, y + h, x, y, rr)
+  ctx.arcTo(x, y, x + w, y, rr)
+  ctx.closePath()
 }
 
 /** Lit sphere: radial gradient with its highlight `off`*r up-left of the center. */
