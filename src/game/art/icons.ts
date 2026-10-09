@@ -1,7 +1,7 @@
 // Item icons (shop, HUD weapon strip, pickups): one line-art glyph per object type, drawn in a
 // 100x100 design box and scaled. The nova bomb reuses its warhead shot art.
 import { Obj } from "../sim/consts"
-import { type Ctx, glow, metal, polyPath } from "./draw"
+import { type Ctx, glow, metal, polyPath, roundRect } from "./draw"
 import { drawShotArt } from "./fx"
 
 /** Accent color per object type (pickup badge, icon strokes, shop highlight). */
@@ -91,8 +91,7 @@ function beam(ctx: Ctx, x: number, y0: number, y1: number, w: number, color: str
 /** Gun body with `n` barrels (seen from above, firing up). */
 function guns(ctx: Ctx, xs: number[], color: string): void {
   for (const x of xs) {
-    ctx.beginPath()
-    ctx.roundRect(x - 6, 40, 12, 46, 4)
+    roundRect(ctx, x - 6, 40, 12, 46, 4)
     metal(ctx, x - 6, x + 6, "#1f2530", "#6c7688", "#dfe6f5", [color, 2])
     glow(ctx, x, 26, 10, color)
     glow(ctx, x, 8, 7, color)
@@ -199,8 +198,7 @@ function drawGlyph(ctx: Ctx, type: number, c: string): boolean {
       )
       return true
     case Obj.MISSLE_PODS:
-      ctx.beginPath()
-      ctx.roundRect(18, 44, 64, 44, 8)
+      roundRect(ctx, 18, 44, 64, 44, 8)
       metal(ctx, 18, 82, "#1f2530", "#5a6474", "#b9c2d4", [c, 3])
       for (const x of [32, 50, 68]) missile(ctx, x, 14, 40, 7, c)
       return true
@@ -331,8 +329,7 @@ function drawGlyph(ctx: Ctx, type: number, c: string): boolean {
       glow(ctx, 50, 46, 26, c)
       return true
     case Obj.ENERGY:
-      ctx.beginPath()
-      ctx.roundRect(26, 16, 48, 78, 8)
+      roundRect(ctx, 26, 16, 48, 78, 8)
       ctx.strokeStyle = c
       ctx.lineWidth = 6
       ctx.stroke()
@@ -436,8 +433,7 @@ function autoGlyph(ctx: Ctx): void {
     [66, 56],
   ] as const) {
     const big = y === 20
-    ctx.beginPath()
-    ctx.roundRect(x - 6, y, 12, big ? 34 : 24, 6)
+    roundRect(ctx, x - 6, y, 12, big ? 34 : 24, 6)
     ctx.fillStyle = big ? "#f2fff5" : "rgba(125,255,154,0.55)"
     ctx.fill()
     glow(ctx, x, y + (big ? 17 : 12), big ? 24 : 16, c)

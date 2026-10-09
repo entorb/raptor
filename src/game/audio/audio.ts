@@ -132,7 +132,9 @@ export class Audio {
   sfxVolume = 0.8
 
   constructor(manager: Sound.BaseSoundManager) {
-    this.manager = manager instanceof Sound.WebAudioSoundManager ? manager : null
+    // no Ogg Vorbis (iOS < 17 Safari): the loader skips every sample, so stay silent
+    const ogg = manager.game.device.audio.ogg
+    this.manager = ogg && manager instanceof Sound.WebAudioSoundManager ? manager : null
   }
 
   /** Play one frame of sim sound events (player position for 3D sounds). */
