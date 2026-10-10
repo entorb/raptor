@@ -17,13 +17,55 @@ export async function readGlobalMissions(): Promise<number | null> {
   }
 }
 
+const PENDING_KEY = "raptor.statsPending"
+
+export function parsePending(raw: string | null): number {
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : 0
+}
+
+function loadPending(): number {
+  try {
+    return parsePending(localStorage.getItem(PENDING_KEY))
+  } catch {
+    return 0
+  }
+}
+
+function savePending(n: number): void {
+  try {
+    if (n > 0) localStorage.setItem(PENDING_KEY, String(n))
+    else localStorage.removeItem(PENDING_KEY)
+  } catch {
+    // storage full or unavailable: nothing to do
+  }
+}
+
+async function sendWrite(): Promise<boolean> {
+  try {
+    // `globalThis.fetch` may be missing in some environments (tests)
+    return (await globalThis.fetch?.(`${STATS_URL}&action=write`))?.ok === true
+  } catch {
+    return false
+  }
+}
+
+// Offline writes are counted in localStorage and sent after the next successful write.
+async function writeMission(): Promise<void> {
+  if (!(await sendWrite())) {
+    savePending(loadPending() + 1)
+    return
+  }
+  let left = loadPending()
+  while (left > 0 && (await sendWrite())) left--
+  savePending(left)
+}
+
 export function reportMissionStart(): void {
   // dev server and local preview must not raise the live counter
   const host = globalThis.location?.hostname ?? ""
   if (import.meta.env.DEV || host === "localhost" || host === "127.0.0.1") return
-  // `globalThis.fetch` may be missing in some environments (tests); the
-  // optional call short-circuits, and `.catch` swallows network rejections.
-  void globalThis.fetch?.(`${STATS_URL}&action=write`).catch(() => {})
+  void writeMission()
 }
 
 export function runStatsSelfCheck(): void {
@@ -38,4 +80,8 @@ export function runStatsSelfCheck(): void {
   assert(parseAccessCounts({}) === null, "rejects missing field")
   assert(parseAccessCounts(null) === null, "rejects null")
   assert(parseAccessCounts("nope") === null, "rejects string body")
+  assert(parsePending("3") === 3, "reads pending")
+  assert(parsePending(null) === 0, "null pending")
+  assert(parsePending("-1") === 0, "rejects negative pending")
+  assert(parsePending("x") === 0, "rejects junk pending")
 }
