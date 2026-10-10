@@ -4,7 +4,7 @@ import { BEGINNER_MAP } from "../data/training"
 import { DIFF_NORMAL, DIFF_TRAIN, END_FLYOFF, MAP_SIZE, Obj, PLAYERWIDTH } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, moveEobj, moveSobj, newMove } from "./move"
-import { Buy, Inventory, newPilotObjs } from "./objects"
+import { Buy, Inventory, MAX_OBJS, newPilotObjs } from "./objects"
 import { Rng } from "./rng"
 import { CHARGE_SHIELD, NO_INPUT, type PlayerState, World } from "./world"
 
@@ -90,6 +90,30 @@ describe("Inventory (OBJECTS.C)", () => {
     expect(plr.sweapon).toBe(Obj.DUMB_MISSLE)
     for (let i = 0; i < 20; i++) inv.loseObj()
     expect(inv.isEquip(Obj.FORWARD_GUNS)).toBe(true) // shield hits never take the blasters
+  })
+  it("storage takes a special weapon off the cycle and brings it back (web)", () => {
+    const { plr, inv } = fresh()
+    plr.score = 10_000_000
+    inv.buy(Obj.DUMB_MISSLE)
+    inv.buy(Obj.MINI_GUN)
+    expect(plr.sweapon).toBe(Obj.DUMB_MISSLE)
+    expect(inv.store(Obj.FORWARD_GUNS)).toBe(false) // not a special weapon
+    expect(inv.store(Obj.DUMB_MISSLE)).toBe(true)
+    expect(inv.isEquip(Obj.DUMB_MISSLE)).toBe(false)
+    expect(plr.sweapon).toBe(Obj.MINI_GUN)
+    expect(inv.storageList()).toEqual({ board: [Obj.MINI_GUN], stored: [Obj.DUMB_MISSLE] })
+    expect(inv.retrieve(Obj.DUMB_MISSLE)).toBe(true)
+    expect(inv.isEquip(Obj.DUMB_MISSLE)).toBe(true)
+    expect(inv.stored).toHaveLength(0)
+  })
+  it("retrieve fails while the ship is full", () => {
+    const { plr, inv } = fresh()
+    plr.score = 10_000_000
+    inv.buy(Obj.DUMB_MISSLE)
+    inv.store(Obj.DUMB_MISSLE)
+    while (inv.objs.length < MAX_OBJS) inv.buy(Obj.PLASMA_GUNS)
+    expect(inv.retrieve(Obj.DUMB_MISSLE)).toBe(false)
+    expect(inv.stored).toHaveLength(1)
   })
   it("extra copies of a weapon are spares that replace a lost one (OBJS_Add/OBJS_Del)", () => {
     const { plr, inv } = fresh()

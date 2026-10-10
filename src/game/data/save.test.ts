@@ -48,3 +48,11 @@ it("keeps the 2P co-op flag and player 2's weapon, drops junk", () => {
   expect([a?.coop, a?.sweapon2]).toEqual([true, 3])
   expect([b?.coop, b?.sweapon2]).toEqual([undefined, undefined])
 })
+
+it("stored weapons default to none and drop junk entries", () => {
+  const ok = { ...newPilotSave("A"), stored: [{ type: 3, num: 5, inuse: false }, { type: "x" }] }
+  store.set("raptor.pilots.v1", JSON.stringify([ok, newPilotSave("B")]))
+  const [a, b] = loadPilots()
+  expect(a?.stored).toEqual([{ type: 3, num: 5, inuse: false }])
+  expect(b?.stored).toEqual([])
+})

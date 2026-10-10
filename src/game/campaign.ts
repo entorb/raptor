@@ -20,7 +20,7 @@ export function loadout(p: PilotSave): Loadout {
     ...(p.coop ? { sweapon2: p.sweapon2 ?? -1 } : {}),
   }
   const inv = new Inventory(plr)
-  if (p.objs.length) inv.load(p.objs)
+  if (p.objs.length) inv.load(p.objs, p.stored)
   else newPilotObjs(inv)
   return { plr, inv }
 }
@@ -33,6 +33,7 @@ export function withLoadout(p: PilotSave, l: Loadout): PilotSave {
     sweapon: l.plr.sweapon,
     ...(sweapon2 === undefined ? {} : { sweapon2 }),
     objs: l.inv.save(),
+    stored: l.inv.saveStored(),
   }
 }
 

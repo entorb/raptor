@@ -1,6 +1,6 @@
 // Pilot + settings persistence (replaces LOADSAVE.C CHARxxxx.FIL files).
 import { DIFF_NORMAL } from "../sim/consts"
-import type { InvObj } from "../sim/objects"
+import { type InvObj, OBJ_LIB } from "../sim/objects"
 
 export interface PilotSave {
   name: string
@@ -15,6 +15,8 @@ export interface PilotSave {
   /** Bravo sector difficulty (DIFF_EASY..DIFF_HARD) */
   diff: number
   objs: InvObj[]
+  /** web: special weapons offloaded in the shop Storage tab */
+  stored?: InvObj[]
   /** Bravo waves ever finished (unlocks replays); missing in old saves = `wave` */
   done?: number
   /** sector selected in the Hangar */
@@ -128,6 +130,9 @@ function normalize(p: PilotSave): PilotSave {
     ...rest,
     ...(coop === true ? { coop } : {}),
     ...(coop === true && Number.isInteger(sweapon2) ? { sweapon2 } : {}),
+    stored: (Array.isArray(p.stored) ? p.stored : []).filter(
+      (o) => o && Number.isInteger(o.num) && !!OBJ_LIB[o.type]?.specialw,
+    ),
     sector: SECTORS.includes(p.sector as Sector) ? p.sector : "bravo",
     stats,
   }

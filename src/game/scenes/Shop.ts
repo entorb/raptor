@@ -54,13 +54,16 @@ interface Tab {
 export class Shop extends Scene {
   private menu!: TextMenu
   private lo!: Loadout
-  private buying = true
+  /** Tab: 0 buy, 1 sell, 2 storage (offload special weapons to shorten the in-flight cycle). */
+  private mode = 0
   /** Keyboard focus: UP off the first row goes to the tabs, UP again to the back button. */
   private focus: "list" | "tabs" | "back" = "list"
   /** The menu's own UP just moved the focus to the tabs: the scene handler skips that keypress. */
   private skipKey = false
   private back!: ReturnType<typeof backButton>
   private items: ObjType[] = []
+  /** Storage tab: rows before this index are on board, the rest stored. */
+  private boardRows = 0
   private credits: (cr: number) => void = () => {}
   private tabs: Tab[] = []
   private status!: GameObjects.Text
@@ -84,16 +87,16 @@ export class Shop extends Scene {
       return
     }
     this.lo = pilotLoadout()
-    this.buying = true
+    this.mode = 0
     this.add.image(480, 300, "shop-bg")
     header(this, "SUPPLY SHOP", undefined, 44, 40)
     this.back = backButton(this, "HANGAR", () => this.leave())
-    this.tabs = [t("shop.buy"), t("shop.sell")].map((name, i) => {
-      const x = 480 + (i - 0.5) * 170
+    this.tabs = [t("shop.buy"), t("shop.sell"), t("shop.storage")].map((name, i) => {
+      const x = 480 + (i - 1) * 170
       const bg = this.add
         .rectangle(x, 106, 164, TOUCH ? 64 : 42, 0x10182a, 0.9)
         .setInteractive({ useHandCursor: true })
-      bg.on("pointerup", () => this.setTab(i === 0))
+      bg.on("pointerup", () => this.setTab(i))
       const label = this.add
         .text(x, 106, name, { fontFamily: UI.font, fontSize: "22px", fontStyle: "bold" })
         .setOrigin(0.5)
@@ -175,14 +178,14 @@ export class Shop extends Scene {
       this.skipKey = false
       return false
     }
-    const tab = () => {
-      if (this.focus === "tabs") this.setTab(!this.buying)
+    const tab = (d: number) => () => {
+      if (this.focus === "tabs") this.stepTab(d)
     }
     bindKeys(this, guard, {
       up: () => this.setFocus("back"),
       down: () => this.setFocus(this.focus === "back" ? "tabs" : "list"),
-      left: tab,
-      right: tab,
+      left: tab(-1),
+      right: tab(1),
       confirm: () => {
         if (this.focus === "back") this.leave()
         else this.setFocus("list")
@@ -207,9 +210,18 @@ export class Shop extends Scene {
     saveLoadout(this.lo)
   }
 
-  private setTab(buy: boolean): void {
-    if (buy === this.buying) return
-    this.buying = buy
+  private get buying(): boolean {
+    return this.mode === 0
+  }
+
+  /** LEFT/RIGHT: previous/next tab in screen order (no wrap). */
+  private stepTab(d: number): void {
+    this.setTab(Math.max(0, Math.min(this.tabs.length - 1, this.mode + d)))
+  }
+
+  private setTab(mode: number): void {
+    if (mode === this.mode) return
+    this.mode = mode
     this.msg.setText("")
     this.refresh(false)
     // an empty list can't be left with the arrows: park the focus on the tabs
@@ -219,7 +231,7 @@ export class Shop extends Scene {
   private refresh(keep: boolean): void {
     const tabFocus = this.focus === "tabs"
     this.tabs.forEach(({ bg, label }, i) => {
-      const on = (i === 0) === this.buying
+      const on = i === this.mode
       bg.setFillStyle(on ? 0x1d3a5c : 0x10182a, 0.9)
       if (on && tabFocus) bg.setStrokeStyle(3, 0xffffff, 1)
       else bg.setStrokeStyle(2, on ? 0x39d0ff : 0x39465e, on ? 1 : 0.8)
@@ -232,21 +244,45 @@ export class Shop extends Scene {
 
   private listItems(): MenuItem[] {
     const inv = this.lo.inv
-    const flip = () => this.setTab(!this.buying)
+    const flip = (d: number) => this.stepTab(d)
+    if (this.mode === 2) return this.storageItems(flip)
     this.items = this.buying ? inv.buyList() : inv.sellList()
     return this.items.map((it) => {
       const cost = inv.getCost(it)
       const count = this.owned(it)
       const countStr = count ? ` (${count})` : ""
       const full = this.buying && inv.full(it)
+      const owned =
+        this.buying && !OBJ_LIB[it]?.onlyflag && (inv.getTotal(it) > 0 || inv.storedCount(it) > 0)
       let detail = `+${inv.getResale(it)} CR`
       if (this.buying) detail = full ? "MAX" : `${cost} CR`
       return {
         icon: `icon-${it}`,
         label: `${OBJ_LIB[it]?.name ?? ""}${countStr}`,
         detail,
-        dim: this.buying && (full || cost > this.lo.plr.score),
+        // owned (not stackables): one style, affordable or not (a second copy is rarely wanted)
+        dim: this.buying && !owned && (full || cost > this.lo.plr.score),
+        strong: owned,
         action: () => this.trade(it),
+        adjust: flip,
+      }
+    })
+  }
+
+  /** Storage tab: on-board special weapons (STORE) first, then the stored ones (TAKE). */
+  private storageItems(flip: (d: number) => void): MenuItem[] {
+    const inv = this.lo.inv
+    const { board, stored } = inv.storageList()
+    this.items = [...board, ...stored]
+    this.boardRows = board.length
+    return this.items.map((it, i) => {
+      const out = i < board.length
+      const n = out ? inv.getTotal(it) : inv.storedCount(it)
+      return {
+        icon: `icon-${it}`,
+        label: `${OBJ_LIB[it]?.name ?? ""}${n > 1 ? ` (${n})` : ""}`,
+        detail: t(out ? "shop.tagBoard" : "shop.tagStored"),
+        action: () => this.moveStorage(it, out),
         adjust: flip,
       }
     })
@@ -275,7 +311,8 @@ export class Shop extends Scene {
     for (const o of [c.icon, c.name, c.owned, c.btn, c.btnLabel]) o.setVisible(has)
     if (c.btn.input) c.btn.input.enabled = has
     if (!has) {
-      c.desc.setText(t(this.buying ? "shop.nothingBuy" : "shop.nothingSell"))
+      const empty = ["shop.nothingBuy", "shop.nothingSell", "shop.nothingStorage"] as const
+      c.desc.setText(t(empty[this.mode] ?? "shop.nothingBuy"))
       return
     }
     const inv = this.lo.inv
@@ -284,26 +321,37 @@ export class Shop extends Scene {
     c.name.setText(OBJ_LIB[it]?.name ?? "").setColor(ICON_COLOR[it] ?? "#ffffff")
     const max = this.maxOf(it)
     const ownStr = own ? t("shop.onBoard", { n: own }) : t("shop.notOnBoard")
+    const stored = inv.storedCount(it)
+    const storedStr = stored ? `  ·  ${t("shop.stored", { n: stored })}` : ""
     const maxStr = max ? `  ·  ${t("shop.max", { n: max })}` : ""
-    c.owned.setText(`${ownStr}${maxStr}`)
+    c.owned.setText(`${ownStr}${storedStr}${maxStr}`)
     const dk = DESC[it]
     c.desc.setText(dk ? t(dk) : "")
     const cost = inv.getCost(it)
     const poor = this.buying && (inv.full(it) || cost > this.lo.plr.score)
-    c.btn.setFillStyle(this.buying ? 0x1d5c3a : 0x5c1d2a, poor ? 0.4 : 1)
-    c.btn.setStrokeStyle(2, this.buying ? 0x2effb4 : 0xff5a6a, poor ? 0.3 : 0.9)
+    const fills = [0x1d5c3a, 0x5c1d2a, 0x1d3a5c]
+    const lines = [0x2effb4, 0xff5a6a, 0x39d0ff]
+    c.btn.setFillStyle(fills[this.mode], poor ? 0.4 : 1)
+    c.btn.setStrokeStyle(2, lines[this.mode], poor ? 0.3 : 0.9)
     c.btnLabel.setText(this.tradeLabel(it)).setAlpha(poor ? 0.5 : 1)
   }
 
   private tradeLabel(it: ObjType): string {
     const inv = this.lo.inv
     if (this.buying) return `${t("shop.buy")} · ${inv.getCost(it)} CR`
+    if (this.mode === 2) return t(this.boardRow() ? "shop.store" : "shop.take")
     return `${t("shop.sell")} · +${inv.getResale(it)} CR`
   }
 
   private tradeSelected(): void {
     const it = this.items[this.menu.index]
-    if (it !== undefined) this.trade(it)
+    if (it === undefined) return
+    if (this.mode === 2) this.moveStorage(it, this.boardRow())
+    else this.trade(it)
+  }
+
+  private boardRow(): boolean {
+    return this.menu.index < this.boardRows
   }
 
   private trade(it: ObjType): void {
@@ -319,6 +367,16 @@ export class Shop extends Scene {
       inv.sell(it)
       this.msg.setText(t("shop.sold", { name })).setColor(UI.gold)
     }
+    this.save()
+    this.refresh(true)
+  }
+
+  private moveStorage(it: ObjType, out: boolean): void {
+    const inv = this.lo.inv
+    const name = OBJ_LIB[it]?.name ?? ""
+    const ok = out ? inv.store(it) : inv.retrieve(it)
+    const text = out ? t("shop.storedMsg", { name }) : t("shop.takenMsg", { name })
+    this.msg.setText(ok ? text : t("shop.noRoom")).setColor(ok ? UI.gold : UI.warn)
     this.save()
     this.refresh(true)
   }
