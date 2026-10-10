@@ -31,6 +31,8 @@ jobs:
 
       - name: Run prek pre-commit
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+        with:
+          extra-args: '--all-files --quiet'
 
       - name: Run CSpell
         uses: streetsidesoftware/cspell-action@6f3c77c1406bc930f944ba97e9801a22e42caf58  # v9.1.0
