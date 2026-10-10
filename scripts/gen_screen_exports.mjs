@@ -81,7 +81,14 @@ const SCREENS = [
     "shop-sell",
     async (p) =>
       p.evaluate(() => {
-        window.__game.scene.getScene("Shop").setTab(false)
+        window.__game.scene.getScene("Shop").setTab(1)
+      }),
+  ],
+  [
+    "shop-storage",
+    async (p) =>
+      p.evaluate(() => {
+        window.__game.scene.getScene("Shop").setTab(2)
       }),
   ],
   [

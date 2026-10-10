@@ -12,6 +12,8 @@ export interface MenuItem {
   disabled?: boolean
   /** drawn dimmed but still selectable (e.g. too expensive: the shop explains why) */
   dim?: boolean
+  /** drawn bold in the accent color (e.g. already owned in the shop) */
+  strong?: boolean
   action: () => void
   /** left/right arrow: change the value by one step (-1/+1) */
   adjust?: (dir: number) => void
@@ -335,7 +337,8 @@ export class TextMenu {
       let color = UI.text
       if (it?.disabled || it?.dim) color = UI.dim
       else if (it && sel) color = "#ffffff"
-      r.label.setColor(color)
+      else if (it?.strong) color = UI.accent
+      r.label.setColor(color).setFontStyle(it?.strong ? "bold" : "")
       r.bg.setFillStyle(0x39d0ff, it && sel ? 0.18 : 0)
       r.bg.setStrokeStyle(1, 0x39d0ff, it && sel ? 0.8 : 0)
       if (r.bg.input) r.bg.input.enabled = !!it

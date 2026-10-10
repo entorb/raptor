@@ -169,6 +169,8 @@ export const MAX_PHASE = 5
  */
 export class Inventory {
   objs: InvObj[] = []
+  /** Web: weapons offloaded in the shop (not on board: no cargo slot, not in the special cycle). */
+  stored: InvObj[] = []
   p_objs: (InvObj | null)[] = new Array(Obj.LAST_OBJECT).fill(null)
   /** Set to EMPTY by OBJS_Add (RAP.C g_oldsuper/g_oldshield). */
   onAdd: () => void = () => {}
@@ -178,8 +180,9 @@ export class Inventory {
     public reg = true,
   ) {}
 
-  load(list: InvObj[]): void {
+  load(list: InvObj[], stored: InvObj[] = []): void {
     this.objs = []
+    this.stored = stored.map((o) => ({ ...o, inuse: false }))
     this.p_objs.fill(null)
     for (const o of list) {
       if (this.objs.length >= MAX_OBJS) break
@@ -191,6 +194,10 @@ export class Inventory {
 
   save(): InvObj[] {
     return this.objs.map((o) => ({ ...o }))
+  }
+
+  saveStored(): InvObj[] {
+    return this.stored.map((o) => ({ ...o }))
   }
 
   private remove(o: InvObj): void {
@@ -247,6 +254,41 @@ export class Inventory {
     this.p_objs[type] = null
     this.equip(type)
     this.dropSpecial(type)
+  }
+
+  /** Shop storage rows: equipped special weapons (to store) and stored types (to retrieve), by cost. */
+  storageList(): { board: ObjType[]; stored: ObjType[] } {
+    const byCost = (l: ObjType[]) =>
+      [...new Set(l)].sort((a, b) => this.getCost(a) - this.getCost(b))
+    return {
+      board: byCost(
+        this.objs.filter((o) => o.inuse && OBJ_LIB[o.type]?.specialw).map((o) => o.type),
+      ),
+      stored: byCost(this.stored.map((o) => o.type)),
+    }
+  }
+
+  storedCount(type: ObjType): number {
+    return this.stored.filter((o) => o.type === type).length
+  }
+
+  /** Equipped copy of a special weapon goes to storage (a spare takes its place). */
+  store(type: ObjType): boolean {
+    const cur = this.p_objs[type]
+    if (!cur || !OBJ_LIB[type]?.specialw) return false
+    this.del(type)
+    this.stored.push({ ...cur, inuse: false })
+    return true
+  }
+
+  /** First stored copy of `type` back on board; false when the ship is full or none is stored. */
+  retrieve(type: ObjType): boolean {
+    const i = this.stored.findIndex((o) => o.type === type)
+    const cur = this.stored[i]
+    if (!cur || this.objs.length >= MAX_OBJS) return false
+    this.stored.splice(i, 1)
+    this.addObj(type, cur.num, true)
+    return true
   }
 
   /** Slots in use: `sweapon2` only once 2P co-op set it. */
