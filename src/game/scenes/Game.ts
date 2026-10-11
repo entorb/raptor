@@ -1354,7 +1354,7 @@ export class Game extends Scene {
       y += rowH
     }
     for (const [label, vals] of rows) {
-      table.push(txt(y, label, 18, UI.dim, UI.font, -250).setOrigin(0, 0.5))
+      table.push(txt(y, label, 18, UI.text, UI.font, -250).setOrigin(0, 0.5))
       for (const [i, x] of cols.entries())
         table.push(txt(y, vals[i] ?? "", 18, UI.text, UI.mono, x))
       y += rowH
