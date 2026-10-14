@@ -2,52 +2,21 @@
 // 8x8 DOS px each): water became open space (transparent, the starfield shows through), land
 // became asteroid rock, grey roads/buildings became station hull and vegetation became glowing
 // alien lichen. Chunks blur the cell grid, distort it with noise and light it with a relief map.
-// The training sector (`train`) renders the same map as a simulator deck: flat gridded floor
-// plates, lit hull panels and hazard stripes instead of lichen.
+// The surface colors are per sector (`LOOK`): Bravo `s2_bravo.ts bravoSurface`, the training
+// simulator deck `s1_sim.ts simSurface`, the hive `s3_bugs.ts hiveSurface`.
 import { TILE_CELLS } from "../data/ep1"
 import type { Sector } from "../data/save"
 import { cellOf, FH, FW, MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts"
-import { makeCanvas } from "./draw"
+import { fbm, makeCanvas, vnoise } from "./draw"
+import { simSurface } from "./s1_sim"
+import { bravoSurface } from "./s2_bravo"
+import { hiveSurface } from "./s3_bugs"
 
 /** Chunk = 8 map rows (256 DOS px); rendered at RES px per DOS px, drawn scaled to 3x. */
 export const CHUNK_ROWS = 8
 export const RES = 1.5
 /** Chunk width in DOS px: the 288 px map plus the MAP_LEFT side strips, filled by extending the edge tiles. */
 export const CHUNK_W = MAP_COLS * 32 + 2 * MAP_LEFT
-
-/** Modulo that stays positive for the negative x of the left strip. */
-function mod(a: number, n: number): number {
-  return ((a % n) + n) % n
-}
-
-function hash2(x: number, y: number, seed: number): number {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 144269)
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
-}
-
-function vnoise(x: number, y: number, seed: number): number {
-  const xi = Math.floor(x)
-  const yi = Math.floor(y)
-  const xf = x - xi
-  const yf = y - yi
-  const u = xf * xf * (3 - 2 * xf)
-  const v = yf * yf * (3 - 2 * yf)
-  const a = hash2(xi, yi, seed)
-  const b = hash2(xi + 1, yi, seed)
-  const c = hash2(xi, yi + 1, seed)
-  const d = hash2(xi + 1, yi + 1, seed)
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
-}
-
-function fbm(x: number, y: number, seed: number): number {
-  return (
-    vnoise(x, y, seed) * 0.5 +
-    vnoise(x * 2.1, y * 2.1, seed + 1) * 0.28 +
-    vnoise(x * 4.3, y * 4.3, seed + 2) * 0.14 +
-    vnoise(x * 8.7, y * 8.7, seed + 3) * 0.08
-  )
-}
 
 export interface TerrainField {
   solid: Float32Array
@@ -112,6 +81,28 @@ function sample(f: Float32Array, x: number, y: number): number {
 
 const EDGE = 0.45
 
+/** What a sector's surface colors see: write the lit color of a terrain point into `rgb`. */
+export interface Surface {
+  readonly rgb: number[]
+  readonly seed: number
+}
+/** `m` = hull amount, `lic` = lichen amount, `shade` = relief light, (dx, dy) = DOS px. */
+type SurfaceColor = (
+  s: Surface,
+  m: number,
+  lic: number,
+  shade: number,
+  dx: number,
+  dy: number,
+) => void
+
+/** Terrain per sector look: surface colors and rock relief (the training deck is nearly flat). */
+const LOOK: Record<Sector, { color: SurfaceColor; rough: number }> = {
+  bravo: { color: bravoSurface, rough: 1 },
+  train: { color: simSurface, rough: 0.15 },
+  nest: { color: hiveSurface, rough: 1 },
+}
+
 /**
  * Incremental chunk renderer (map rows ci*8 .. ci*8+7 -> canvas of CHUNK_W*RES x 256*RES px) so the
  * work can be spread over several frames: call `step(budgetMs)` until it returns true.
@@ -127,7 +118,7 @@ export class ChunkJob {
   private readonly hgt: Float32Array
   private readonly met: Float32Array
   private readonly y0: number
-  private readonly rgb = [0, 0, 0]
+  readonly rgb = [0, 0, 0]
   /** next row for pass 1 (fields) and pass 2 (pixels) */
   private fy = 0
   private py = 0
@@ -136,7 +127,7 @@ export class ChunkJob {
   constructor(
     private readonly field: TerrainField,
     ci: number,
-    private readonly seed: number,
+    readonly seed: number,
     private readonly look: Sector = "bravo",
   ) {
     const { c, ctx } = makeCanvas(this.W, this.H)
@@ -169,7 +160,7 @@ export class ChunkJob {
       const rock = fbm(dx / 22, dy / 22, seed + 5) * 1.4
       const crater = vnoise(dx / 16, dy / 16, seed + 9)
       const bowl = crater > 0.7 ? -(crater - 0.7) * 2.5 : 0
-      const rough = this.look === "train" ? 0.15 : 1
+      const { rough } = LOOK[this.look]
       this.hgt[i] = bevel * 2.2 + (1 - Math.min(1, m * 2)) * (rock + bowl) * bevel * rough
     }
   }
@@ -182,146 +173,8 @@ export class ChunkJob {
     const gy = (this.hgt[i + SW] as number) - (this.hgt[i] as number)
     const shade = Math.max(0.35, Math.min(1.5, 1 - (gx + gy) * 6))
     const m = this.met[i] as number
-    if (this.look === "train") {
-      this.simColor(m, shade, dx, dy)
-      return
-    }
-    if (this.look === "nest") {
-      this.hiveColor(m, shade, dx, dy)
-      return
-    }
-    if (m > 0.5) {
-      this.plateColor(shade, dx, dy)
-      return
-    }
-    this.rockColor(shade, dx, dy)
-  }
-
-  /** Hull plating: seamed panels with an occasional glowing light strip. */
-  private plateColor(shade: number, dx: number, dy: number): void {
-    const { seed, rgb } = this
-    const plate = 0.8 + hash2(Math.floor(dx / 16), Math.floor(dy / 16), seed + 7) * 0.25
-    const seam = mod(dx, 16) < 0.7 || dy % 16 < 0.7 ? 0.55 : 1
-    rgb[0] = 72 * plate * seam * shade
-    rgb[1] = 84 * plate * seam * shade
-    rgb[2] = 102 * plate * seam * shade
-    if (mod(dx + 8, 32) < 1.4 && dy % 48 < 1.6) rgb.splice(0, 3, 90, 230, 255)
-  }
-
-  /** Rock: dusty warm grey to cool slate, with glowing lichen patches. */
-  private rockColor(shade: number, dx: number, dy: number): void {
-    const { seed, rgb } = this
-    const tone = vnoise(dx / 60, dy / 60, seed + 11)
-    rgb[0] = (88 + tone * 30) * shade
-    rgb[1] = (80 + tone * 18) * shade
-    rgb[2] = (84 - tone * 6) * shade
     const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
-    if (lic > 0.35) this.tintLichen(lic, dx, dy)
-  }
-
-  /** Simulator deck: gridded floor, lit panels (hull) and hazard stripes (lichen). */
-  private simColor(m: number, shade: number, dx: number, dy: number): void {
-    const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
-    if (m > 0.5) {
-      this.simPanel(shade, dx, dy)
-    } else if (lic > 0.45) {
-      this.simStripe(shade, dx, dy)
-    } else {
-      this.simGrid(shade, dx, dy)
-    }
-  }
-
-  private simPanel(shade: number, dx: number, dy: number): void {
-    const seam = mod(dx, 16) < 0.8 || dy % 16 < 0.8
-    this.rgb[0] = (seam ? 60 : 44) * shade
-    this.rgb[1] = (seam ? 230 : 62) * shade
-    this.rgb[2] = (seam ? 190 : 78) * shade
-  }
-
-  private simStripe(shade: number, dx: number, dy: number): void {
-    const stripe = mod(dx + dy, 24) < 5
-    this.rgb[0] = (stripe ? 150 : 30) * shade
-    this.rgb[1] = (stripe ? 120 : 36) * shade
-    this.rgb[2] = (stripe ? 30 : 48) * shade
-  }
-
-  private simGrid(shade: number, dx: number, dy: number): void {
-    const grid = mod(dx, 32) < 0.8 || dy % 32 < 0.8
-    this.rgb[0] = (grid ? 40 : 20) * shade
-    this.rgb[1] = (grid ? 150 : 30) * shade
-    this.rgb[2] = (grid ? 210 : 44) * shade
-  }
-
-  /** Hive: chitin comb (hull), glowing acid veins (lichen), wet flesh (rock). */
-  private hiveColor(m: number, shade: number, dx: number, dy: number): void {
-    const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
-    if (m > 0.5) {
-      this.hiveComb(shade, dx, dy)
-    } else {
-      this.hiveFlesh(shade, dx, dy)
-    }
-    if (lic > 0.3) this.hiveVein(lic, dx, dy)
-  }
-
-  /** Dark amber honeycomb: hex cells (nearest of two offset lattices), a few larvae glowing. */
-  private hiveComb(shade: number, dx: number, dy: number): void {
-    const a = 12
-    const b = a * Math.sqrt(3)
-    let best = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
-    let id = 0
-    for (const [ox, oy] of [
-      [0, 0],
-      [a / 2, b / 2],
-    ] as const) {
-      const ix = Math.round((dx - ox) / a)
-      const iy = Math.round((dy - oy) / b)
-      const d = Math.hypot(dx - ox - ix * a, dy - oy - iy * b)
-      if (d < (best[0] as number)) {
-        best = [d, best[0] as number]
-        id = ix * 7 + iy * 13 + (ox ? 5 : 0)
-      } else if (d < (best[1] as number)) best[1] = d
-    }
-    const edge = (best[1] as number) - (best[0] as number)
-    const seam = edge < 1.2 ? 0.35 : 1
-    const cell = hash2(id, 3, this.seed + 19)
-    const glow = cell > 0.93 ? Math.max(0, 1 - (best[0] as number) / 6) * 140 : 0
-    const dome = 1 - ((best[0] as number) / a) * 0.5
-    this.rgb[0] = (70 + cell * 20) * seam * dome * shade + glow
-    this.rgb[1] = (42 + cell * 10) * seam * dome * shade + glow * 0.7
-    this.rgb[2] = 22 * seam * dome * shade + glow * 0.15
-  }
-
-  /** Wet purple-brown flesh with a resin sheen on the lit slopes. */
-  private hiveFlesh(shade: number, dx: number, dy: number): void {
-    const tone = fbm(dx / 40, dy / 40, this.seed + 23)
-    const sheen = shade > 1.15 ? (shade - 1.15) * 120 : 0
-    this.rgb[0] = (64 + tone * 40) * shade + sheen
-    this.rgb[1] = (34 + tone * 14) * shade + sheen
-    this.rgb[2] = (50 + tone * 26) * shade + sheen
-  }
-
-  /** Acid-green veins pulsing through the hive walls. */
-  private hiveVein(lic: number, dx: number, dy: number): void {
-    const { seed, rgb } = this
-    const v = Math.abs(vnoise(dx / 9, dy / 9, seed + 29) - 0.5)
-    const k = Math.min(1, (lic - 0.3) * 2) * Math.max(0, 1 - v / 0.08)
-    rgb[0] = (rgb[0] as number) + k * 90
-    rgb[1] = (rgb[1] as number) + k * 210
-    rgb[2] = (rgb[2] as number) + k * 40
-  }
-
-  /** Glowing lichen patches (cyan / violet) on top of `this.rgb`. */
-  private tintLichen(lic: number, dx: number, dy: number): void {
-    const { seed, rgb } = this
-    const spot = vnoise(dx / 4, dy / 4, seed + 13) * 0.7 + vnoise(dx / 11, dy / 11, seed + 14) * 0.3
-    const t = Math.min(1, Math.max(0, (spot - 0.5) / 0.3))
-    const k = Math.min(1, (lic - 0.35) * 2.2) * t * t * (3 - 2 * t)
-    const violet = vnoise(dx / 30, dy / 30, seed + 17) > 0.5
-    rgb[0] = (rgb[0] as number) + k * (violet ? 120 : 20)
-    rgb[1] = (rgb[1] as number) + k * (violet ? 40 : 170)
-    rgb[2] = (rgb[2] as number) + k * (violet ? 190 : 160)
-    rgb[0] = (rgb[0] as number) * (1 - 0.25 * lic) + 20 * lic
-    rgb[2] = (rgb[2] as number) * (1 - 0.1 * lic) + 30 * lic
+    LOOK[this.look].color(this, m, lic, shade, dx, dy)
   }
 
   private pixelRow(y: number): void {

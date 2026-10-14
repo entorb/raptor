@@ -1,9 +1,10 @@
 // Bugger Nest art (web-only sector): Formic insects drawn from chitin parts (segments, veined
 // wings that flap over the animation frames, jointed legs, mandibles, glowing eyes), nose down
 // like every enemy. Tints follow the threat convention of `ships.ts` (pale fodder ... violet elite).
-// Also the hive structures / wrecks and the three organic backdrops.
-import { type Ctx, glow, polyPath, seeded, softDot, sphere } from "./draw"
+// Also the hive structures / wrecks, the three organic backdrops and the hive terrain colors.
+import { type Ctx, fbm, glow, hash2, polyPath, seeded, softDot, sphere, vnoise } from "./draw"
 import type { Draw, Palette, Spec } from "./ships"
+import type { Surface } from "./terrain"
 
 const TAU = Math.PI * 2
 
@@ -953,4 +954,70 @@ export function hiveVeins(ctx: Ctx, s: number): void {
         ctx.stroke()
       }
   }
+}
+
+// ---- terrain ---------------------------------------------------------------------------------
+
+/** Hive: chitin comb (hull), glowing acid veins (lichen), wet flesh (rock). */
+export function hiveSurface(
+  s: Surface,
+  m: number,
+  lic: number,
+  shade: number,
+  dx: number,
+  dy: number,
+): void {
+  if (m > 0.5) {
+    hiveComb(s, shade, dx, dy)
+  } else {
+    hiveFlesh(s, shade, dx, dy)
+  }
+  if (lic > 0.3) hiveVein(s, lic, dx, dy)
+}
+
+/** Dark amber honeycomb: hex cells (nearest of two offset lattices), a few larvae glowing. */
+function hiveComb(s: Surface, shade: number, dx: number, dy: number): void {
+  const a = 12
+  const b = a * Math.sqrt(3)
+  let best = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
+  let id = 0
+  for (const [ox, oy] of [
+    [0, 0],
+    [a / 2, b / 2],
+  ] as const) {
+    const ix = Math.round((dx - ox) / a)
+    const iy = Math.round((dy - oy) / b)
+    const d = Math.hypot(dx - ox - ix * a, dy - oy - iy * b)
+    if (d < (best[0] as number)) {
+      best = [d, best[0] as number]
+      id = ix * 7 + iy * 13 + (ox ? 5 : 0)
+    } else if (d < (best[1] as number)) best[1] = d
+  }
+  const edge = (best[1] as number) - (best[0] as number)
+  const seam = edge < 1.2 ? 0.35 : 1
+  const cell = hash2(id, 3, s.seed + 19)
+  const glow = cell > 0.93 ? Math.max(0, 1 - (best[0] as number) / 6) * 140 : 0
+  const dome = 1 - ((best[0] as number) / a) * 0.5
+  s.rgb[0] = (70 + cell * 20) * seam * dome * shade + glow
+  s.rgb[1] = (42 + cell * 10) * seam * dome * shade + glow * 0.7
+  s.rgb[2] = 22 * seam * dome * shade + glow * 0.15
+}
+
+/** Wet purple-brown flesh with a resin sheen on the lit slopes. */
+function hiveFlesh(s: Surface, shade: number, dx: number, dy: number): void {
+  const tone = fbm(dx / 40, dy / 40, s.seed + 23)
+  const sheen = shade > 1.15 ? (shade - 1.15) * 120 : 0
+  s.rgb[0] = (64 + tone * 40) * shade + sheen
+  s.rgb[1] = (34 + tone * 14) * shade + sheen
+  s.rgb[2] = (50 + tone * 26) * shade + sheen
+}
+
+/** Acid-green veins pulsing through the hive walls. */
+function hiveVein(s: Surface, lic: number, dx: number, dy: number): void {
+  const { seed, rgb } = s
+  const v = Math.abs(vnoise(dx / 9, dy / 9, seed + 29) - 0.5)
+  const k = Math.min(1, (lic - 0.3) * 2) * Math.max(0, 1 - v / 0.08)
+  rgb[0] = (rgb[0] as number) + k * 90
+  rgb[1] = (rgb[1] as number) + k * 210
+  rgb[2] = (rgb[2] as number) + k * 40
 }
