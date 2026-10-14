@@ -44,6 +44,15 @@ export const SONG_FILES = [
   "train3",
   "train4",
   "train5",
+  "hive1",
+  "hive2",
+  "hive3",
+  "hive4",
+  "hive5",
+  "hive6",
+  "hive7",
+  "hive8",
+  "hive9",
   "rap5",
   "fanfare",
 ] as const
@@ -53,6 +62,7 @@ export type Song = (typeof SONG_FILES)[number]
 export const WAVE_SONGS: Record<Sector, Song[]> = {
   bravo: ["bravo1", "bravo2", "bravo3", "bravo4", "bravo5", "bravo6", "bravo7", "bravo8", "bravo9"],
   train: ["train1", "train2", "train3", "train4", "train5"],
+  nest: ["hive1", "hive2", "hive3", "hive4", "hive5", "hive6", "hive7", "hive8", "hive9"],
 }
 
 /** FX.C SND_Setup: sample, DMX pitch (128 = normal) and volume (0..127). */

@@ -1,6 +1,7 @@
 // Port of dosraptor/SOURCE/TILE.C: background map scrolling and destructible tiles.
 // Tile "items" are FLATS indices; a tile is destructible while eitems != titems.
 import { FLATS } from "../data/ep1"
+import type { TileSet } from "../data/types"
 import { Anim, MAP_BLOCKSIZE, MAP_COLS, MAP_LEFT, MAP_ONSCREEN, MAP_ROWS, MAP_SIZE } from "./consts"
 import type { PlayerShip, World } from "./world"
 
@@ -48,7 +49,7 @@ export class Tiles {
   hitBy: (PlayerShip | null)[] = []
 
   /** TILE_CacheLevel */
-  load(flats: number[]): void {
+  load(flats: number[], set: Omit<TileSet, "cells"> = FLATS): void {
     this.tilepos = (MAP_ROWS - MAP_ONSCREEN) * MAP_COLS
     this.tileyoff = 200 - MAP_ONSCREEN * MAP_BLOCKSIZE
     this.scroll_flag = true
@@ -60,10 +61,10 @@ export class Tiles {
     this.hitBy = new Array(MAP_SIZE).fill(null)
     for (let i = 0; i < MAP_SIZE; i++) {
       const f = flats[i] ?? 0
-      this.money[i] = FLATS.bounty[f] ?? 0
+      this.money[i] = set.bounty[f] ?? 0
       this.titems[i] = f
-      this.eitems[i] = FLATS.link[f] ?? f
-      this.hits[i] = this.eitems[i] !== this.titems[i] ? (FLATS.hp[f] ?? 1) : 1
+      this.eitems[i] = set.link[f] ?? f
+      this.hits[i] = this.eitems[i] !== this.titems[i] ? (set.hp[f] ?? 1) : 1
       if (this.eitems[i] !== this.titems[i]) this.structs++
     }
   }

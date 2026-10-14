@@ -9,9 +9,11 @@ import {
   renderChunk,
   type TerrainField,
 } from "../art/terrain"
-import { STRUCT_KINDS, WRECK_KINDS } from "../art/textures"
+import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../art/textures"
 import { FLATS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
+import type { Sector } from "../data/save"
+import type { TileSet } from "../data/types"
 import { MAP_COLS, MAP_LEFT } from "../sim/consts"
 import type { Tiles } from "../sim/tile"
 
@@ -29,20 +31,28 @@ export class TerrainView {
   private job: { ci: number; job: ChunkJob } | null = null
   private readonly ready = new Map<number, HTMLCanvasElement>()
 
-  /** training sector: simulator deck terrain and target pads */
-  private readonly train: boolean
+  /** sector look (training: simulator deck terrain and target pads) */
+  private readonly look: Sector
 
-  constructor(scene: Scene, wave: number, flats: number[], depth: number, train = false) {
+  constructor(
+    scene: Scene,
+    wave: number,
+    flats: number[],
+    depth: number,
+    look: Sector = "bravo",
+    tiles?: TileSet,
+  ) {
     this.scene = scene
-    this.train = train
+    this.look = look
     this.wave = wave
     this.depth = depth
-    this.field = buildField(flats)
-    this.destructible = flats.map((f) => (FLATS.link[f] ?? f) !== f)
+    this.field = buildField(flats, tiles?.cells)
+    const link = tiles?.link ?? FLATS.link
+    this.destructible = flats.map((f) => (link[f] ?? f) !== f)
   }
 
   private key(ci: number): string {
-    return `terrain-${this.train ? "t" : "b"}${this.wave}-${ci}`
+    return `terrain-${this.look[0]}${this.wave}-${ci}`
   }
 
   private ensure(ci: number): void {
@@ -58,7 +68,7 @@ export class TerrainView {
       this.ready.delete(ci)
       this.scene.textures.addCanvas(
         key,
-        canvas ?? renderChunk(this.field, ci, 17 + this.wave, this.train),
+        canvas ?? renderChunk(this.field, ci, 17 + this.wave, this.look),
       )
     }
     const img = this.scene.add
@@ -118,7 +128,7 @@ export class TerrainView {
   /** The sprite of one structure spot, created on demand, showing the structure or its wreck. */
   private structImage(spot: number, tiles: Tiles): GameObjects.Image {
     const alive = tiles.eitems[spot] !== tiles.titems[spot]
-    const pre = this.train ? "t" : ""
+    const { pre } = MODULES[this.look]
     const tex = alive ? `${pre}struct-${spot % STRUCT_KINDS}` : `${pre}wreck-${spot % WRECK_KINDS}`
     let img = this.structs.get(spot)
     if (!img) {
@@ -133,7 +143,7 @@ export class TerrainView {
     if (!this.job) {
       for (const ci of [first - 1, first - 2]) {
         if (ci < 0 || this.chunks.has(ci) || this.ready.has(ci)) continue
-        this.job = { ci, job: new ChunkJob(this.field, ci, 17 + this.wave, this.train) }
+        this.job = { ci, job: new ChunkJob(this.field, ci, 17 + this.wave, this.look) }
         break
       }
     }

@@ -253,8 +253,8 @@ export class World {
     this.easyBoss = map.easyBoss ?? false
     // Do_Game: srand(1024 * game_wave[cur_game])
     this.rng.srand(1024 * wave)
-    this.tiles.load(map.flats)
-    this.enemies.load(map.spawns, diffMask(diff))
+    this.tiles.load(map.flats, map.tiles)
+    this.enemies.load(map.spawns, diffMask(diff), map.lib)
   }
 
   /** DEMO_StartPlayback: `frames[0]` is the header record (px = game, py = wave, pic = count). */

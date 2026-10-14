@@ -7,18 +7,21 @@
 //   icon-<type>      item icons (96 px, shop)
 //   hudbar-off, hudbar-shield, hudbar-energy  HUD shield bars (dim / all lit)
 //   struct-<k>, wreck-<k>  destructible map structures (96 px)
-//   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg, shop-bg, brief-bravo, brief-train (960x600)
+//   dot, smoke, shard, stars-far, stars-near, nebula, hangar-bg, shop-bg, brief-<sector> (960x600)
 //   (lazy: brief-<sector>-<wave> = briefingTexture, the wave's boss + intel units over brief-<sector>)
 // Training sector (buildTrainingTextures, on the first training mission):
 //   ut-<PICNAME>, tstruct-<k>, twreck-<k>, sim-floor, sim-grid, sim-dots
+// Bugger Nest (buildNestTextures, on the first nest mission):
+//   u-BUG_*, nstruct-<k>, nwreck-<k>, hive-deep, hive-spores, hive-veins
 import type { Scene } from "phaser"
 import { TRAIN_WAVES, waveMap } from "../campaign"
 import { ENEMY_LIB, PIC_SIZES } from "../data/ep1"
 import { SCALE } from "../data/playfield"
-import type { Sector } from "../data/save"
+import { NEST_LIB } from "../data/s3_nest"
+import { SECTORS, type Sector } from "../data/save"
 import { Obj } from "../sim/consts"
 import { drawBriefing, drawBriefingUnits } from "./briefing"
-import { makeCanvas, seeded, softDot } from "./draw"
+import { type Ctx, makeCanvas, seeded, softDot } from "./draw"
 import {
   drawDot,
   drawHudBar,
@@ -31,11 +34,29 @@ import {
 } from "./fx"
 import { drawHangar } from "./hangar"
 import { drawButtonIcon, drawIcon, drawPickup } from "./icons"
+import { drawHiveStructure, drawHiveWreck, hiveDeep, hiveSpores, hiveVeins } from "./s3_bugs"
 import { drawPlayer, drawUnit, PLAYER2_PAL } from "./ships"
 import { drawShop } from "./shop"
 
 export const STRUCT_KINDS = 4
 export const WRECK_KINDS = 3
+/** Destructible map modules per sector look: texture prefix, structure art (kind), wreck art (seed). */
+export const MODULES: Record<
+  Sector,
+  {
+    pre: string
+    struct: (ctx: Ctx, kind: number, s: number) => void
+    wreck: (ctx: Ctx, s: number, seed: number) => void
+  }
+> = {
+  bravo: { pre: "", struct: drawStructure, wreck: drawWreck },
+  train: {
+    pre: "t",
+    struct: (ctx, kind, s) => drawStructure(ctx, kind, s, true),
+    wreck: (ctx, s, seed) => drawWreck(ctx, s, seed, true),
+  },
+  nest: { pre: "n", struct: drawHiveStructure, wreck: drawHiveWreck },
+}
 
 function addFrames(
   scene: Scene,
@@ -108,10 +129,10 @@ function trainingPics(): Set<string> {
 }
 
 /** Units: one sheet per picture name, frames = max num_frames used by any library entry. */
-function buildUnits(scene: Scene, prefix: string, train: boolean): void {
+function buildUnits(scene: Scene, prefix: string, train: boolean, lib = ENEMY_LIB): void {
   const units = new Map<string, { w: number; h: number; frames: number }>()
   const only = train ? trainingPics() : null
-  for (const e of ENEMY_LIB) {
+  for (const e of lib) {
     if (!e.w || (only && !only.has(e.iname))) continue
     const cur = units.get(e.iname)
     const frames = Math.max(1, e.num_frames, cur?.frames ?? 1)
@@ -137,6 +158,15 @@ function grid(ctx: CanvasRenderingContext2D, step: number, color: string, width:
   ctx.stroke()
 }
 
+/** `<pre>struct-<k>` / `<pre>wreck-<k>` of a sector look (96 px = one 32x32 DOS tile). */
+function buildModules(scene: Scene, look: Sector): void {
+  const { pre, struct, wreck } = MODULES[look]
+  for (let k = 0; k < STRUCT_KINDS; k++)
+    single(scene, `${pre}struct-${k}`, 96, 96, (ctx) => struct(ctx, k, 96))
+  for (let k = 0; k < WRECK_KINDS; k++)
+    single(scene, `${pre}wreck-${k}`, 96, 96, (ctx) => wreck(ctx, 96, 11 + k))
+}
+
 /** Mission briefing overlay of a sector wave (boss + intel units, 960x600), built on first use. */
 export function briefingTexture(scene: Scene, sector: Sector, wave: number): string {
   const key = `brief-${sector}-${wave}`
@@ -147,10 +177,7 @@ export function briefingTexture(scene: Scene, sector: Sector, wave: number): str
 /** Holographic training range: target drones, target pads, grid backdrop. */
 export function buildTrainingTextures(scene: Scene): void {
   buildUnits(scene, "ut-", true)
-  for (let k = 0; k < STRUCT_KINDS; k++)
-    single(scene, `tstruct-${k}`, 96, 96, (ctx) => drawStructure(ctx, k, 96, true))
-  for (let k = 0; k < WRECK_KINDS; k++)
-    single(scene, `twreck-${k}`, 96, 96, (ctx) => drawWreck(ctx, 96, 11 + k, true))
+  buildModules(scene, "train")
   single(scene, "sim-floor", 512, 512, (ctx) => {
     ctx.fillStyle = "#04070f"
     ctx.fillRect(0, 0, 512, 512)
@@ -164,6 +191,15 @@ export function buildTrainingTextures(scene: Scene): void {
       ctx.fillRect(Math.floor(r() * 16) * 32 + 15, Math.floor(r() * 16) * 32 + 15, 3, 3)
     }
   })
+}
+
+/** Bugger Nest: insect units, hive structures, organic backdrop. */
+export function buildNestTextures(scene: Scene): void {
+  buildUnits(scene, "u-", false, NEST_LIB)
+  buildModules(scene, "nest")
+  single(scene, "hive-deep", 512, 1024, (ctx) => hiveDeep(ctx, 512, 1024))
+  single(scene, "hive-spores", 512, 512, (ctx) => hiveSpores(ctx, 512))
+  single(scene, "hive-veins", 512, 512, (ctx) => hiveVeins(ctx, 512))
 }
 
 export function buildTextures(scene: Scene): void {
@@ -189,10 +225,7 @@ export function buildTextures(scene: Scene): void {
   for (const k of ["auto", "cycle"] as const)
     single(scene, `btn-${k}`, 96, 96, (ctx) => drawButtonIcon(ctx, k, 96))
 
-  for (let k = 0; k < STRUCT_KINDS; k++)
-    single(scene, `struct-${k}`, 96, 96, (ctx) => drawStructure(ctx, k, 96))
-  for (let k = 0; k < WRECK_KINDS; k++)
-    single(scene, `wreck-${k}`, 96, 96, (ctx) => drawWreck(ctx, 96, 11 + k))
+  buildModules(scene, "bravo")
 
   const { w, h } = HUD_BAR
   single(scene, "hudbar-off", w, h, (ctx) => drawHudBar(ctx, null))
@@ -204,8 +237,8 @@ export function buildTextures(scene: Scene): void {
   single(scene, "shard", 12, 12, (ctx) => drawShard(ctx, 12))
   single(scene, "hangar-bg", 960, 600, (ctx) => drawHangar(ctx, 960, 600))
   single(scene, "shop-bg", 960, 600, (ctx) => drawShop(ctx, 960, 600))
-  for (const s of ["bravo", "train"])
-    single(scene, `brief-${s}`, 960, 600, (ctx) => drawBriefing(ctx, 960, 600, s === "train"))
+  for (const s of SECTORS)
+    single(scene, `brief-${s}`, 960, 600, (ctx) => drawBriefing(ctx, 960, 600, s))
   single(scene, "stars-far", 512, 512, (ctx) => stars(ctx, 512, 260, 1, 0.8))
   single(scene, "stars-near", 512, 512, (ctx) => stars(ctx, 512, 60, 2, 1.8))
   single(scene, "nebula", 512, 1024, (ctx) => {

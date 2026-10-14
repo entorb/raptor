@@ -24,6 +24,8 @@ export const STRINGS = {
   "sector.bravo": e("BRAVO", "BRAVO"),
   "sector.train": e("TRAINING", "TRAINING"),
   "sector.bravoName": e("BRAVO SECTOR", "SEKTOR BRAVO"),
+  "sector.nest": e("NEST", "NEST"),
+  "sector.nestName": e("BUGGER NEST", "KRABBLER-NEST"),
 
   "diff.rookie": e("Rookie", "Rekrut"),
   "diff.veteran": e("Veteran", "Veteran"),
@@ -64,8 +66,8 @@ export const STRINGS = {
     "Pilot {name} löschen? Das kann nicht rückgängig gemacht werden.",
   ),
   "menu.pilotStats": e(
-    "{cr} CR  ·  Bravo waves {done}/{total}  ·  Training {train}/{trainTotal}",
-    "{cr} CR  ·  Bravo-Wellen {done}/{total}  ·  Training {train}/{trainTotal}",
+    "{cr} CR  ·  Bravo waves {done}/{total}  ·  Training {train}/{trainTotal}  ·  Nest {nest}/{nestTotal}",
+    "{cr} CR  ·  Bravo-Wellen {done}/{total}  ·  Training {train}/{trainTotal}  ·  Nest {nest}/{nestTotal}",
   ),
   "menu.yesDelete": e("Yes, delete", "Ja, löschen"),
   "menu.pilotName": e("Pilot name", "Pilotenname"),

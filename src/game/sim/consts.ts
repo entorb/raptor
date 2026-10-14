@@ -8,6 +8,13 @@ export const MAP_BLOCKSIZE = 32
 export const MAP_SIZE = MAP_ROWS * MAP_COLS
 export const MAP_LEFT = 16
 export const MAP_BOTTOM = 200 - 18
+/** web: material cell grid of the map (TILE_CELLS: 4x4 cells per tile, 8x8 DOS px each) */
+export const FINE = 4
+export const FW = MAP_COLS * FINE
+export const FH = MAP_ROWS * FINE
+/** Cell grid index of cell `k` (0..15, row by row) of map spot `spot`. */
+export const cellOf = (spot: number, k: number) =>
+  (Math.floor(spot / MAP_COLS) * FINE + (k >> 2)) * FW + (spot % MAP_COLS) * FINE + (k & 3)
 
 /** Circle offsets (16 steps) shared by bonus pickups and enemy mines. */
 export const XPOS = [-1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2]

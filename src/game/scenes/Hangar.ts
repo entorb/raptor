@@ -346,7 +346,7 @@ export class Hangar extends Scene {
     return p ? defaultWave(p, sector) : 0
   }
 
-  /** Launch screen: 2 sector boxes, the sector's wave boxes, the level's top 10, Launch. */
+  /** Launch screen: a box per sector, the sector's wave boxes, the level's top 10, Launch. */
   private buildLaunch(p: PilotSave): void {
     // the scene instance is reused: drop the objects of the previous visit
     this.launchObjs = []
@@ -361,8 +361,9 @@ export class Hangar extends Scene {
       this.launchObjs.push(bg, label)
       return { bg, label }
     }
+    const step = 356 / SECTORS.length
     this.sectorBoxes = SECTORS.map((s, i) =>
-      box(551 + i * 178, 184, 174, 40, 17, () => {
+      box(640 + (i - (SECTORS.length - 1) / 2) * step, 184, step - 4, 40, 17, () => {
         this.focusRow = ROW_SECTOR
         this.selectSector(s)
       }),
@@ -455,7 +456,7 @@ export class Hangar extends Scene {
     SECTORS.forEach((sec, i) => {
       const b = this.sectorBoxes[i]
       if (!b) return
-      b.label.setText(t(sec === "train" ? "sector.train" : "sector.bravo"))
+      b.label.setText(t(`sector.${sec}`))
       this.paint(b, sec === s, row === ROW_SECTOR && sec === s)
     })
     this.intel.setTexture(briefingTexture(this, s, this.selWave))
