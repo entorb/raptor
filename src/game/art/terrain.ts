@@ -5,12 +5,10 @@
 // The training sector (`train`) renders the same map as a simulator deck: flat gridded floor
 // plates, lit hull panels and hazard stripes instead of lichen.
 import { TILE_CELLS } from "../data/ep1"
-import { MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts"
+import type { Sector } from "../data/save"
+import { cellOf, FH, FW, MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts"
 import { makeCanvas } from "./draw"
 
-const FINE = 4 // cells per tile edge (8 DOS px each)
-const FW = MAP_COLS * FINE
-const FH = MAP_ROWS * FINE
 /** Chunk = 8 map rows (256 DOS px); rendered at RES px per DOS px, drawn scaled to 3x. */
 export const CHUNK_ROWS = 8
 export const RES = 1.5
@@ -81,16 +79,16 @@ function blur(src: Float32Array): Float32Array {
 }
 
 /** Blurred material fields on the cell grid for one map's initial tiles. */
-export function buildField(flats: number[]): TerrainField {
+export function buildField(flats: number[], tiles = TILE_CELLS): TerrainField {
   const solid = new Float32Array(FW * FH)
   const metal = new Float32Array(FW * FH)
   const lichen = new Float32Array(FW * FH)
   for (let r = 0; r < MAP_ROWS; r++)
     for (let c = 0; c < MAP_COLS; c++) {
-      const cells = TILE_CELLS[flats[r * MAP_COLS + c] ?? 0] ?? "0000000000000000"
+      const cells = tiles[flats[r * MAP_COLS + c] ?? 0] ?? "0000000000000000"
       for (let k = 0; k < 16; k++) {
         const m = Number(cells[k])
-        const i = (r * FINE + (k >> 2)) * FW + c * FINE + (k & 3)
+        const i = cellOf(r * MAP_COLS + c, k)
         solid[i] = Math.min(1, m)
         metal[i] = Number(m === 2)
         lichen[i] = Number(m === 3)
@@ -139,7 +137,7 @@ export class ChunkJob {
     private readonly field: TerrainField,
     ci: number,
     private readonly seed: number,
-    private readonly train = false,
+    private readonly look: Sector = "bravo",
   ) {
     const { c, ctx } = makeCanvas(this.W, this.H)
     this.canvas = c
@@ -171,7 +169,7 @@ export class ChunkJob {
       const rock = fbm(dx / 22, dy / 22, seed + 5) * 1.4
       const crater = vnoise(dx / 16, dy / 16, seed + 9)
       const bowl = crater > 0.7 ? -(crater - 0.7) * 2.5 : 0
-      const rough = this.train ? 0.15 : 1
+      const rough = this.look === "train" ? 0.15 : 1
       this.hgt[i] = bevel * 2.2 + (1 - Math.min(1, m * 2)) * (rock + bowl) * bevel * rough
     }
   }
@@ -184,8 +182,12 @@ export class ChunkJob {
     const gy = (this.hgt[i + SW] as number) - (this.hgt[i] as number)
     const shade = Math.max(0.35, Math.min(1.5, 1 - (gx + gy) * 6))
     const m = this.met[i] as number
-    if (this.train) {
+    if (this.look === "train") {
       this.simColor(m, shade, dx, dy)
+      return
+    }
+    if (this.look === "nest") {
+      this.hiveColor(m, shade, dx, dy)
       return
     }
     if (m > 0.5) {
@@ -250,6 +252,64 @@ export class ChunkJob {
     this.rgb[2] = (grid ? 210 : 44) * shade
   }
 
+  /** Hive: chitin comb (hull), glowing acid veins (lichen), wet flesh (rock). */
+  private hiveColor(m: number, shade: number, dx: number, dy: number): void {
+    const lic = sample(this.field.lichen, dx / 8 - 0.5, dy / 8 - 0.5)
+    if (m > 0.5) {
+      this.hiveComb(shade, dx, dy)
+    } else {
+      this.hiveFlesh(shade, dx, dy)
+    }
+    if (lic > 0.3) this.hiveVein(lic, dx, dy)
+  }
+
+  /** Dark amber honeycomb: hex cells (nearest of two offset lattices), a few larvae glowing. */
+  private hiveComb(shade: number, dx: number, dy: number): void {
+    const a = 12
+    const b = a * Math.sqrt(3)
+    let best = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
+    let id = 0
+    for (const [ox, oy] of [
+      [0, 0],
+      [a / 2, b / 2],
+    ] as const) {
+      const ix = Math.round((dx - ox) / a)
+      const iy = Math.round((dy - oy) / b)
+      const d = Math.hypot(dx - ox - ix * a, dy - oy - iy * b)
+      if (d < (best[0] as number)) {
+        best = [d, best[0] as number]
+        id = ix * 7 + iy * 13 + (ox ? 5 : 0)
+      } else if (d < (best[1] as number)) best[1] = d
+    }
+    const edge = (best[1] as number) - (best[0] as number)
+    const seam = edge < 1.2 ? 0.35 : 1
+    const cell = hash2(id, 3, this.seed + 19)
+    const glow = cell > 0.93 ? Math.max(0, 1 - (best[0] as number) / 6) * 140 : 0
+    const dome = 1 - ((best[0] as number) / a) * 0.5
+    this.rgb[0] = (70 + cell * 20) * seam * dome * shade + glow
+    this.rgb[1] = (42 + cell * 10) * seam * dome * shade + glow * 0.7
+    this.rgb[2] = 22 * seam * dome * shade + glow * 0.15
+  }
+
+  /** Wet purple-brown flesh with a resin sheen on the lit slopes. */
+  private hiveFlesh(shade: number, dx: number, dy: number): void {
+    const tone = fbm(dx / 40, dy / 40, this.seed + 23)
+    const sheen = shade > 1.15 ? (shade - 1.15) * 120 : 0
+    this.rgb[0] = (64 + tone * 40) * shade + sheen
+    this.rgb[1] = (34 + tone * 14) * shade + sheen
+    this.rgb[2] = (50 + tone * 26) * shade + sheen
+  }
+
+  /** Acid-green veins pulsing through the hive walls. */
+  private hiveVein(lic: number, dx: number, dy: number): void {
+    const { seed, rgb } = this
+    const v = Math.abs(vnoise(dx / 9, dy / 9, seed + 29) - 0.5)
+    const k = Math.min(1, (lic - 0.3) * 2) * Math.max(0, 1 - v / 0.08)
+    rgb[0] = (rgb[0] as number) + k * 90
+    rgb[1] = (rgb[1] as number) + k * 210
+    rgb[2] = (rgb[2] as number) + k * 40
+  }
+
   /** Glowing lichen patches (cyan / violet) on top of `this.rgb`. */
   private tintLichen(lic: number, dx: number, dy: number): void {
     const { seed, rgb } = this
@@ -312,9 +372,9 @@ export function renderChunk(
   field: TerrainField,
   ci: number,
   seed: number,
-  train = false,
+  look: Sector = "bravo",
 ): HTMLCanvasElement {
-  const job = new ChunkJob(field, ci, seed, train)
+  const job = new ChunkJob(field, ci, seed, look)
   job.step(Number.POSITIVE_INFINITY)
   return job.canvas
 }

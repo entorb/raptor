@@ -39,9 +39,21 @@ export interface EnemyLib {
 }
 
 /** One wave's map: MAPS entry (tile FLATS indices + CSPRITE spawn records), plus web tweaks. */
+/** Tile table (ep1 = FLATS + TILE_CELLS): per tile index the destroyed tile, hits, bounty, 4x4 cells. */
+export interface TileSet {
+  link: number[]
+  hp: number[]
+  bounty: number[]
+  cells: string[]
+}
+
 export interface WaveMap {
   flats: number[]
   spawns: number[][]
   /** web: halve the boss hits and burst length (beginner training wave) */
   easyBoss?: boolean
+  /** web: own enemy library (spawn slib indexes it), default ep1 ENEMY_LIB */
+  lib?: EnemyLib[]
+  /** web: own tile table (flats index it), default ep1 FLATS + TILE_CELLS */
+  tiles?: TileSet
 }

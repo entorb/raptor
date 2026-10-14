@@ -297,6 +297,8 @@ export class Menu extends Scene {
         total: sectorWaves(p, "bravo"),
         train: doneWaves(p, "train"),
         trainTotal: sectorWaves(p, "train"),
+        nest: doneWaves(p, "nest"),
+        nestTotal: sectorWaves(p, "nest"),
       })
       this.info.setText(`${t("menu.deleteConfirm", { name: p.name })}\n${stats}`)
       items.push({

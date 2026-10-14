@@ -1,9 +1,35 @@
 // Particle effects for the original ANIMS (explosions, sparks, smoke) in the modern look.
 import type { GameObjects, Scene } from "phaser"
 import { PLAY, SCALE } from "../data/playfield"
+import type { Sector } from "../data/save"
 import type { AnimObj } from "../sim/anims"
 
 type Emitter = GameObjects.Particles.ParticleEmitter
+
+/** Particle tints per sector look (training sim: hologram "derez", nest: acid and ichor). */
+const TINTS: Record<
+  Sector,
+  { boom: [number, number]; smoke: number[]; fire: number[]; ground: number[] }
+> = {
+  bravo: {
+    boom: [0xffe8b0, 0xffd070],
+    smoke: [0x9aa0b0, 0x3a3e48],
+    fire: [0xfff6d0, 0xffc040, 0xff5a20, 0x401010],
+    ground: [0xfff0b0, 0xff8a20, 0x802010],
+  },
+  train: {
+    boom: [0xb0ffe8, 0x7fffd0],
+    smoke: [0x2a8a90, 0x0a2030],
+    fire: [0xffffff, 0x9dffe0, 0x2effb4, 0x0a3a40],
+    ground: [0xd0fff0, 0x2effb4, 0x0a4030],
+  },
+  nest: {
+    boom: [0xf0ffc0, 0xc8ff50],
+    smoke: [0x4a6a28, 0x10200a],
+    fire: [0xf4ffd0, 0xc8ff40, 0x60c020, 0x1a3008],
+    ground: [0xe8ffb0, 0x9ae030, 0x2a5010],
+  },
+}
 
 export class Effects {
   private readonly scene: Scene
@@ -14,12 +40,13 @@ export class Effects {
   private readonly debris: Emitter
   private readonly energy: Emitter
   private readonly groundFire: Emitter
-  /** boom flash / spark tints (training sim: hologram "derez" instead of fire) */
+  /** boom flash / spark tints */
   private readonly boomTint: [number, number]
 
-  constructor(scene: Scene, groundDepth: number, airDepth: number, sim = false) {
+  constructor(scene: Scene, groundDepth: number, airDepth: number, look: Sector = "bravo") {
     this.scene = scene
-    this.boomTint = sim ? [0xb0ffe8, 0x7fffd0] : [0xffe8b0, 0xffd070]
+    const tint = TINTS[look]
+    this.boomTint = tint.boom
     const add = (tex: string, cfg: Record<string, unknown>, depth: number) =>
       scene.add.particles(0, 0, tex, { emitting: false, ...cfg }).setDepth(depth)
     this.smoke = add(
@@ -29,7 +56,7 @@ export class Effects {
         lifespan: { min: 600, max: 1200 },
         scale: { start: 0.6, end: 2.2 },
         alpha: { start: 0.35, end: 0 },
-        color: sim ? [0x2a8a90, 0x0a2030] : [0x9aa0b0, 0x3a3e48],
+        color: tint.smoke,
         rotate: { min: 0, max: 360 },
       },
       airDepth - 1,
@@ -41,9 +68,7 @@ export class Effects {
         lifespan: { min: 250, max: 700 },
         scale: { start: 1.6, end: 0 },
         alpha: { start: 1, end: 0 },
-        color: sim
-          ? [0xffffff, 0x9dffe0, 0x2effb4, 0x0a3a40]
-          : [0xfff6d0, 0xffc040, 0xff5a20, 0x401010],
+        color: tint.fire,
         blendMode: "ADD",
       },
       airDepth,
@@ -101,7 +126,7 @@ export class Effects {
         lifespan: { min: 400, max: 900 },
         scale: { start: 1.1, end: 0 },
         alpha: { start: 0.9, end: 0 },
-        color: sim ? [0xd0fff0, 0x2effb4, 0x0a4030] : [0xfff0b0, 0xff8a20, 0x802010],
+        color: tint.ground,
         blendMode: "ADD",
       },
       groundDepth,

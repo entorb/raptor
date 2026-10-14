@@ -40,17 +40,17 @@ const MULTI_START = 1
 const MULTI_END = 2
 
 // EXP_TYPE
-const EXP_AIRSMALL1 = 0
-const EXP_AIRMED = 1
-const EXP_AIRLARGE = 2
+export const EXP_AIRSMALL1 = 0
+export const EXP_AIRMED = 1
+export const EXP_AIRLARGE = 2
 const EXP_GRDSMALL = 3
-const EXP_GRDMED = 4
-const EXP_GRDLARGE = 5
-const EXP_BOSS = 6
+export const EXP_GRDMED = 4
+export const EXP_GRDLARGE = 5
+export const EXP_BOSS = 6
 const EXP_PERSON = 7
-const EXP_ENERGY = 8
+export const EXP_ENERGY = 8
 const EXP_PLATOON = 9
-const EXP_AIRSMALL2 = 10
+export const EXP_AIRSMALL2 = 10
 
 /** ENEMY.H difficulty bits (CSPRITE.level after ENEMY_LoadSprites). */
 export const EB_EASY_LEVEL = 8
@@ -121,10 +121,13 @@ export class Enemies {
   /** web: ships seen on screen / destroyed this wave (mission stats; spawns above the screen don't count yet) */
   seen = 0
   killed = 0
+  /** web: enemy library of the wave (`WaveMap.lib`) */
+  lib: EnemyLib[] = ENEMY_LIB
   private nextId = 1
 
   /** ENEMY_LoadSprites + ENEMY_Clear */
-  load(spawns: number[][], cur_diff: number): void {
+  load(spawns: number[][], cur_diff: number, lib = ENEMY_LIB): void {
+    this.lib = lib
     this.ships = []
     this.onscreen = []
     this.end_waveflag = false
@@ -133,7 +136,7 @@ export class Enemies {
     this.seen = 0
     this.killed = 0
     this.spawns = spawns.map(([link, slib, x, y, _game, level]) => {
-      const lib = ENEMY_LIB[slib ?? 0]
+      const lib = this.lib[slib ?? 0]
       let bit = LEVEL_BITS[level ?? -1] ?? EB_NOT_USED
       if (!(bit & cur_diff) || !lib?.w) bit = EB_NOT_USED
       return { link: link ?? 0, slib: slib ?? 0, x: x ?? 0, y: y ?? 0, level: bit }
@@ -161,7 +164,7 @@ function coopHits(w: World, hits: number): number {
 function add(w: World, sp: Spawn): void {
   const e = w.enemies
   if (e.ships.length >= MAX_ONSCREEN) return // DOS: EXIT_Error("Max Sprites")
-  const lib = ENEMY_LIB[sp.slib] as EnemyLib
+  const lib = e.lib[sp.slib] as EnemyLib
   const t = w.tiles
   const n: Ship = {
     id: e.newId(),

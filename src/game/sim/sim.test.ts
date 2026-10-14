@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1"
-import { BEGINNER_MAP } from "../data/training"
+import { BEGINNER_MAP } from "../data/s1_training"
 import { DIFF_NORMAL, DIFF_TRAIN, END_FLYOFF, MAP_SIZE, Obj, PLAYERWIDTH } from "./consts"
 import type { Ship } from "./enemy"
 import { initMobj, moveEobj, moveSobj, newMove } from "./move"

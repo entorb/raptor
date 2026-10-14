@@ -1,10 +1,10 @@
 // Mission briefing backdrops (Hangar launch screen): a tactical war room per sector (`drawBriefing`,
 // boss scan table + empty intel cards) and a per-wave overlay (`drawBriefingUnits`) with the wave's
 // boss on the table and four signature enemies on the cards. Bravo = hostile red/orange with the
-// real enemy art, Training = cyan simulator with the hologram target drones.
-import { waveMap } from "../campaign"
-import { ENEMY_LIB } from "../data/ep1"
+// real enemy art, Training = cyan simulator with the hologram target drones, Nest = acid green hive.
+import { libOf, waveMap } from "../campaign"
 import type { Sector } from "../data/save"
+import type { EnemyLib } from "../data/types"
 import { type Ctx, glow, polyPath, roundRect, seeded } from "./draw"
 import { drawUnit } from "./ships"
 
@@ -21,24 +21,26 @@ function unit(
   x: number,
   y: number,
   s: number,
-  train: boolean,
+  look: { train: boolean; lib: EnemyLib[] },
   last = false,
 ) {
-  const e = ENEMY_LIB.find((l) => l.iname === name)
+  const e = look.lib.find((l) => l.iname === name)
   const [pw, ph] = [e?.w || 1, e?.h || 1]
   const frames = Math.max(1, e?.num_frames ?? 1)
   const k = s / Math.max(pw, ph)
   ctx.save()
   ctx.translate(x - (pw * k) / 2, y - (ph * k) / 2)
-  drawUnit(ctx, name, pw * k, ph * k, last ? frames - 1 : 0, frames, train)
+  drawUnit(ctx, name, pw * k, ph * k, last ? frames - 1 : 0, frames, look.train)
   ctx.restore()
 }
 
 /** Pictures spawned by a sector wave (spawn order), library entries without art skipped. */
 function wavePics(sector: Sector, wave: number): string[] {
   const names = new Set<string>()
-  for (const s of waveMap(sector, wave).map?.spawns ?? []) {
-    const e = ENEMY_LIB[s[1] ?? 0]
+  const { map } = waveMap(sector, wave)
+  const lib = libOf(map)
+  for (const s of map?.spawns ?? []) {
+    const e = lib[s[1] ?? 0]
     if (e?.w) names.add(e.iname)
   }
   return [...names]
@@ -49,10 +51,12 @@ function wavePics(sector: Sector, wave: number): string[] {
  * no bonus carriers or critters): first the types new to this wave, then the most frequent.
  */
 export function briefingUnits(sector: Sector, wave: number): { boss?: string; intel: string[] } {
-  const lib = (n: string) => ENEMY_LIB.find((e) => e.iname === n)
+  const { map } = waveMap(sector, wave)
+  const all = libOf(map)
+  const lib = (n: string) => all.find((e) => e.iname === n)
   const count = new Map<string, number>()
-  for (const s of waveMap(sector, wave).map?.spawns ?? []) {
-    const n = ENEMY_LIB[s[1] ?? 0]?.iname ?? ""
+  for (const s of map?.spawns ?? []) {
+    const n = all[s[1] ?? 0]?.iname ?? ""
     count.set(n, (count.get(n) ?? 0) + 1)
   }
   const pics = wavePics(sector, wave)
@@ -62,7 +66,7 @@ export function briefingUnits(sector: Sector, wave: number): { boss?: string; in
   const seen = new Set<string>()
   for (let w = 0; w < wave; w++) for (const n of wavePics(sector, w)) seen.add(n)
   const intel = pics
-    .filter((n) => /^(SHIP|TARG)/.test(n) && !lib(n)?.bossflag && (lib(n)?.bonus ?? -1) < 0)
+    .filter((n) => /^(SHIP|TARG|BUG)/.test(n) && !lib(n)?.bossflag && (lib(n)?.bonus ?? -1) < 0)
     .sort(
       (a, b) =>
         Number(seen.has(a)) - Number(seen.has(b)) || (count.get(b) ?? 0) - (count.get(a) ?? 0),
@@ -73,15 +77,15 @@ export function briefingUnits(sector: Sector, wave: number): { boss?: string; in
 
 /** Per-wave overlay for `drawBriefing`: the boss hologram and the intel card units. */
 export function drawBriefingUnits(ctx: Ctx, sector: Sector, wave: number): void {
-  const train = sector === "train"
+  const look = { train: sector === "train", lib: libOf(waveMap(sector, wave).map) }
   const { boss, intel } = briefingUnits(sector, wave)
   if (boss) {
     ctx.globalAlpha = 0.8
-    unit(ctx, boss, TABLE[0], TABLE[1], 190, train, true)
+    unit(ctx, boss, TABLE[0], TABLE[1], 190, look, true)
     ctx.globalAlpha = 1
   }
   intel.forEach((name, i) => {
-    unit(ctx, name, CARD.x + i * CARD.step + 48, CARD.y + 46, 70, train)
+    unit(ctx, name, CARD.x + i * CARD.step + 48, CARD.y + 46, 70, look)
   })
 }
 
@@ -101,11 +105,39 @@ function brackets(ctx: Ctx, x: number, y: number, w: number, h: number, len: num
   ctx.stroke()
 }
 
-export function drawBriefing(ctx: Ctx, w: number, h: number, train: boolean): void {
-  const r = seeded(train ? 21 : 22)
-  const [rgb, bg0, bg1] = train
-    ? ["93,255,200", "#03101a", "#020608"]
-    : ["255,110,60", "#1a0808", "#070304"]
+/** Briefing room per sector: seed, accent rgb, wall gradient, wall line steps, target label. */
+const ROOM: Record<
+  Sector,
+  { seed: number; rgb: string; bg: [string, string]; grid: [number, number]; label: string }
+> = {
+  bravo: {
+    seed: 22,
+    rgb: "255,110,60",
+    bg: ["#1a0808", "#070304"],
+    grid: [120, 6],
+    label: "PRIORITY TARGET",
+  },
+  train: {
+    seed: 21,
+    rgb: "93,255,200",
+    bg: ["#03101a", "#020608"],
+    grid: [40, 40],
+    label: "SIM TARGET // CORE",
+  },
+  nest: {
+    seed: 23,
+    rgb: "170,255,60",
+    bg: ["#0e1606", "#040702"],
+    grid: [60, 4],
+    label: "XENO TARGET // HIVE",
+  },
+}
+
+export function drawBriefing(ctx: Ctx, w: number, h: number, sector: Sector): void {
+  const room = ROOM[sector]
+  const r = seeded(room.seed)
+  const { rgb } = room
+  const [bg0, bg1] = room.bg
   const c = (a: number) => `rgba(${rgb},${a})`
   // room
   const wall = ctx.createLinearGradient(0, 0, 0, h)
@@ -114,15 +146,15 @@ export function drawBriefing(ctx: Ctx, w: number, h: number, train: boolean): vo
   wall.addColorStop(1, bg1)
   ctx.fillStyle = wall
   ctx.fillRect(0, 0, w, h)
-  // wall grid (training) / hazard scan lines (bravo)
+  // wall grid (training) / hazard scan lines (bravo, nest)
   ctx.strokeStyle = c(0.06)
   ctx.lineWidth = 1
   ctx.beginPath()
-  for (let x = 0; x <= w; x += train ? 40 : 120) {
+  for (let x = 0; x <= w; x += room.grid[0]) {
     ctx.moveTo(x, 0)
     ctx.lineTo(x, h)
   }
-  for (let y = 0; y <= h; y += train ? 40 : 6) {
+  for (let y = 0; y <= h; y += room.grid[1]) {
     ctx.moveTo(0, y)
     ctx.lineTo(w, y)
   }
@@ -178,7 +210,7 @@ export function drawBriefing(ctx: Ctx, w: number, h: number, train: boolean): vo
   brackets(ctx, tx - 105, 120, 210, 200, 22)
   ctx.fillStyle = c(0.9)
   ctx.font = "bold 13px monospace"
-  ctx.fillText(train ? "SIM TARGET // CORE" : "PRIORITY TARGET", tx - 100, 114)
+  ctx.fillText(room.label, tx - 100, 114)
   // intel cards (the wave's units: drawBriefingUnits)
   for (let i = 0; i < 4; i++) {
     const x = CARD.x + i * CARD.step
