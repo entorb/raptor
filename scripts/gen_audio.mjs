@@ -305,6 +305,10 @@ const MODES = {
   phrygian: [0, 1, 3, 5, 7, 8, 10],
   harmonic: [0, 2, 3, 5, 7, 8, 11],
   major: [0, 2, 4, 5, 7, 9, 11],
+  // nest: exotic / alien scales
+  phrygdom: [0, 1, 4, 5, 7, 8, 10],
+  hungarian: [0, 2, 3, 6, 7, 8, 11],
+  locrian: [0, 1, 3, 5, 6, 8, 10],
 }
 
 /** Scale degree (any integer) -> semitones above the root. */
@@ -469,6 +473,129 @@ const INST = {
       return bp.run(n()) * vel * Math.exp(-t * 1.8)
     })
   },
+  // nest sector voices: the Formic hive (formant hive-mind choir, wing-buzz swarm, mandible
+  // chitter, throat growl, glassy chitin chimes, tribal thump, chitin clacks, cicada rattles)
+  choir: (f, dur, vel, seed) => {
+    const r = rng(seed)
+    const os = [0, 1, 2].map(() => new Osc("saw", r()))
+    const det = [1, 1.006, 0.995]
+    const fs = [new Biquad("bp", 300, 6), new Biquad("bp", 870, 8), new Biquad("bp", 2240, 10)]
+    const body = new Biquad("lp", 500)
+    const ph = r() * 2 * Math.PI
+    return render(dur + 1.4, (t) => {
+      // vowel drifts "oo" <-> "ah" (formants in Hz), each voice with its own phase
+      const m = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.18 * t + ph)
+      fs[0].set(300 + 430 * m)
+      fs[1].set(870 + 220 * m)
+      fs[2].set(2240 + 200 * m)
+      const vib = 1 + 0.006 * Math.sin(2 * Math.PI * 4.6 * t + ph)
+      const src = os.reduce((s, o, k) => s + o.next(f * det[k] * vib), 0) / 3
+      const v = fs[0].run(src) * 1.4 + fs[1].run(src) + fs[2].run(src) * 0.5 + body.run(src) * 0.35
+      return v * vel * adsr(t, dur, 0.7, 1, 1, 1.4)
+    })
+  },
+  swarm: (f, dur, vel, seed) => {
+    const r = rng(seed)
+    const os = [0, 1, 2, 3].map(() => new Osc("saw", r()))
+    const det = [1, 1.011, 0.988, 2.003]
+    // every voice beats its own wings (Hz)
+    const beat = os.map(() => 22 + r() * 14)
+    const bp = new Biquad("bp", 1200, 1.2)
+    const ph = r() * 2 * Math.PI
+    return render(dur + 1, (t) => {
+      bp.set(900 + 900 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.11 * t + ph)))
+      const v = os.reduce(
+        (s, o, k) => s + o.next(f * det[k]) * (0.55 + 0.45 * Math.sin(2 * Math.PI * beat[k] * t)),
+        0,
+      )
+      return bp.run(v) * 0.75 * vel * adsr(t, dur, 0.4, 1, 1, 1)
+    })
+  },
+  growl: (f, dur, vel) => {
+    const a = new Osc("saw")
+    const b = new Osc("saw", 0.5)
+    const lp = new Biquad("lp", 400, 4)
+    return render(dur + 0.08, (t) => {
+      // throat flutter: the resonant filter chatters like mandibles
+      const flutter = 0.6 + 0.4 * Math.sin(2 * Math.PI * 7 * t)
+      lp.set(180 + (300 + 900 * Math.exp(-t * 10)) * flutter * vel)
+      const v = Math.tanh(lp.run(a.next(f) + b.next(f * 1.01)) * 1.5)
+      return v * 0.6 * vel * adsr(t, dur, 0.005, 0.2, 0.8, 0.05)
+    })
+  },
+  chitter: (f, dur, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", Math.min(8000, f * 4), 4)
+    const c = new Osc("sine")
+    const m = new Osc("sine")
+    return render(Math.min(dur, 0.12) + 0.08, (t) => {
+      // inharmonic FM ping + a click transient
+      const tone = c.next(f * (1 + 1.5 * m.next(f * 2.76) * Math.exp(-t * 40)))
+      return (tone * Math.exp(-t * 22) + bp.run(n()) * 2 * Math.exp(-t * 250)) * vel
+    })
+  },
+  hive: (f, dur, vel) => {
+    const a = new Osc("saw")
+    const b = new Osc("square")
+    const fs = [new Biquad("bp", 400, 7), new Biquad("bp", 1700, 9), new Biquad("bp", 2600, 11)]
+    return render(dur + 0.4, (t) => {
+      // bends up a semitone into the note, the vowel opens "ee" -> "ah" across it
+      const bend = 2 ** (-Math.exp(-t * 14) / 12)
+      const vib = 1 + 0.008 * Math.sin(2 * Math.PI * 6.2 * t) * Math.min(1, t / 0.5)
+      const m = Math.min(1, t / Math.max(0.2, dur))
+      fs[0].set(280 + 450 * m)
+      fs[1].set(2250 - 1150 * m)
+      fs[2].set(2900 - 400 * m)
+      const src = a.next(f * bend * vib) + 0.4 * b.next(f * 0.5 * bend * vib, 0.3)
+      const v = fs[0].run(src) * 1.3 + fs[1].run(src) + fs[2].run(src) * 0.6
+      return v * vel * adsr(t, dur, 0.03, 0.4, 0.8, 0.3)
+    })
+  },
+  glass: (f, dur, vel) =>
+    render(Math.max(dur, 0.6) + 1.2, (t) => {
+      const mod = 2.4 * Math.exp(-t * 2.5) * Math.sin(2 * Math.PI * f * 1.414 * t)
+      return Math.sin(2 * Math.PI * f * t + mod) * vel * Math.exp(-t * 1.7) * Math.min(1, t / 0.002)
+    }),
+  thump: (_f, _d, vel, seed) => {
+    const o = new Osc("sine")
+    const n = noiseSrc(seed)
+    const lp = new Biquad("lp", 900)
+    return render(0.5, (t) => {
+      const body = Math.tanh(o.next(glide(120, 52, t, 0.16)) * 1.8) * Math.exp(-t * 6)
+      return (body + lp.run(n()) * 0.5 * Math.exp(-t * 60)) * vel
+    })
+  },
+  chitin: (_f, _d, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", 2400, 5)
+    const o = new Osc("sine")
+    return render(0.2, (t) => {
+      // two clacks 14 ms apart, like mandibles snapping shut
+      const env = Math.exp(-t * 45) + (t > 0.014 ? 0.7 * Math.exp(-(t - 0.014) * 45) : 0)
+      const body = o.next(glide(420, 300, t, 0.04)) * Math.exp(-t * 35) * 0.5
+      return (bp.run(n()) * 2.2 * env + body) * vel
+    })
+  },
+  click: (_f, dur, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", 3500 + rng(seed)() * 3500, 6)
+    if (dur < 0.18) return render(0.03, (t) => bp.run(n()) * 2.5 * vel * Math.exp(-t * 150))
+    // open hat: cicada rattle (chopped noise)
+    return render(0.3, (t) => {
+      const chop = Math.sin(2 * Math.PI * 64 * t) > 0 ? 1 : 0.15
+      return bp.run(n()) * 2 * vel * chop * Math.exp(-t * 9)
+    })
+  },
+  swell: (_f, _d, vel, seed) => {
+    const n = noiseSrc(seed)
+    const bp = new Biquad("bp", 800, 2)
+    return render(2.4, (t) => {
+      // swarm rush: the band rises, wing beats chop it
+      bp.set(500 + 2500 * Math.min(1, t / 0.4) * Math.exp(-t * 0.8), 2)
+      const wings = 0.6 + 0.4 * Math.sin(2 * Math.PI * 31 * t)
+      return bp.run(n()) * 4 * wings * vel * Math.min(1, t / 0.08) * Math.exp(-t * 1.6)
+    })
+  },
   kick: (_f, _d, vel) => {
     const o = new Osc("sine")
     return render(
@@ -522,6 +649,16 @@ const BUS = {
   clap: { gain: 0.3, pan: 0.05, rev: 0.3, dly: 0, duck: 0 },
   tick: { gain: 0.12, pan: 0.3, rev: 0.05, dly: 0, duck: 0 },
   sweep: { gain: 0.14, pan: -0.2, rev: 0.4, dly: 0.2, duck: 0 },
+  choir: { gain: 0.36, pan: 0, rev: 0.5, dly: 0, duck: 0.5, wide: true },
+  swarm: { gain: 0.18, pan: 0, rev: 0.35, dly: 0, duck: 0.4, wide: true },
+  growl: { gain: 0.35, pan: 0, rev: 0, dly: 0, duck: 0.45 },
+  chitter: { gain: 0.3, pan: 0.3, rev: 0.2, dly: 0.4, duck: 0.3 },
+  hive: { gain: 0.48, pan: -0.08, rev: 0.45, dly: 0.3, duck: 0 },
+  glass: { gain: 0.22, pan: -0.2, rev: 0.5, dly: 0.35, duck: 0 },
+  thump: { gain: 0.45, pan: 0, rev: 0.1, dly: 0, duck: 0 },
+  chitin: { gain: 0.4, pan: 0.05, rev: 0.25, dly: 0, duck: 0 },
+  click: { gain: 0.24, pan: 0.35, rev: 0.05, dly: 0, duck: 0 },
+  swell: { gain: 0.2, pan: -0.2, rev: 0.4, dly: 0.2, duck: 0 },
 }
 
 /**
@@ -538,6 +675,22 @@ const SIM_VOICES = {
   snare: ["snare", "clap"],
   hat: "tick",
   crash: ["crash", "sweep"],
+}
+
+/**
+ * Bugger Nest theme (Ender's Game Formics): the hive mind sings through a formant choir over a
+ * wing-buzz swarm, mandibles chitter the arps; Bravo bass / kick / snare stay layered for weight.
+ */
+const HIVE_VOICES = {
+  pad: ["choir", "swarm"],
+  pluck: "chitter",
+  bass: ["bass", "growl"],
+  lead: "hive",
+  bell: "glass",
+  kick: ["kick", "thump"],
+  snare: ["snare", "chitin"],
+  hat: "click",
+  crash: "swell",
 }
 
 // 16th-step patterns per bar
@@ -559,6 +712,15 @@ const DRUMS = {
   },
   simfour: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], open: true },
   simdrive: {
+    kick: [0, 4, 8, 12],
+    snare: [4, 12],
+    hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  },
+  // nest: tribal hive rhythms (heartbeat, 3+3+2 toms, skittering clicks, cicada rattles)
+  heartbeat: { kick: [0, 2, 8, 10], snare: [12], hat: [2, 4, 6, 7, 10, 12, 14, 15], open: true },
+  hivetribal: { kick: [0, 3, 6, 10], snare: [4, 12], hat: [0, 2, 3, 6, 8, 10, 11, 14], open: true },
+  tribal: { kick: [0, 3, 6, 8, 11, 14], snare: [4, 12], hat: [2, 6, 10, 14], open: true },
+  hivedrive: {
     kick: [0, 4, 8, 12],
     snare: [4, 12],
     hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -1201,6 +1363,196 @@ const SONGS = {
     leadInst: "lead",
     leadOct: 1,
     voices: SIM_VOICES,
+  },
+  // Bugger Nest theme: the Formic hive (HIVE_VOICES), tribal / swarm rhythms, exotic modes, 112 -> 144 BPM
+  // nest wave 1 (guardian): first contact, eerie E phrygian heartbeat
+  hive1: {
+    seed: 311,
+    bpm: 112,
+    root: 52,
+    mode: "phrygian",
+    prog: [0, 1, 0, 6],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad lead hats"],
+      [4, "pad arp bass drums lead"],
+    ],
+    drums: "heartbeat",
+    bass: "long",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 2 (broodmother): tribal A harmonic minor
+  hive2: {
+    seed: 312,
+    bpm: 116,
+    root: 45,
+    mode: "harmonic",
+    prog: [0, 5, 3, 4],
+    sections: [
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad arp"],
+      [4, "pad arp bass drums lead"],
+    ],
+    drums: "hivetribal",
+    bass: "syncop",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 3 (hivelord): exotic C# phrygian dominant, 3+3+2 toms
+  hive3: {
+    seed: 313,
+    bpm: 120,
+    root: 49,
+    mode: "phrygdom",
+    prog: [0, 1, 6, 1],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad lead hats"],
+      [6, "pad arp bass drums lead"],
+    ],
+    drums: "tribal",
+    bass: "offbeat",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 4 (guardian2): swarm drive, F Hungarian minor
+  hive4: {
+    seed: 314,
+    bpm: 124,
+    root: 53,
+    mode: "hungarian",
+    prog: [0, 5, 3, 4],
+    sections: [
+      [4, "arp bass hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad arp"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "hivedrive",
+    bass: "eighth",
+    arp: "up",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 5 (burrower): deep B locrian heartbeat, glass chimes
+  hive5: {
+    seed: 315,
+    bpm: 126,
+    root: 47,
+    mode: "locrian",
+    prog: [0, 1, 6, 5],
+    sections: [
+      [4, "pad"],
+      [8, "pad bass drums bell"],
+      [8, "pad arp bass drums bell"],
+      [4, "pad arp"],
+      [8, "pad arp bass drums bell"],
+    ],
+    drums: "heartbeat",
+    bass: "syncop",
+    arp: "random",
+    leadInst: "bell",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 6 (broodmother2): galloping G phrygian dominant
+  hive6: {
+    seed: 316,
+    bpm: 130,
+    root: 55,
+    mode: "phrygdom",
+    prog: [0, 1, 6, 0],
+    sections: [
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "arp hats"],
+      [8, "pad arp bass drums lead"],
+    ],
+    drums: "hivetribal",
+    bass: "gallop",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 7 (hivelord2): war drums, D harmonic minor
+  hive7: {
+    seed: 317,
+    bpm: 134,
+    root: 50,
+    mode: "harmonic",
+    prog: [0, 3, 5, 4],
+    sections: [
+      [4, "pad arp"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad bell"],
+      [10, "pad arp bass drums lead"],
+    ],
+    drums: "tribal",
+    bass: "syncop",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 8 (burrower2): relentless F# Hungarian minor swarm
+  hive8: {
+    seed: 318,
+    bpm: 138,
+    root: 54,
+    mode: "hungarian",
+    prog: [0, 1, 0, 4],
+    sections: [
+      [4, "arp bass hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad arp hats"],
+      [12, "pad arp bass drums lead"],
+    ],
+    drums: "hivedrive",
+    bass: "gallop",
+    arp: "random",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
+  },
+  // nest wave 9 (queen, finale): the hive queen, E phrygian dominant
+  hive9: {
+    seed: 319,
+    bpm: 144,
+    root: 52,
+    mode: "phrygdom",
+    prog: [0, 1, 6, 1],
+    sections: [
+      [4, "pad arp hats"],
+      [8, "pad arp bass drums"],
+      [8, "pad arp bass drums lead"],
+      [4, "pad lead"],
+      [12, "pad arp bass drums lead"],
+    ],
+    drums: "hivedrive",
+    bass: "eighth",
+    arp: "updown",
+    leadInst: "lead",
+    leadOct: 1,
+    voices: HIVE_VOICES,
   },
 }
 

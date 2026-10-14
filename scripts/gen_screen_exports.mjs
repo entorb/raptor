@@ -106,6 +106,14 @@ const SCREENS = [
       await p.waitForTimeout(600)
     },
   ],
+  [
+    "launch-nest",
+    async (p) => {
+      await start(p, "Hangar")
+      await call(p, "Hangar", "openLaunch", "nest", 0)
+      await p.waitForTimeout(600)
+    },
+  ],
   ["briefing", async (p) => start(p, "Game", { sector: "bravo", wave: 0 }, 1500)],
   [
     "play",
