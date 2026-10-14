@@ -56,3 +56,8 @@ it("stored weapons default to none and drop junk entries", () => {
   expect(a?.stored).toEqual([{ type: 3, num: 5, inuse: false }])
   expect(b?.stored).toEqual([])
 })
+
+it("keeps the nest sector and its progress", () => {
+  store.set("raptor.pilots.v1", JSON.stringify([{ ...newPilotSave("A"), sector: "nest", nest: 3 }]))
+  expect(loadPilots()[0]).toMatchObject({ sector: "nest", nest: 3 })
+})

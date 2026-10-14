@@ -21,14 +21,16 @@ export interface PilotSave {
   done?: number
   /** sector selected in the Hangar */
   sector?: Sector
-  /** training waves finished (the training sector has 4) */
+  /** training waves finished (the training sector has 5) */
   train?: number
-  /** per level (`b<wave>`, `t<wave>`): completions and top-10 runs by earnings (descending) */
+  /** web: Bugger Nest waves finished */
+  nest?: number
+  /** per level (`b<wave>`, `t<wave>`, `n<wave>`): completions and top-10 runs by earnings (descending) */
   stats?: Record<string, LevelStats>
 }
 
 /** Sectors in Hangar toggle order (a new sector also needs `sector.*` strings and its waves). */
-export const SECTORS = ["train", "bravo"] as const
+export const SECTORS = ["train", "bravo", "nest"] as const
 export type Sector = (typeof SECTORS)[number]
 
 export interface LevelStats {
@@ -85,6 +87,7 @@ export function isPilotSave(v: unknown): v is PilotSave {
     Number.isInteger(p.diff) &&
     (p.done === undefined || Number.isInteger(p.done)) &&
     (p.train === undefined || Number.isInteger(p.train)) &&
+    (p.nest === undefined || Number.isInteger(p.nest)) &&
     Array.isArray(p.objs) &&
     p.objs.every((o) => Number.isInteger(o.type) && Number.isInteger(o.num))
   )

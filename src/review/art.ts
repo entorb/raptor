@@ -2,14 +2,18 @@
 // picture from tmp/ref (if dumped), enemies grouped by the mission (wave) that spawns them.
 
 import { makeCanvas } from "../game/art/draw"
-import { drawDot, drawShard, drawShot, drawSmoke, drawStructure, drawWreck } from "../game/art/fx"
+import { drawDot, drawShard, drawShot, drawSmoke } from "../game/art/fx"
 import { drawPickup } from "../game/art/icons"
+import { hiveDeep, hiveSpores, hiveVeins } from "../game/art/s3_bugs"
 import { drawPlayer, drawUnit } from "../game/art/ships"
 import { buildField, CHUNK_ROWS, CHUNK_W, CHUNKS, RES, renderChunk } from "../game/art/terrain"
-import { STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"
-import { TRAIN_WAVES, waveMap } from "../game/campaign"
+import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"
+import { libOf, TRAIN_WAVES, waveMap } from "../game/campaign"
 import { ENEMY_LIB, MAPS, PIC_SIZES } from "../game/data/ep1"
 import { SCALE } from "../game/data/playfield"
+import { NEST_LIB, NEST_WAVES } from "../game/data/s3_nest"
+import type { Sector } from "../game/data/save"
+import type { EnemyLib, WaveMap } from "../game/data/types"
 import { SPECIAL_KEYS } from "../game/input/gameInput"
 import { LAST_WEAPON, Obj } from "../game/sim/consts"
 import { OBJ_LIB } from "../game/sim/objects"
@@ -78,14 +82,14 @@ function card(name: string, meta: string, tags: string[], pics: HTMLElement[]): 
   return c
 }
 
-/** Tags art for the sector filter ("bravo" / "train"). */
-function sector<T extends HTMLElement>(e: T, s: "bravo" | "train"): T {
+/** Tags art for the sector filter. */
+function sector<T extends HTMLElement>(e: T, s: Sector): T {
   e.dataset.sector = s
   return e
 }
 
 /** `wave` (0-based sector wave, "unused" = not spawned) and `sec` tag the section for the filter. */
-function section(id: string, title: string, intro = "", wave?: string, sec?: "bravo" | "train") {
+function section(id: string, title: string, intro = "", wave?: string, sec?: Sector) {
   const h = el("h2", "", title)
   h.id = id
   const a = el("a", "", title)
@@ -251,41 +255,38 @@ function lineCanvas(): HTMLCanvasElement {
 // ---- enemies by mission -----------------------------------------------------------------------
 /** Frames per picture name, as textures.ts builds them. */
 const unitFrames = new Map<string, number>()
-for (const e of ENEMY_LIB)
+for (const e of [...ENEMY_LIB, ...NEST_LIB])
   if (e.w) unitFrames.set(e.iname, Math.max(1, e.num_frames, unitFrames.get(e.iname) ?? 1))
 
-/** Enemy frames for `sec`, or both sectors (unused enemies). */
-function enemyCard(slib: number, count: number, sec?: "bravo" | "train"): HTMLElement {
-  const e = ENEMY_LIB[slib]
+/** Enemy frames for `sec`, or both DOS sectors (unused enemies). */
+function enemyCard(
+  e: EnemyLib | undefined,
+  slib: number,
+  count: number,
+  sec?: Sector,
+): HTMLElement {
   if (!e) return el("div")
   const frames = unitFrames.get(e.iname) ?? 1
   const w = e.w * SCALE
   const h = e.h * SCALE
-  const rows = (["bravo", "train"] as const)
-    .filter((s) => !sec || s === sec)
-    .map((s) => {
-      const row = el("div", "frames")
-      for (let f = 0; f < frames; f++)
-        row.append(
-          pic(
-            canvas(w, h, (ctx) => drawUnit(ctx, e.iname, w, h, f, frames, s === "train")),
-            s === "train" ? `train ${f}` : `${f}`,
-          ),
-        )
-      return sector(row, s)
-    })
+  const rows = (sec ? [sec] : (["bravo", "train"] as const)).map((s) => {
+    const row = el("div", "frames")
+    for (let f = 0; f < frames; f++)
+      row.append(
+        pic(
+          canvas(w, h, (ctx) => drawUnit(ctx, e.iname, w, h, f, frames, s === "train")),
+          s === "train" ? `train ${f}` : `${f}`,
+        ),
+      )
+    return sector(row, s)
+  })
   const tags = [e.bossflag ? "boss" : "", e.ground ? "ground" : "air"].filter(Boolean)
   const meta = `lib #${slib} · ${e.w}x${e.h} · hits ${e.hits} · $${e.money} · ${count}x in the map`
   return card(e.iname.replace(/_PIC$/, ""), meta, tags, [...rows, ...refPic(`enemy_${e.iname}`)])
 }
 
 /** Terrain of DOS map `index` (terrain seed) as `sec` renders it, tagged with the sector wave. */
-function terrain(
-  index: number,
-  flats: number[],
-  sec: "bravo" | "train",
-  wave: number,
-): HTMLElement {
+function terrain(index: number, map: WaveMap, sec: Sector, wave: number): HTMLElement {
   const d = el("details")
   d.dataset.wave = String(wave)
   d.dataset.sector = sec
@@ -295,17 +296,17 @@ function terrain(
     () => {
       const box = el("div", "pics")
       box.style.cssText = "max-height:640px;overflow:auto;align-items:flex-start"
-      const field = buildField(flats)
+      const field = buildField(map.flats, map.tiles?.cells)
       const k = 0.5 // 0.75 px per DOS px
       const chunkH = CHUNK_ROWS * 32 * RES
       const full = canvas(CHUNK_W * RES * k, CHUNKS * chunkH * k, (ctx) => {
         for (let ci = 0; ci < CHUNKS; ci++) {
-          const c = renderChunk(field, ci, 17 + index, sec === "train")
+          const c = renderChunk(field, ci, 17 + index, sec)
           ctx.drawImage(c, 0, ci * chunkH * k, c.width * k, c.height * k)
         }
       })
-      box.append(pic(full, sec === "train" ? "training" : "bravo"))
-      const url = refUrl(`map${index + 1}`)
+      box.append(pic(full, sec))
+      const url = sec === "nest" ? undefined : refUrl(`map${index + 1}`)
       if (url) {
         const img = el("img")
         img.src = url
@@ -323,28 +324,39 @@ function terrain(
 }
 
 const used = new Set<string>()
-for (const sec of ["bravo", "train"] as const) {
-  const waves = sec === "train" ? TRAIN_WAVES : MAPS.length
-  for (let wave = 0; wave < waves; wave++) {
+const SECTION: Record<Sector, { waves: number; title: string }> = {
+  bravo: { waves: MAPS.length, title: "Bravo mission" },
+  train: { waves: TRAIN_WAVES, title: "Training wave" },
+  nest: { waves: NEST_WAVES, title: "Bugger Nest wave" },
+}
+
+/** Section intro: the DOS map a training wave flies (the nest has its own generated waves). */
+function waveIntro(sec: Sector, wave: number, index: number): string {
+  if (sec === "nest") return "Web-only generated wave: own enemy library and hive terrain"
+  if (sec === "bravo") return ""
+  return wave ? `DOS map ${index + 1}` : "Web-only beginner wave (map 1 terrain)"
+}
+
+for (const sec of ["bravo", "train", "nest"] as const) {
+  for (let wave = 0; wave < SECTION[sec].waves; wave++) {
     const { index, map } = waveMap(sec, wave)
     if (!map) continue
+    const lib = libOf(map)
     // one card per picture (several library entries can share one), in spawn order
     const byName = new Map<string, { slib: number; n: number }>()
     for (const s of map.spawns) {
       const slib = s[1] ?? 0
-      const e = ENEMY_LIB[slib]
+      const e = lib[slib]
       if (!e?.w) continue
       const cur = byName.get(e.iname)
       if (cur) cur.n++
       else byName.set(e.iname, { slib, n: 1 })
       used.add(e.iname)
     }
-    const title = sec === "train" ? `Training wave ${wave + 1}` : `Bravo mission ${wave + 1}`
-    const trainIntro = wave ? `DOS map ${index + 1}` : "Web-only beginner wave (map 1 terrain)"
-    const intro = sec === "train" ? trainIntro : ""
-    const g = section(`${sec}${wave + 1}`, title, intro, String(wave), sec)
-    for (const { slib, n } of byName.values()) g.append(enemyCard(slib, n, sec))
-    main.append(terrain(index, map.flats, sec, wave))
+    const title = `${SECTION[sec].title} ${wave + 1}`
+    const g = section(`${sec}${wave + 1}`, title, waveIntro(sec, wave, index), String(wave), sec)
+    for (const { slib, n } of byName.values()) g.append(enemyCard(lib[slib], slib, n, sec))
+    main.append(terrain(index, map, sec, wave))
   }
 }
 
@@ -355,7 +367,7 @@ for (const sec of ["bravo", "train"] as const) {
   })
   if (rest.size) {
     const g = section("unused", "Not spawned in episode 1", "", "unused")
-    for (const i of rest.values()) g.append(enemyCard(i, 0))
+    for (const i of rest.values()) g.append(enemyCard(ENEMY_LIB[i], i, 0))
   }
 }
 
@@ -366,42 +378,52 @@ for (const sec of ["bravo", "train"] as const) {
     "Buildings",
     "Destructible station modules on the map (struct-<k>) and their wrecks (wreck-<k>).",
   )
-  const row = el("div", "frames")
-  for (let k = 0; k < STRUCT_KINDS; k++)
-    row.append(
-      pic(
-        canvas(96, 96, (ctx) => drawStructure(ctx, k, 96)),
-        `struct-${k}`,
-      ),
-    )
-  for (let k = 0; k < WRECK_KINDS; k++)
-    row.append(
-      pic(
-        canvas(96, 96, (ctx) => drawWreck(ctx, 96, 11 + k)),
-        `wreck-${k}`,
-      ),
-    )
-  const sim = el("div", "frames")
-  for (let k = 0; k < STRUCT_KINDS; k++)
-    sim.append(
-      pic(
-        canvas(96, 96, (ctx) => drawStructure(ctx, k, 96, true)),
-        `tstruct-${k}`,
-      ),
-    )
-  for (let k = 0; k < WRECK_KINDS; k++)
-    sim.append(
-      pic(
-        canvas(96, 96, (ctx) => drawWreck(ctx, 96, 11 + k, true)),
-        `twreck-${k}`,
-      ),
-    )
+  const rows = (["bravo", "train", "nest"] as const).map((sec) => {
+    const { pre, struct, wreck } = MODULES[sec]
+    const row = el("div", "frames")
+    for (let k = 0; k < STRUCT_KINDS; k++)
+      row.append(
+        pic(
+          canvas(96, 96, (ctx) => struct(ctx, k, 96)),
+          `${pre}struct-${k}`,
+        ),
+      )
+    for (let k = 0; k < WRECK_KINDS; k++)
+      row.append(
+        pic(
+          canvas(96, 96, (ctx) => wreck(ctx, 96, 11 + k)),
+          `${pre}wreck-${k}`,
+        ),
+      )
+    return sector(row, sec)
+  })
+  g.append(card("Station modules", "96x96 (one 32x32 DOS tile)", [], rows))
   g.append(
-    card(
-      "Station modules",
-      "96x96 (one 32x32 DOS tile)",
-      [],
-      [sector(row, "bravo"), sector(sim, "train")],
+    sector(
+      card(
+        "Hive backdrops",
+        "hive-deep 512x1024, hive-spores / hive-veins 512 (tileable)",
+        [],
+        [
+          pic(
+            canvas(256, 512, (ctx) => {
+              ctx.scale(0.5, 0.5)
+              hiveDeep(ctx, 512, 1024)
+            }),
+            "hive-deep",
+          ),
+          pic(
+            canvas(512, 512, (ctx) => {
+              ctx.fillStyle = "#000"
+              ctx.fillRect(0, 0, 512, 512)
+              hiveSpores(ctx, 512)
+              hiveVeins(ctx, 512)
+            }),
+            "hive-spores + hive-veins",
+          ),
+        ],
+      ),
+      "nest",
     ),
   )
   g.append(card("Original tiles", "", [], refPic("tiles")))

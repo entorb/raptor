@@ -1,6 +1,7 @@
 // Procedural ship / unit art. Every original SPRITE1_ITM picture name maps to an archetype that
 // is drawn at 3x its original size (same hitbox), nose pointing down (enemies fly towards the
 // player). Animated originals get `frames` variants (rotation, light pulses, treads).
+
 import {
   bullseye,
   type Ctx,
@@ -16,6 +17,7 @@ import {
   seeded,
   sphere,
 } from "./draw"
+import { BUG_SPECS } from "./s3_bugs"
 
 export interface Palette {
   dark: string
@@ -69,7 +71,7 @@ export const PLAYER2_PAL: Palette = {
   glass: "#ffd27f",
 }
 
-type Draw = (ctx: Ctx, w: number, h: number, t: number, r: () => number, p: Palette) => void
+export type Draw = (ctx: Ctx, w: number, h: number, t: number, r: () => number, p: Palette) => void
 
 function engines(ctx: Ctx, xs: number[], y: number, r: number, color: string): void {
   for (const x of xs) glow(ctx, x, y, r, color)
@@ -1405,7 +1407,7 @@ const dreadnought: Draw = (ctx, w, h, t, _r, p) => {
   )
 }
 
-interface Spec {
+export interface Spec {
   draw: Draw
   pal: Palette
 }
@@ -1534,7 +1536,7 @@ const SPECS: Record<string, Spec> = {
 }
 
 function specFor(name: string, w: number, h: number): Spec {
-  const s = SPECS[name]
+  const s = SPECS[name] ?? BUG_SPECS[name]
   if (s) return s
   if (name.startsWith("TARG")) return { draw: turretOf(8, 1, 0.46), pal: G }
   if (w * h >= 80 * 40) return { draw: capital, pal: BOSS_PAL }

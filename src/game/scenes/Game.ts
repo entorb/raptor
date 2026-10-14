@@ -2,7 +2,7 @@
 // interpolating positions between sim frames.
 import { type GameObjects, Scene, TintModes } from "phaser"
 import { HUD_BAR } from "../art/fx"
-import { buildTrainingTextures } from "../art/textures"
+import { buildNestTextures, buildTrainingTextures } from "../art/textures"
 import { getAudio, WAVE_SONGS } from "../audio/audio"
 import {
   afterWave,
@@ -24,6 +24,7 @@ import { DEMOS } from "../data/ep1"
 import { SCALE } from "../data/playfield"
 import { loadPilots, loadSettings, type Sector, savePilot } from "../data/save"
 import { t as tr } from "../i18n/i18n"
+import type { StringKey } from "../i18n/strings"
 import { toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
 import { Effects } from "../render/effects"
@@ -88,6 +89,18 @@ interface ShipView {
 
 /** 2P co-op: player 2's engine glow / weapon strip frame */
 const P2_TINT = 0xffa040
+/** Mission banner / end text name per sector. */
+const SECTOR_TITLE: Record<Sector, StringKey> = {
+  train: "game.trainSim",
+  bravo: "sector.bravoName",
+  nest: "sector.nestName",
+}
+/** Parallax backdrops (far to near) per sector look. */
+const BACKDROPS: Record<Sector, string[]> = {
+  bravo: ["nebula", "stars-far", "stars-near"],
+  train: ["sim-floor", "sim-dots", "sim-grid"],
+  nest: ["hive-deep", "hive-spores", "hive-veins"],
+}
 /** report header colors: the players' engine glow */
 const PLAYER_COLORS = ["#39d0ff", "#ffa040"]
 
@@ -246,16 +259,19 @@ export class Game extends Scene {
     if (frames) this.world.playDemo(frames)
     else this.world.god = godMode()
 
-    // training: a holographic simulator (target drones, grid deck) instead of a real fight
-    const sim = this.sector === "train" && !frames
-    if (sim) buildTrainingTextures(this)
-    this.unitPrefix = sim ? "ut-" : "u-"
-    const bgs = sim ? ["sim-floor", "sim-dots", "sim-grid"] : ["nebula", "stars-far", "stars-near"]
-    this.stars = bgs.map((k) => this.add.tileSprite(480, 300, 960, 600, k).setDepth(D.stars))
-    this.terrain = new TerrainView(this, index, map?.flats ?? [], D.terrain, sim)
+    // training: a holographic simulator (target drones, grid deck) instead of a real fight;
+    // nest: insect swarms over an organic hive
+    const look: Sector = frames ? "bravo" : this.sector
+    if (look === "train") buildTrainingTextures(this)
+    if (look === "nest") buildNestTextures(this)
+    this.unitPrefix = look === "train" ? "ut-" : "u-"
+    this.stars = BACKDROPS[look].map((k) =>
+      this.add.tileSprite(480, 300, 960, 600, k).setDepth(D.stars),
+    )
+    this.terrain = new TerrainView(this, index, map?.flats ?? [], D.terrain, look, map?.tiles)
     this.scroll = this.prevScroll = this.scrollY()
     this.terrain.prepare(this.scroll)
-    this.fx = new Effects(this, D.groundAnim, D.airAnim, sim)
+    this.fx = new Effects(this, D.groundAnim, D.airAnim, look)
     this.beams = this.add.graphics().setDepth(D.shots).setBlendMode("ADD")
     this.views = this.world.ships.map((s, i) => this.shipView(s, i))
 
@@ -328,7 +344,7 @@ export class Game extends Scene {
   }
 
   private sectorTitle(): string {
-    return tr(this.sector === "train" ? "game.trainSim" : "sector.bravoName")
+    return tr(SECTOR_TITLE[this.sector])
   }
 
   private scrollY(): number {
@@ -1221,7 +1237,7 @@ export class Game extends Scene {
     return {
       text: training
         ? tr("game.trainingComplete")
-        : tr("game.sectorSecured", { sector: tr("sector.bravoName") }),
+        : tr("game.sectorSecured", { sector: tr(SECTOR_TITLE[this.sector]) }),
       next: () => this.scene.start("Hangar", { message, earned: payout }),
     }
   }

@@ -1,8 +1,9 @@
 // Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
-import { MAPS } from "./data/ep1"
+import { ENEMY_LIB, MAPS } from "./data/ep1"
+import { BEGINNER_MAP } from "./data/s1_training"
+import { NEST_WAVES, nestMap } from "./data/s3_nest"
 import type { LevelStats, PilotSave, Sector, TopRun } from "./data/save"
-import { BEGINNER_MAP } from "./data/training"
-import type { WaveMap } from "./data/types"
+import type { EnemyLib, WaveMap } from "./data/types"
 import { t } from "./i18n/i18n"
 import { DIFF_TRAIN, DIFF_WRAP, MAX_SHIELD, Obj } from "./sim/consts"
 import { Inventory, newPilotObjs } from "./sim/objects"
@@ -47,6 +48,7 @@ export function wavesFor(diff: number): number {
 }
 
 export function sectorWaves(p: PilotSave, sector: Sector): number {
+  if (sector === "nest") return NEST_WAVES
   return sector === "train" ? TRAIN_WAVES : wavesFor(p.diff)
 }
 
@@ -58,19 +60,23 @@ export function sectorDiff(p: PilotSave, sector: Sector): number {
 /** DOS map (index = sim seed / terrain / song) a sector wave flies. */
 export function waveMap(sector: Sector, wave: number): { index: number; map: WaveMap | undefined } {
   if (sector === "bravo") return { index: wave, map: MAPS[wave] }
+  if (sector === "nest") return { index: wave, map: nestMap(wave) }
   if (wave === 0) return { index: 0, map: BEGINNER_MAP }
   return { index: wave - 1, map: MAPS[wave - 1] }
 }
 
+/** Enemy library a wave's spawns index (`WaveMap.lib`, default the DOS one). */
+export const libOf = (map: WaveMap | undefined): EnemyLib[] => map?.lib ?? ENEMY_LIB
+
 /** Next campaign wave of a sector, null when the sector is finished. */
 export function nextWave(p: PilotSave, sector: Sector): number | null {
-  const w = sector === "bravo" ? p.wave : (p.train ?? 0)
+  const w = sector === "bravo" ? p.wave : (p[sector] ?? 0)
   return w < sectorWaves(p, sector) ? w : null
 }
 
 /** Waves this pilot has finished at least once in a sector (replayable). */
 export function doneWaves(p: PilotSave, sector: Sector): number {
-  return sector === "train" ? (p.train ?? 0) : (p.done ?? 0)
+  return sector === "bravo" ? (p.done ?? 0) : (p[sector] ?? 0)
 }
 
 /** Wave preselected in the Hangar: the next unfinished one, else the sector's last. */
@@ -83,7 +89,7 @@ export function playable(p: PilotSave, sector: Sector, w: number): boolean {
   return w < doneWaves(p, sector) || w === nextWave(p, sector)
 }
 
-export const levelKey = (sector: Sector, wave: number) => `${sector === "train" ? "t" : "b"}${wave}`
+export const levelKey = (sector: Sector, wave: number) => `${sector[0]}${wave}`
 
 /** Stats of one level (empty when never flown). */
 export const levelStats = (p: PilotSave, key: string): LevelStats =>
@@ -170,11 +176,12 @@ export function afterWave(
   const pilot: PilotSave =
     sector === "train" && wave === TRAIN_WAVES - 1 ? { ...run.pilot, sector: "bravo" } : run.pilot
   if (isReplay(p, sector, wave)) return { pilot, outcome: "landing", rank }
-  if (sector === "train") {
-    const train = wave + 1
+  if (sector !== "bravo") {
+    const done = wave + 1
+    const end = sector === "train" ? "trainingComplete" : "episodeComplete"
     return {
-      pilot: { ...pilot, train },
-      outcome: train === TRAIN_WAVES ? "trainingComplete" : "landing",
+      pilot: { ...pilot, [sector]: done },
+      outcome: done === sectorWaves(p, sector) ? end : "landing",
       rank,
     }
   }
@@ -229,6 +236,11 @@ export function runCampaignSelfCheck(): void {
   assert(playable(t4.pilot, "train", 4) && !playable(base, "train", 1), "playable waves")
   assert(waveMap("train", 0).map === BEGINNER_MAP, "training starts with the beginner wave")
   assert(waveMap("train", 4).index === 3 && waveMap("bravo", 4).index === 4, "wave -> DOS map")
+  const n1 = afterWave(base, "complete", "nest")
+  assert(n1.pilot.nest === 1 && n1.pilot.wave === 0 && !n1.pilot.train, "nest advances separately")
+  const n9 = afterWave({ ...base, nest: 8 }, "complete", "nest")
+  assert(n9.outcome === "episodeComplete" && nextWave(n9.pilot, "nest") === null, "nest end")
+  assert(levelKey("nest", 2) === "n2" && levelKey("train", 1) === "t1", "level keys")
   let q = base
   for (let i = 1; i <= 12; i++) q = recordRun(q, "b0", i * 100).pilot
   const r = recordRun(q, "b0", 450)

@@ -1,9 +1,10 @@
 // Sector / wave filter at the top of the review pages. Empty = unfiltered.
 import { TRAIN_WAVES } from "../game/campaign"
 import { MAPS } from "../game/data/ep1"
+import type { Sector } from "../game/data/save"
 
 export interface Filter {
-  sector: "" | "bravo" | "train"
+  sector: "" | Sector
   /** 0-based wave as a string, "" = all */
   wave: string
 }
@@ -28,6 +29,7 @@ export function initFilter(apply: (f: Filter) => void): () => void {
   const sector = select("Sector", [
     ["train", "Training"],
     ["bravo", "Bravo"],
+    ["nest", "Bugger Nest"],
   ])
   const wave = select(
     "Wave",
