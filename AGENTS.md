@@ -29,8 +29,8 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   up front: nested template literals (extract inner template to `const`), nested ternaries (extract
   the inner one into its own `const`), comma operator in arrow functions (use block-bodied arrow
   with proper `await` lines instead), `void` on a non-Promise expression (use a block-bodied arrow
-  instead), cognitive complexity > 15 (split branches into `private` helper methods, as in
-  `terrain.ts` `simPanel`/`simStripe`/`simGrid`; an `if/else` drawing two variants = two helper
+  instead), cognitive complexity > 15 (split branches into helper functions, as in
+  `s1_sim.ts` `simPanel`/`simStripe`/`simDeck`; an `if/else` drawing two variants = two helper
   functions, as in `icons.ts` `autoGlyph`/`cycleGlyph`), plain `for (let i...)` over a simple
   iteration (`for-of` instead), > 7 function params (group optional ones into an options object,
   as in `glowText(..., { glow, color })`), consecutive `push()` calls (one `push(a, b)`),
@@ -53,10 +53,12 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   (while `draw_player`). Ground: 3 px left, 4 px down (`D.groundShadow`, under ground enemies).
   Sky + player: 10 px left, 20 px down, then projected 200/280 toward (160, 100), also scaled
   200/280 (`D.skyShadow`, above ground enemies). Look = violet rim + dark core (`SHADOW_LAYERS`).
-- `src/game/art/`: procedural Canvas2D art: `ships.ts` (one distinct design per original picture name,
+- `src/game/art/`: procedural Canvas2D art: `ships.ts` (shared: `Palette`, `Draw`/`Spec`, `drawUnit`
+  dispatching to the sector art, `drawPlayer`), `s2_bravo.ts` (Bravo: one distinct design per original picture name,
   `SPECS`: own silhouette per enemy, hull tint by threat (pale fodder, steel fighters, copper light
   gunships, crimson armored, hazard yellow kamikaze, gunmetal specialists, violet elite); turrets via
-  `turretOf(sides, guns, len, aim?)`; keep new enemies distinguishable from all others in their waves; `drawPlayer` = 7 bank frames drawn as a roll: lowered wing short/dark, raised wing wide/lit), `fx.ts` (shots, structures), `icons.ts` (item icons `icon-<t>` + hex pickups
+  `turretOf(sides, guns, len, aim?)`; keep new enemies distinguishable from all others in their waves; `drawPlayer` = 7 bank frames drawn as a roll: lowered wing short/dark, raised wing wide/lit; station modules `drawStructure`/`drawWreck`; terrain `bravoSurface`), `s1_sim.ts` (Training:
+  holograms `TRAIN_LOOK`, target pads, sim backdrops, terrain `simSurface`), `fx.ts` (shots, particles, HUD bars), `icons.ts` (item icons `icon-<t>` + hex pickups
   `pickup-<t>`, used by shop, HUD strip, drops, mobile nova button), `shop.ts` (`shop-bg`), `briefing.ts` (`brief-<sector>`: mission briefing room per sector, crossfaded by `Hangar.show`; over it the per-wave `brief-<sector>-<wave>` overlay, `textures.ts briefingTexture`, built on first use: the wave's toughest boss on the scan table + 4 signature enemies on the intel cards, `briefingUnits`: types new to the wave first, then the most frequent; no bonus carriers/critters), `terrain.ts` (terrain chunks), `textures.ts`
   (texture keys, built once in `Boot`).
 - `src/game/i18n/`: EN (default) + DE. `strings.ts` = `STRINGS` (`en`/`de` per key, `{name}` placeholders),
@@ -126,7 +128,11 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
 - `src/game/audio/audio.ts`: FX table (sample, DMX pitch, volume), 3D pan/volume, music (songs
   load lazily). `WAVE_SONGS[sector][wave]`: every sector has its own music theme and every wave its
   own song (`gen_audio.mjs SONGS`: `bravo*` = Bravo, saw/analog combat; `train*` = Training, own synth palette
-  via `voices: SIM_VOICES` (sync lead, bitcrushed arp, acid bass and grid pad layered over the Bravo pad/bass/drums for weight; the sim voices alone sounded thin) + `sim*` drums; driving electro/techno, tempo rises per wave, 132 -> 150 BPM). When adding more
+  via `voices: SIM_VOICES` (sync lead, bitcrushed arp, acid bass and grid pad layered over the Bravo pad/bass/drums for weight; the sim voices alone sounded thin) + `sim*` drums; driving electro/techno, tempo rises per wave, 132 -> 150 BPM; `hive*` = Bugger Nest,
+  Formic insect hive via `voices: HIVE_VOICES` (formant hive-mind choir + wing-buzz swarm pad, mandible
+  chitter arp, growl bass, chitin clacks / cicada rattles over the Bravo bass/kick/snare) + tribal drums
+  (`heartbeat`, `hivetribal`, `tribal`, `hivedrive`), exotic modes (phrygian dominant, Hungarian minor,
+  locrian), 112 -> 144 BPM). When adding more
   sectors: add new music too (a new song per wave; a new sector theme = own `voices` remap / drums, not just new keys).
 - `src/game/campaign.ts`: WIN_MainLoop between-wave logic (pure). `session.ts`: current pilot.
   `data/save.ts`: localStorage (validate on load, it is untrusted): pilot list `raptor.pilots.v1`,
@@ -135,7 +141,7 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   raise after the episode; a finished sector stays replayable); Training (DIFF_TRAIN, 5 waves) is a
   second sector of every pilot (`PilotSave.train`, `p.sector` = last selected sector; finishing
   training switches it to Bravo).
-  Training wave 1 is a web-only beginner wave (`data/training.ts BEGINNER_MAP`: map 0 terrain,
+  Training wave 1 is a web-only beginner wave (`data/s1_training.ts BEGINNER_MAP`: map 0 terrain,
   hand-picked spawns, shield carriers only, early boss with `easyBoss`); waves 2-5 fly DOS maps
   0-3. `campaign.ts waveMap(sector, wave)` maps a sector wave to its DOS map index + map.
   `PilotSave.done` = Bravo waves ever finished. Hangar = Mission Briefing / Shop (Buy/Sell toggle row) /
@@ -152,11 +158,22 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   last save (`reloadPilot`): weapons lost in flight come back. The HUD shows credits earned this run.
   The Hangar back icon is only shown on the shop and launch screens (hangar has an Exit row).
 - Training sector look (`Game.create` `sim`): a holographic simulator instead of a real fight.
-  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones (`ships.ts TRAIN_LOOK`: own shape + color per picture, the
+  `buildTrainingTextures` (lazy, first training mission): `ut-<PIC>` hologram target drones (`s1_sim.ts TRAIN_LOOK`: own shape + color per picture, the
   bullseye takes the unit color; armed ground units = polygon/round `emplacement`s with guns, never
   the square passive `tstruct-` pads), `tstruct-/twreck-` target pads, `sim-*`
-  grid backdrop; `ChunkJob(..., train)` renders the map as a gridded deck; `Effects(..., sim)` uses
+  grid backdrop; `ChunkJob(..., "train")` renders the map as a gridded deck; `Effects(..., "train")` uses
   cyan "derez" explosions; banners say SIMULATION. Sim/gameplay is identical to Bravo.
+- Bugger Nest sector (`nest`, web-only, third sector in `data/save.ts SECTORS`; `PilotSave.nest` =
+  waves finished, stats `n<w>`).
+  Own data, not DOS: `data/s3_nest.ts` (`NEST_LIB` built by `bug()`, each bug copies the stats of the
+  Bravo unit named in its comment; `WAVES` spec per wave -> seeded `WaveBuilder` spawns, built lazily
+  by `nestMap`) and `data/s3_hive.ts` (seeded hive terrain on the 36x600 cell grid, one tile per map
+  spot). `WaveMap.lib` / `WaveMap.tiles` replace `ENEMY_LIB` / `FLATS`+`TILE_CELLS` (sim, terrain,
+  briefing via `campaign.ts libOf`). An F_LINEAR path must end off screen (the ship is removed at
+  its last point; `s3_nest.test.ts`). Look: the art takes the `Sector` as look key (`TerrainView`,
+  `ChunkJob` `hiveColor`, `Effects TINTS`, `briefing.ts ROOM`, `Game.ts BACKDROPS`);
+  `art/s3_bugs.ts` = `BUG_*` unit art (`ships.ts drawUnit` checks `BUG_SPECS` before `s2_bravo.ts bravoSpec`), hive structures,
+  wrecks and backdrops, built by `buildNestTextures` on the first nest mission. Music: `hive1..9`.
 - Hangar background: `art/hangar.ts` (`hangar-bg`, open bay door = transparent `BAY`); the
   dogfight sprites live in a container created before the frame so they stay behind it.
 - Start menu (`Menu`): Play -> pilot list (last played first) + New Pilot; name entry = Phaser DOM
@@ -222,6 +239,56 @@ Template/sister project: `../last-eichhof` (same structure and tooling).
   through the whole sim (a regression smoke test; divergence from DOS cannot be measured without
   a DOSBox reference).
 
+## Adding a sector
+
+File names: a module used by only one sector gets the sector's number as prefix: `s1_` Training,
+`s2_` Bravo, `s3_` Bugger Nest (`data/s1_training.ts`, `art/s1_sim.ts`, `art/s2_bravo.ts`,
+`data/s3_nest.ts`, `art/s3_bugs.ts`); shared modules (`ep1.ts` feeds Bravo and Training) stay
+unprefixed. Every sector has one art module (units, structures/wrecks, backdrops, terrain surface
+colors); the shared modules dispatch by `Sector` (`ships.ts drawUnit`, `textures.ts MODULES`,
+`terrain.ts LOOK`). Shared helpers, not copies: `sim/consts.ts FINE/FW/FH/cellOf` (material cell
+grid), `sim/enemy.ts EXP_*`, `ships.ts Draw/Spec`, `draw.ts regularPoly` + noise
+(`hash2`/`vnoise`/`fbm`/`mod`). Sector art modules import only types from `ships.ts`/`terrain.ts`
+(those import the sector modules: a value import back would be a circular init).
+
+Template: the Bugger Nest (`nest`). Every new sector is its own world: a new theme, its own
+enemies (own `EnemyLib` entries and picture names, own art) and its own maps and terrain. Never
+reuse the DOS maps, the Bravo/Training enemies or another sector's enemies, maps, art or palette
+(Training reusing the DOS maps is a legacy exception). The steps in order;
+`pnpm exec tsc --noEmit` lists most of the places that need an entry (every `Record<Sector, ...>`).
+
+1. Id: add the key to `SECTORS` (`data/save.ts`); the first letter becomes the stats prefix
+   (`campaign.ts levelKey`), so keep it unique. Progress: an optional `PilotSave.<sector>` counter
+   - `isPilotSave` integer check. To preview a sector in dev only, keep `Sector` complete but
+   filter `SECTORS` by `import.meta.env.DEV` (`normalize` then loads prod saves as Bravo).
+2. Campaign (`campaign.ts`): `waveMap` branch (DOS map index + `WaveMap`), `sectorWaves` /
+   `sectorDiff` if it differs from Bravo, an `afterWave` branch (counter + end outcome), cases in
+   `runCampaignSelfCheck`. `nextWave`/`doneWaves` read `p[sector]` already.
+3. Waves: own data modules (like `data/s3_nest.ts` + `data/s3_hive.ts`): `WaveMap.lib` = the sector's
+   own `EnemyLib[]` (spawn `slib` indexes it; stats may follow a Bravo unit for balance, the unit
+   itself is new), `WaveMap.tiles` = its own generated tile table with its own terrain style.
+   Keep spawns sorted by row, linked groups on one row, the boss last at level 3, F_LINEAR paths
+   ending off screen, ground units on solid tiles, level mix ~42/27/31% (Bravo) and bonus drops
+   mostly level 3. Build lazily (`nestMap`), seeded `sim/rng.ts`, never `Math.random`.
+4. Look (the art takes the `Sector` as look key): `Game.ts SECTOR_TITLE` + `BACKDROPS`,
+   `render/effects.ts TINTS`, `art/briefing.ts ROOM`, `art/textures.ts MODULES` (structure/wreck art + texture prefix),
+   `art/terrain.ts LOOK` entry (surface color function in the sector art module, one helper per
+   material, Sonar complexity), unit art for the new picture names in the sector art module + spec
+   table that `ships.ts drawUnit` checks (like `art/s3_bugs.ts BUG_SPECS`), own palettes (threat convention kept, but
+   distinguishable from every other sector), own structures/wrecks and backdrops, built lazily on
+   the first mission (`textures.ts buildNestTextures`).
+5. UI and text: `i18n/strings.ts` `sector.<key>` (Hangar box) + `sector.<key>Name` (banner,
+   "secured" text), EN + DE, German words into `cspell-words.txt`; `Menu.ts` pilot stats line;
+   the Hangar sector boxes size themselves from `SECTORS`.
+6. Music: `audio.ts WAVE_SONGS` entry with an own theme and a song per wave (`gen_audio.mjs`).
+7. Review + tests: `review/art.ts SECTION` / `waveIntro` and the `filter.ts` option; add the
+   sector to `art/briefing.test.ts` (boss + 4 intel units, unique per wave) and data tests like
+   `data/s3_nest.test.ts` (map shape, paths, spawn order, drops, difficulty mix, no MAX_ONSCREEN
+   overflow up to the boss); a `launch-<key>` screen in `gen_screen_exports.mjs`.
+8. Verify: `scripts/run_checks.sh`, `scripts/run_spelling.sh`, `review/art.html` filtered to the
+   sector, a playwright run of a few waves (`scene.start("Game", { sector, wave })`, `world.god`),
+   `pnpm build`.
+
 ## Browser debugging
 
 `playwright-core` is a dev dependency; Chromium lives in `PLAYWRIGHT_BROWSERS_PATH`
@@ -280,7 +347,9 @@ the swiftshader launch args, or `page.screenshot` hangs.
 - Vite 8 / rolldown needs `manualChunks` as a function. `base` must match the deploy dir.
 - `#app` must not use `100dvh` + flex (stale height on Chrome Android); keep `100svh` and
   Phaser `CENTER_BOTH`. Landscape is enforced by the CSS `#rotate` overlay.
-- Fullscreen needs a user gesture; the menu entry is hidden where the API is unavailable (iPhone).
+- Fullscreen needs a user gesture. Where the API is unavailable (iPhone) and not installed
+  (`input/fullscreen.ts fullscreenNeedsInstall`), the menu entry opens the install help and the
+  pause menu shows an "Add to Home Screen" hint row instead.
 - Web Audio starts suspended until the first gesture; songs are loaded on demand by
   `Audio.playSong(scene, key)`.
 - Firefox: an `<audio>` element caches a partial (range) response; a later Phaser XHR for the same
