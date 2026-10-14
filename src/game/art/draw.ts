@@ -182,3 +182,55 @@ export function bullseye(ctx: Ctx, x: number, y: number, r: number, ring = "#ffa
   ctx.restore()
   glow(ctx, x, y, r * 0.45, ring, "#fff6d0")
 }
+
+/** Regular n-gon path (radii rx, ry, first corner at angle a0). */
+export function regularPoly(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  n: number,
+  a0 = 0,
+) {
+  const pts: Pt[] = []
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i * Math.PI * 2) / n
+    pts.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry])
+  }
+  polyPath(ctx, pts)
+}
+
+/** Modulo that stays positive for the negative x of the left strip. */
+export function mod(a: number, n: number): number {
+  return ((a % n) + n) % n
+}
+
+export function hash2(x: number, y: number, seed: number): number {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 144269)
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+}
+
+export function vnoise(x: number, y: number, seed: number): number {
+  const xi = Math.floor(x)
+  const yi = Math.floor(y)
+  const xf = x - xi
+  const yf = y - yi
+  const u = xf * xf * (3 - 2 * xf)
+  const v = yf * yf * (3 - 2 * yf)
+  const a = hash2(xi, yi, seed)
+  const b = hash2(xi + 1, yi, seed)
+  const c = hash2(xi, yi + 1, seed)
+  const d = hash2(xi + 1, yi + 1, seed)
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
+}
+
+export function fbm(x: number, y: number, seed: number): number {
+  return (
+    vnoise(x, y, seed) * 0.5 +
+    vnoise(x * 2.1, y * 2.1, seed + 1) * 0.28 +
+    vnoise(x * 4.3, y * 4.3, seed + 2) * 0.14 +
+    vnoise(x * 8.7, y * 8.7, seed + 3) * 0.08
+  )
+}

@@ -22,18 +22,11 @@ import { SECTORS, type Sector } from "../data/save"
 import { Obj } from "../sim/consts"
 import { drawBriefing, drawBriefingUnits } from "./briefing"
 import { type Ctx, makeCanvas, seeded, softDot } from "./draw"
-import {
-  drawDot,
-  drawHudBar,
-  drawShard,
-  drawShot,
-  drawSmoke,
-  drawStructure,
-  drawWreck,
-  HUD_BAR,
-} from "./fx"
+import { drawDot, drawHudBar, drawShard, drawShot, drawSmoke, HUD_BAR } from "./fx"
 import { drawHangar } from "./hangar"
 import { drawButtonIcon, drawIcon, drawPickup } from "./icons"
+import { drawTrainingStructure, drawTrainingWreck, simDots, simFloor, simGrid } from "./s1_sim"
+import { drawStructure, drawWreck } from "./s2_bravo"
 import { drawHiveStructure, drawHiveWreck, hiveDeep, hiveSpores, hiveVeins } from "./s3_bugs"
 import { drawPlayer, drawUnit, PLAYER2_PAL } from "./ships"
 import { drawShop } from "./shop"
@@ -50,11 +43,7 @@ export const MODULES: Record<
   }
 > = {
   bravo: { pre: "", struct: drawStructure, wreck: drawWreck },
-  train: {
-    pre: "t",
-    struct: (ctx, kind, s) => drawStructure(ctx, kind, s, true),
-    wreck: (ctx, s, seed) => drawWreck(ctx, s, seed, true),
-  },
+  train: { pre: "t", struct: drawTrainingStructure, wreck: drawTrainingWreck },
   nest: { pre: "n", struct: drawHiveStructure, wreck: drawHiveWreck },
 }
 
@@ -144,20 +133,6 @@ function buildUnits(scene: Scene, prefix: string, train: boolean, lib = ENEMY_LI
     )
 }
 
-/** Sim grid lines every `step` px (tileable at 512). */
-function grid(ctx: CanvasRenderingContext2D, step: number, color: string, width: number): void {
-  ctx.strokeStyle = color
-  ctx.lineWidth = width
-  ctx.beginPath()
-  for (let p = step / 2; p < 512; p += step) {
-    ctx.moveTo(p, 0)
-    ctx.lineTo(p, 512)
-    ctx.moveTo(0, p)
-    ctx.lineTo(512, p)
-  }
-  ctx.stroke()
-}
-
 /** `<pre>struct-<k>` / `<pre>wreck-<k>` of a sector look (96 px = one 32x32 DOS tile). */
 function buildModules(scene: Scene, look: Sector): void {
   const { pre, struct, wreck } = MODULES[look]
@@ -178,19 +153,9 @@ export function briefingTexture(scene: Scene, sector: Sector, wave: number): str
 export function buildTrainingTextures(scene: Scene): void {
   buildUnits(scene, "ut-", true)
   buildModules(scene, "train")
-  single(scene, "sim-floor", 512, 512, (ctx) => {
-    ctx.fillStyle = "#04070f"
-    ctx.fillRect(0, 0, 512, 512)
-    grid(ctx, 32, "rgba(60,160,255,0.10)", 1)
-  })
-  single(scene, "sim-grid", 512, 512, (ctx) => grid(ctx, 128, "rgba(93,255,200,0.22)", 2))
-  single(scene, "sim-dots", 512, 512, (ctx) => {
-    const r = seeded(5)
-    for (let i = 0; i < 40; i++) {
-      ctx.fillStyle = `rgba(93,255,200,${0.2 + r() * 0.5})`
-      ctx.fillRect(Math.floor(r() * 16) * 32 + 15, Math.floor(r() * 16) * 32 + 15, 3, 3)
-    }
-  })
+  single(scene, "sim-floor", 512, 512, simFloor)
+  single(scene, "sim-grid", 512, 512, simGrid)
+  single(scene, "sim-dots", 512, 512, simDots)
 }
 
 /** Bugger Nest: insect units, hive structures, organic backdrop. */
