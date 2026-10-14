@@ -54,6 +54,7 @@ braucht
 breakbeat
 breite
 bresenham
+Broodmother
 browserslist
 bspark
 bufs
@@ -65,6 +66,7 @@ curframe
 curlib
 curplr
 dann
+deepmerge
 delayflag
 delx
 dely
@@ -95,6 +97,7 @@ einlagern
 eitems
 elaser
 elib
+elytra
 emisle
 enemylaser
 enemymissle
@@ -134,6 +137,8 @@ flug
 flyoff
 flüge
 flügeln
+formants
+Formics
 fplrx
 fplry
 freeverb
@@ -142,6 +147,7 @@ fängt
 gamepadconnected
 ganim
 gcnt
+gcqx
 gebäude
 geflogen
 gegen
@@ -178,6 +184,9 @@ halbe
 hauptmenü
 hinzufügen
 hitbox
+hivedrive
+hivelord
+hivetribal
 holo
 hudbar
 icnglw
@@ -186,6 +195,7 @@ iend
 ihdr
 ihre
 impulswellen
+Installiere
 installieren
 ints
 itembuy
@@ -201,6 +211,7 @@ knip
 kontakt
 kopiert
 korrekturleser
+KRABBLER
 können
 LADUNG
 laserpow
@@ -215,6 +226,7 @@ lgflak
 lghtin
 libvorbis
 linkflat
+locrian
 loopx
 loseit
 lplayer
@@ -269,12 +281,14 @@ nomoney
 noopener
 noshoot
 nrgbang
+nstruct
 numengs
 numflight
 numframes
 numguns
 numsprites
 nvmrc
+nwreck
 nächste
 oben
 objs
@@ -290,6 +304,7 @@ panzerung
 pfeile
 phasenschild
 phasermsg
+phrygdom
 picname
 piloten
 pilotenname
@@ -405,6 +420,8 @@ stationsmodule
 strg
 suben
 suckagain
+Swarmling
+swarmlings
 sweapon
 swep
 swiftshader
@@ -440,6 +457,7 @@ twreck
 unblurred
 unequips
 ungelenkte
+unstub
 unten
 verdient
 verfügbar
@@ -469,6 +487,7 @@ wiederholen
 wiederholt
 worktree
 wählen
+XENO
 xlookup
 xoff
 yoff

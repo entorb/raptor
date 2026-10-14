@@ -33,6 +33,7 @@ If you like the game, please spread the word, see [promo/](promo/README.md) for 
 - Death and abort mission earn 50% of credits
 - Mission accomplished with 100% enemy kills: +10% credits bonus
 - 2-player co-op mode (desktop): shared credits, shop and shield; enemies get 50% more hit points
+- 3rd sector "The Hive", inspired by Ender's Game
 
 ## Development
 
@@ -62,6 +63,7 @@ generated via [gen_audio.mjs](scripts/gen_audio.mjs)
 
 - Training: [1](public/assets/music/train1.ogg), [2](public/assets/music/train2.ogg), [3](public/assets/music/train3.ogg), [4](public/assets/music/train4.ogg), [5](public/assets/music/train5.ogg)
 - Bravo: [1](public/assets/music/bravo1.ogg), [2](public/assets/music/bravo2.ogg), [3](public/assets/music/bravo3.ogg), [4](public/assets/music/bravo4.ogg), [5](public/assets/music/bravo5.ogg), [6](public/assets/music/bravo6.ogg), [7](public/assets/music/bravo7.ogg), [8](public/assets/music/bravo8.ogg), [9](public/assets/music/bravo9.ogg)
+- Bugger Nest: [1](public/assets/music/hive1.ogg), [2](public/assets/music/hive2.ogg), [3](public/assets/music/hive3.ogg), [4](public/assets/music/hive4.ogg), [5](public/assets/music/hive5.ogg), [6](public/assets/music/hive6.ogg), [7](public/assets/music/hive7.ogg), [8](public/assets/music/hive8.ogg), [9](public/assets/music/hive9.ogg)
 
 ## Code Checks
 
@@ -86,3 +88,9 @@ GPL-2.0-or-later, like the original DOS source this port is derived from (see [L
 ## Thanks
 
 To Scott Host for creating the original game and publishing the source code. Looking forward for your [Raptor Remixed Release](https://www.mking.com/RaptorRemixed.html)!
+
+## Links
+
+- [Original Raptor source code](https://github.com/skynettx/raptor)
+- [Raptor web with 60fps](https://arielkuzminski.github.io/raptor-web/)
+- [Raptor Remixed](https://www.mking.com/RaptorRemixed.html) (not yet released)
