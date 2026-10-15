@@ -50,15 +50,18 @@ async function sendWrite(): Promise<boolean> {
   }
 }
 
+/** Sends the offline writes one by one; returns how many are still pending. */
+async function drainPending(left: number): Promise<number> {
+  return left > 0 && (await sendWrite()) ? drainPending(left - 1) : left
+}
+
 // Offline writes are counted in localStorage and sent after the next successful write.
 async function writeMission(): Promise<void> {
   if (!(await sendWrite())) {
     savePending(loadPending() + 1)
     return
   }
-  let left = loadPending()
-  while (left > 0 && (await sendWrite())) left--
-  savePending(left)
+  savePending(await drainPending(loadPending()))
 }
 
 export function reportMissionStart(): void {

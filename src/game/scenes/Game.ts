@@ -117,6 +117,12 @@ interface Tracked {
 }
 
 /** Playback loadout for the attract demos (INPUT.C DEMO_MakePlayer, game 0). */
+/** Results panel suffix: a new personal best (rank 1) or the place this run took in the top 10. */
+function rankSuffix(rank: number | null, runs: number): string {
+  if (rank === 1 && runs > 1) return `  ·  ${tr("game.newBest")}`
+  return rank === null ? "" : `  ·  ${tr("game.rank", { n: rank })}`
+}
+
 function demoLoadout(): Loadout {
   const plr = { score: 0, sweapon: -1 }
   const inv = new Inventory(plr)
@@ -1347,10 +1353,7 @@ export class Game extends Scene {
     const top = st?.top ?? []
     const txt = (y: number, s: string, size: number, color: string, font = UI.font, x = 0) =>
       this.add.text(x, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
-    // a new personal best (rank 1) or the place this run took in the top 10
-    let rankStr = ""
-    if (rank === 1 && top.length > 1) rankStr = `  ·  ${tr("game.newBest")}`
-    else if (rank !== null) rankStr = `  ·  ${tr("game.rank", { n: rank })}`
+    const rankStr = rankSuffix(rank, top.length)
     const bonusStr = bonus ? `  ·  ${tr("game.killBonus", { cr: bonus })}` : ""
     // report table: label column + one value column per ship (2P: colored player header row)
     const rows = this.reportRows(earned)
