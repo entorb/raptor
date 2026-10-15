@@ -241,6 +241,10 @@ export function runCampaignSelfCheck(): void {
   const n9 = afterWave({ ...base, nest: 8 }, "complete", "nest")
   assert(n9.outcome === "episodeComplete" && nextWave(n9.pilot, "nest") === null, "nest end")
   assert(levelKey("nest", 2) === "n2" && levelKey("train", 1) === "t1", "level keys")
+  topTenSelfCheck(base, assert)
+}
+
+function topTenSelfCheck(base: PilotSave, assert: (c: boolean, m: string) => void): void {
   let q = base
   for (let i = 1; i <= 12; i++) q = recordRun(q, "b0", i * 100).pilot
   const r = recordRun(q, "b0", 450)
