@@ -175,8 +175,7 @@ function bands(ctx: Ctx, x: number, y: number, rx: number, ry: number, n: number
 /** A pair of translucent veined wings rooted at (x, y), swept back by `sweep` rad, span x `span`. */
 function wings(
   ctx: Ctx,
-  x: number,
-  y: number,
+  [x, y]: readonly [number, number],
   len: number,
   wid: number,
   sweep: number,
@@ -212,8 +211,7 @@ function wings(
 /** `n` pairs of jointed legs from y0 (tail side) to y1 (head side), walking with phase `t`. */
 function legs(
   ctx: Ctx,
-  cx: number,
-  y0: number,
+  [cx, y0]: readonly [number, number],
   y1: number,
   n: number,
   reach: number,
@@ -318,11 +316,11 @@ function sac(ctx: Ctx, x: number, y: number, r: number, c: string, pulse = 1): v
 /** Worker drone: banded abdomen, one wing pair, mandibles. */
 const drone: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.45, h * 0.62, 3, w * 0.28, t, p.dark)
+  legs(ctx, [cx, h * 0.45], h * 0.62, 3, w * 0.28, t, p.dark)
   seg(ctx, cx, h * 0.24, w * 0.15, h * 0.21, p)
   bands(ctx, cx, h * 0.24, w * 0.15, h * 0.21, 3)
   seg(ctx, cx, h * 0.52, w * 0.12, h * 0.13, p)
-  wings(ctx, cx, h * 0.46, w * 0.48, h * 0.26, 0.45, flap(t), p)
+  wings(ctx, [cx, h * 0.46], w * 0.48, h * 0.26, 0.45, flap(t), p)
   seg(ctx, cx, h * 0.74, w * 0.1, h * 0.1, p)
   mandibles(ctx, cx, h * 0.8, w * 0.11, 0.5 + 0.5 * Math.sin(t * TAU), p.dark)
   eyes(ctx, cx, h * 0.74, w * 0.06, w * 0.05, p.accent)
@@ -332,8 +330,8 @@ const drone: Draw = (ctx, w, h, t, _r, p) => {
 const ling: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const span = flap(t, 0.6)
-  wings(ctx, cx, h * 0.45, w * 0.46, h * 0.22, 0.75, span, p)
-  wings(ctx, cx, h * 0.5, w * 0.36, h * 0.16, 0.1, 1.4 - span, p)
+  wings(ctx, [cx, h * 0.45], w * 0.46, h * 0.22, 0.75, span, p)
+  wings(ctx, [cx, h * 0.5], w * 0.36, h * 0.16, 0.1, 1.4 - span, p)
   seg(ctx, cx, h * 0.4, w * 0.18, h * 0.22, p)
   seg(ctx, cx, h * 0.7, w * 0.15, h * 0.13, p)
   eyes(ctx, cx, h * 0.72, w * 0.1, w * 0.1, p.accent)
@@ -343,7 +341,7 @@ const ling: Draw = (ctx, w, h, t, _r, p) => {
 /** Spitter: flat body between two glowing acid sacs. */
 const spitter: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  wings(ctx, cx, h * 0.35, w * 0.4, h * 0.3, 0.6, flap(t), p)
+  wings(ctx, [cx, h * 0.35], w * 0.4, h * 0.3, 0.6, flap(t), p)
   for (const s of [-1, 1]) sac(ctx, cx + s * w * 0.2, h * 0.55, w * 0.1, p.accent, flap(t, 0.2))
   seg(ctx, cx, h * 0.38, w * 0.13, h * 0.3, p)
   bands(ctx, cx, h * 0.38, w * 0.13, h * 0.3, 2)
@@ -354,8 +352,8 @@ const spitter: Draw = (ctx, w, h, t, _r, p) => {
 /** Mantis: long thorax, folded raptorial forelegs, narrow wings. */
 const mantis: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.35, h * 0.5, 2, w * 0.3, t, p.dark)
-  wings(ctx, cx, h * 0.4, w * 0.46, h * 0.16, 0.9, flap(t), p)
+  legs(ctx, [cx, h * 0.35], h * 0.5, 2, w * 0.3, t, p.dark)
+  wings(ctx, [cx, h * 0.4], w * 0.46, h * 0.16, 0.9, flap(t), p)
   seg(ctx, cx, h * 0.2, w * 0.11, h * 0.2, p)
   seg(ctx, cx, h * 0.52, w * 0.07, h * 0.18, p)
   ctx.save()
@@ -377,7 +375,7 @@ const mantis: Draw = (ctx, w, h, t, _r, p) => {
 /** Hornet: striped abdomen with two missile glands, stubby wings. */
 const hornet: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  wings(ctx, cx, h * 0.42, w * 0.42, h * 0.2, 0.3, flap(t), p)
+  wings(ctx, [cx, h * 0.42], w * 0.42, h * 0.2, 0.3, flap(t), p)
   seg(ctx, cx, h * 0.3, w * 0.17, h * 0.26, p)
   ctx.save()
   ctx.beginPath()
@@ -397,7 +395,7 @@ const hornet: Draw = (ctx, w, h, t, _r, p) => {
 /** Stinger: hazard-striped dart with a long forward lance. */
 const stinger: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  wings(ctx, cx, h * 0.38, w * 0.5, h * 0.2, 0.75, flap(t, 0.3), p)
+  wings(ctx, [cx, h * 0.38], w * 0.5, h * 0.2, 0.75, flap(t, 0.3), p)
   ctx.fillStyle = p.light
   polyPath(ctx, [
     [cx - w * 0.04, h * 0.6],
@@ -415,8 +413,8 @@ const stinger: Draw = (ctx, w, h, t, _r, p) => {
 /** Beetle: split elytra shell with a horn. */
 const beetle: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.35, h * 0.65, 3, w * 0.42, t, p.dark)
-  wings(ctx, cx, h * 0.3, w * 0.42, h * 0.2, 0.9, flap(t, 0.3), p)
+  legs(ctx, [cx, h * 0.35], h * 0.65, 3, w * 0.42, t, p.dark)
+  wings(ctx, [cx, h * 0.3], w * 0.42, h * 0.2, 0.9, flap(t, 0.3), p)
   for (const s of [-1, 1]) {
     ctx.save()
     ctx.beginPath()
@@ -445,10 +443,10 @@ const beetle: Draw = (ctx, w, h, t, _r, p) => {
 /** Wasp: slender with a pinched waist and a long abdomen. */
 const wasp: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.48, h * 0.6, 2, w * 0.36, t, p.dark)
+  legs(ctx, [cx, h * 0.48], h * 0.6, 2, w * 0.36, t, p.dark)
   seg(ctx, cx, h * 0.24, w * 0.16, h * 0.22, p)
   bands(ctx, cx, h * 0.24, w * 0.16, h * 0.22, 3)
-  wings(ctx, cx, h * 0.5, w * 0.48, h * 0.14, 0.8, flap(t), p)
+  wings(ctx, [cx, h * 0.5], w * 0.48, h * 0.14, 0.8, flap(t), p)
   seg(ctx, cx, h * 0.55, w * 0.11, h * 0.1, p)
   seg(ctx, cx, h * 0.74, w * 0.12, h * 0.08, p)
   antennae(ctx, cx, h * 0.8, w * 0.3, p.mid)
@@ -473,8 +471,8 @@ const spore: Draw = (ctx, w, h, t, r, p) => {
 const dragonfly: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const span = flap(t, 0.5)
-  wings(ctx, cx, h * 0.5, w * 0.5, h * 0.13, 0.25, span, p)
-  wings(ctx, cx, h * 0.58, w * 0.46, h * 0.12, -0.05, 1.5 - span, p)
+  wings(ctx, [cx, h * 0.5], w * 0.5, h * 0.13, 0.25, span, p)
+  wings(ctx, [cx, h * 0.58], w * 0.46, h * 0.12, -0.05, 1.5 - span, p)
   seg(ctx, cx, h * 0.26, w * 0.06, h * 0.25, p)
   bands(ctx, cx, h * 0.26, w * 0.06, h * 0.25, 5)
   seg(ctx, cx, h * 0.58, w * 0.1, h * 0.1, p)
@@ -489,8 +487,8 @@ const dragonfly: Draw = (ctx, w, h, t, _r, p) => {
 /** Warden: crested armored escort with shoulder spikes and gun glands. */
 const warden: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.4, h * 0.62, 3, w * 0.36, t, p.dark)
-  wings(ctx, cx, h * 0.36, w * 0.4, h * 0.2, 0.6, flap(t, 0.25), p)
+  legs(ctx, [cx, h * 0.4], h * 0.62, 3, w * 0.36, t, p.dark)
+  wings(ctx, [cx, h * 0.36], w * 0.4, h * 0.2, 0.6, flap(t, 0.25), p)
   spikes(
     ctx,
     [cx, h * 0.42, w * 0.26, h * 0.26],
@@ -509,7 +507,7 @@ const warden: Draw = (ctx, w, h, t, _r, p) => {
 /** Lancer: slim icy body, a glowing plasma lance at the head. */
 const lancer: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  wings(ctx, cx, h * 0.45, w * 0.48, h * 0.18, 0.55, flap(t), p)
+  wings(ctx, [cx, h * 0.45], w * 0.48, h * 0.18, 0.55, flap(t), p)
   seg(ctx, cx, h * 0.28, w * 0.1, h * 0.22, p)
   seg(ctx, cx, h * 0.6, w * 0.09, h * 0.12, p)
   ctx.fillStyle = p.light
@@ -527,8 +525,8 @@ const lancer: Draw = (ctx, w, h, t, _r, p) => {
 const brood: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const span = flap(t, 0.3)
-  wings(ctx, cx, h * 0.3, w * 0.48, h * 0.24, 0.5, span, p)
-  wings(ctx, cx, h * 0.45, w * 0.44, h * 0.2, 0.1, 1.3 - span, p)
+  wings(ctx, [cx, h * 0.3], w * 0.48, h * 0.24, 0.5, span, p)
+  wings(ctx, [cx, h * 0.45], w * 0.44, h * 0.2, 0.1, 1.3 - span, p)
   for (let i = 0; i < 3; i++) seg(ctx, cx, h * (0.2 + i * 0.18), w * (0.2 - i * 0.02), h * 0.14, p)
   for (const s of [-1, 1])
     for (let i = 0; i < 3; i++)
@@ -546,7 +544,7 @@ const moth: Draw = (ctx, w, h, t, _r, p) => {
     [0.35, 0.5, 0.36, 0.5],
     [0.5, 0.42, 0.28, -0.3],
   ] as const) {
-    wings(ctx, cx, h * y, w * len, h * wid, sw, span, p)
+    wings(ctx, [cx, h * y], w * len, h * wid, sw, span, p)
     for (const s of [-1, 1])
       glow(ctx, cx + s * w * len * 0.55 * span, h * (y - sw * 0.12), w * 0.06, p.accent)
   }
@@ -627,7 +625,7 @@ const crawler: Draw = (ctx, w, h, t, _r, p) => {
   ctx.save()
   ctx.translate(w / 2, cy)
   ctx.rotate(Math.PI / 2)
-  legs(ctx, 0, -w * 0.25, w * 0.25, 3, h * 0.48, t, p.dark)
+  legs(ctx, [0, -w * 0.25], w * 0.25, 3, h * 0.48, t, p.dark)
   ctx.restore()
   for (let i = 0; i < 3; i++) seg(ctx, w * (0.3 + i * 0.2), cy, w * 0.13, h * 0.32, p)
   for (const s of [-1, 1]) glow(ctx, w / 2 + s * w * 0.38, cy, h * 0.12, p.accent)
@@ -657,7 +655,7 @@ const eggs: Draw = (ctx, w, h, t, _r, p) => {
 /** Guardian: wide armored carapace, huge claws, four eyes. */
 const guardian: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
-  legs(ctx, cx, h * 0.3, h * 0.6, 3, w * 0.42, t, p.dark)
+  legs(ctx, [cx, h * 0.3], h * 0.6, 3, w * 0.42, t, p.dark)
   for (const s of [-1, 1]) {
     seg(ctx, cx + s * w * 0.3, h * 0.72, w * 0.08, h * 0.16, p)
     mandibles(ctx, cx + s * w * 0.3, h * 0.78, w * 0.1, 0.7, p.light)
@@ -676,15 +674,15 @@ const guardian: Draw = (ctx, w, h, t, _r, p) => {
 const broodmother: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const span = flap(t, 0.25)
-  legs(ctx, cx, h * 0.5, h * 0.72, 3, w * 0.36, t, p.dark)
-  wings(ctx, cx, h * 0.5, w * 0.5, h * 0.22, 0.6, span, p)
+  legs(ctx, [cx, h * 0.5], h * 0.72, 3, w * 0.36, t, p.dark)
+  wings(ctx, [cx, h * 0.5], w * 0.5, h * 0.22, 0.6, span, p)
   seg(ctx, cx, h * 0.28, w * 0.26, h * 0.27, p)
   bands(ctx, cx, h * 0.28, w * 0.26, h * 0.27, 4)
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI + Math.PI
     sac(ctx, cx + Math.cos(a) * w * 0.16, h * 0.3 + Math.sin(a) * h * 0.14, w * 0.03, p.engine)
   }
-  wings(ctx, cx, h * 0.58, w * 0.44, h * 0.18, -0.1, 1.25 - span, p)
+  wings(ctx, [cx, h * 0.58], w * 0.44, h * 0.18, -0.1, 1.25 - span, p)
   seg(ctx, cx, h * 0.62, w * 0.14, h * 0.12, p)
   seg(ctx, cx, h * 0.8, w * 0.11, h * 0.09, p)
   mandibles(ctx, cx, h * 0.85, w * 0.09, 0.4 + 0.3 * Math.sin(t * TAU), p.dark)
@@ -695,7 +693,7 @@ const broodmother: Draw = (ctx, w, h, t, _r, p) => {
 const hivelord: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const cy = h * 0.46
-  legs(ctx, cx, h * 0.25, h * 0.7, 4, w * 0.46, t, p.dark)
+  legs(ctx, [cx, h * 0.25], h * 0.7, 4, w * 0.46, t, p.dark)
   spikes(ctx, [cx, cy, w * 0.36, h * 0.38], 14, w * 0.05, [0, TAU], p.mid)
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * TAU
@@ -764,9 +762,9 @@ const burrower: Draw = (ctx, w, h, t, _r, p) => {
 const queen: Draw = (ctx, w, h, t, _r, p) => {
   const cx = w / 2
   const span = flap(t, 0.2)
-  legs(ctx, cx, h * 0.5, h * 0.7, 3, w * 0.34, t, p.dark)
-  wings(ctx, cx, h * 0.48, w * 0.5, h * 0.3, 0.55, span, p)
-  wings(ctx, cx, h * 0.55, w * 0.46, h * 0.22, -0.15, 1.2 - span, p)
+  legs(ctx, [cx, h * 0.5], h * 0.7, 3, w * 0.34, t, p.dark)
+  wings(ctx, [cx, h * 0.48], w * 0.5, h * 0.3, 0.55, span, p)
+  wings(ctx, [cx, h * 0.55], w * 0.46, h * 0.22, -0.15, 1.2 - span, p)
   seg(ctx, cx, h * 0.24, w * 0.17, h * 0.24, p)
   bands(ctx, cx, h * 0.24, w * 0.17, h * 0.24, 5)
   glow(ctx, cx, h * 0.2, w * 0.1 * (0.85 + 0.15 * Math.sin(t * TAU)), p.engine)

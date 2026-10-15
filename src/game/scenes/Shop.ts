@@ -278,9 +278,10 @@ export class Shop extends Scene {
     return this.items.map((it, i) => {
       const out = i < board.length
       const n = out ? inv.getTotal(it) : inv.storedCount(it)
+      const count = n > 1 ? ` (${n})` : ""
       return {
         icon: `icon-${it}`,
-        label: `${OBJ_LIB[it]?.name ?? ""}${n > 1 ? ` (${n})` : ""}`,
+        label: `${OBJ_LIB[it]?.name ?? ""}${count}`,
         detail: t(out ? "shop.tagBoard" : "shop.tagStored"),
         action: () => this.moveStorage(it, out),
         adjust: flip,
