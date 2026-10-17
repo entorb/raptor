@@ -21,8 +21,8 @@ export const STRINGS = {
   wave: e("WAVE", "WELLE"),
   kills: e("kills", "Abschüsse"),
 
-  "sector.bravo": e("BRAVO", "BRAVO"),
   "sector.train": e("TRAINING", "TRAINING"),
+  "sector.bravo": e("BRAVO", "BRAVO"),
   "sector.bravoName": e("BRAVO SECTOR", "SEKTOR BRAVO"),
   "sector.nest": e("NEST", "NEST"),
   "sector.nestName": e("BUGGER NEST", "KRABBLER-NEST"),
@@ -85,8 +85,8 @@ export const STRINGS = {
   "menu.enterName": e("Enter a name", "Namen eingeben"),
   "menu.nameTaken": e("Name already taken", "Name bereits vergeben"),
   "menu.installHelp": e(
-    'Android: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
-    'Android: Menü (3 Punkte) → "Zum Startbildschirm hinzufügen"\niPhone: Teilen-Symbol → "Zum Home-Bildschirm"',
+    'Install Raptor to play fullscreen.\nAndroid: menu (3 dots) → "Add to Home screen"\niPhone: Share icon → "Add to Home Screen"',
+    'Installiere Raptor, um im Vollbild zu spielen.\nAndroid: Menü (3 Punkte) → "Zum Startbildschirm hinzufügen"\niPhone: Teilen-Symbol → "Zum Home-Bildschirm"',
   ),
   "menu.updateAvailable": e(
     "A new version of Raptor is available.",
@@ -259,6 +259,10 @@ export const STRINGS = {
   "game.paused": e("PAUSED", "PAUSE"),
   "game.resume": e("Resume", "Weiter"),
   "game.fullscreenLabel": e("Fullscreen: {state}", "Vollbild: {state}"),
+  "game.fullscreenInstall": e(
+    'Fullscreen: Share → "Add to Home Screen"',
+    'Vollbild: Teilen → "Zum Home-Bildschirm"',
+  ),
   "game.abort": e("Abort Mission", "Mission abbrechen"),
   "game.pauseHint": e(
     "↑↓ + Enter, ←→ special weapon, Esc/P resume",
