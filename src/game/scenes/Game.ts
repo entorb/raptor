@@ -25,7 +25,7 @@ import { SCALE } from "../data/playfield"
 import { loadPilots, loadSettings, type Sector, savePilot } from "../data/save"
 import { t as tr } from "../i18n/i18n"
 import type { StringKey } from "../i18n/strings"
-import { toggleFullscreen } from "../input/fullscreen"
+import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen"
 import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
 import { Effects } from "../render/effects"
 import { TerrainView } from "../render/terrainView"
@@ -1096,7 +1096,7 @@ export class Game extends Scene {
       this.pauseVolume("music"),
       this.pauseVolume("sfx"),
     ]
-    // hidden where the Fullscreen API is missing (iPhone), like the menu entry
+    // iPhone (no Fullscreen API): an install hint instead, like the menu entry
     if (this.scale.fullscreen.available) {
       const fsLabel = () =>
         tr("game.fullscreenLabel", { state: tr(this.scale.isFullscreen ? "on" : "off") })
@@ -1105,7 +1105,8 @@ export class Game extends Scene {
         this.time.delayedCall(300, () => fs.active && fs.setText(fsLabel()))
       })
       items.push(fs)
-    }
+    } else if (fullscreenNeedsInstall(this))
+      items.push(mk(0, tr("game.fullscreenInstall"), () => {}))
     items.push(mk(0, tr("game.abort"), () => this.end("abort")))
     items.forEach((t, i) => {
       t.setY(160 + i * 46)

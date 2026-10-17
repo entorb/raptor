@@ -13,8 +13,8 @@ import {
 import { readGlobalMissions } from "../data/stats"
 import { getLang, setLang, t } from "../i18n/i18n"
 import type { StringKey } from "../i18n/strings"
-import { toggleFullscreen } from "../input/fullscreen"
-import { applyUpdate, checkForUpdate, hasInstallPrompt, promptInstall } from "../pwa"
+import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen"
+import { applyUpdate, checkForUpdate, hasInstallPrompt, isInstalled, promptInstall } from "../pwa"
 import { setPilot } from "../session"
 import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
 import {
@@ -58,11 +58,6 @@ const SOURCE_URL = "https://github.com/entorb/raptor"
 const HOME_URL = "https://entorb.net/games/"
 /** UI.gold as a number, for the Rectangle pill behind the focused link. */
 const GOLD = 0xffd23d
-
-function isInstalled(): boolean {
-  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
-  return window.matchMedia("(display-mode: standalone)").matches || standalone
-}
 
 export class Menu extends Scene {
   private menu!: TextMenu
@@ -240,6 +235,12 @@ export class Menu extends Scene {
           toggleFullscreen(this)
           this.time.delayedCall(300, () => this.show("main"))
         },
+      })
+    // iPhone: no Fullscreen API, only the Home Screen app runs without browser bars
+    else if (fullscreenNeedsInstall(this))
+      items.push({
+        label: `${ICON.fullscreen} ${t("menu.fullscreen")}`,
+        action: () => this.show("install"),
       })
     items.push(
       { label: `${ICON.language} ${t("lang.current")}`, action: () => this.toggleLang() },

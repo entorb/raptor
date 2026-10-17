@@ -35,6 +35,12 @@ export function captureInstallPrompt(target: EventTarget = window): void {
   }
 }
 
+/** Running as the installed app (Home Screen / PWA window), not in a browser tab. */
+export function isInstalled(): boolean {
+  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
+  return window.matchMedia("(display-mode: standalone)").matches || standalone
+}
+
 export function hasInstallPrompt(): boolean {
   return controller?.has() ?? false
 }
