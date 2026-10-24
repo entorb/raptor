@@ -1,5 +1,8 @@
 ---
-minimumReleaseAge: 10080  # 7 days (in minutes)
+minimumReleaseAge: 10080 # 7 days (in minutes)
 allowBuilds:
   esbuild: true
   ffmpeg-static: true
+minimumReleaseAgeExclude:
+  # Renovate security update: vite@8.3.3
+  - vite@8.3.3
