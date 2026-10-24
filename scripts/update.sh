@@ -34,7 +34,7 @@ echo "### Node package audit"
 
 echo "## Code checks"
 echo "### Prek autoupdate"
-prek autoupdate
+prek autoupdate --cooldown-days 7
 
 echo "### run_checks.sh"
 ./scripts/run_checks.sh
