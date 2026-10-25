@@ -4,11 +4,11 @@ name: Check Code
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 5 * * 0"  # Sunday 05:00 UTC, audit alert
+    - cron: '0 5 * * 0'  # Sunday 05:00 UTC, audit alert
   push:
-    branches: ["main", "renovate/**"]
+    branches: [main, renovate/**]
   pull_request:
-    branches: ["main"]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +32,7 @@ jobs:
       - name: Run prek pre-commit
         uses: j178/prek-action@1382ad72dea72f9d53832f2bcb65b3e87a947204  # v3.0.1
         with:
-          extra-args: '--all-files --quiet'
+          extra-args: --all-files --quiet
 
       - name: Run CSpell
         uses: streetsidesoftware/cspell-action@6f3c77c1406bc930f944ba97e9801a22e42caf58  # v9.1.0
@@ -58,8 +58,8 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version-file: '.nvmrc'
-          cache: "pnpm"
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: Prepare
         run: pnpm install --frozen-lockfile --ignore-scripts
