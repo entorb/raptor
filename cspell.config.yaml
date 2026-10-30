@@ -24,4 +24,5 @@ ignorePaths:
   - /original_game/
   - /scripts/vendor/
   - /src/game/data/ep1.ts
+  - /pnpm-workspace.yaml
   - /public/assets/
