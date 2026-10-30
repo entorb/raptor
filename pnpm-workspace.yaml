@@ -3,3 +3,7 @@ minimumReleaseAge: 10080  # 7 days (in minutes)
 allowBuilds:
   esbuild: true
   ffmpeg-static: true
+auditConfig:
+  # TODO: remove after 07.11.26
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4  # deepmerge via workbox-build (build-time only), no patch exists
