@@ -3,3 +3,16 @@ minimumReleaseAge: 10080  # 7 days (in minutes)
 allowBuilds:
   esbuild: true
   ffmpeg-static: true
+auditConfig:
+  # TODO: remove after 07.11.26
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4  # deepmerge via workbox-build (build-time only), no patch exists
+minimumReleaseAgeExclude:
+  # TODO remove after 07.11.2026
+  - minimatch@11.0.1
+  - glob@14.0.2
+  - '@isaacs/nonrecursive-glob-match@1.0.1'
+  - path-scurry@3.0.0
+overrides:
+  glob@>=9.0.0 <=14.0.1: ^14.0.2
+  minimatch@<11.0.1: ^11.0.1
