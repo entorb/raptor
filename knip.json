@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/main.ts", "src/review/*.ts", "vite/config.*.mjs", "scripts/*.mjs"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": []
+}
