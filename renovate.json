@@ -1,0 +1,91 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["security:only-security-updates"],
+  "timezone": "Europe/Berlin",
+  "minimumReleaseAge": "7 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "semanticCommits": "enabled",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "internalChecksFilter": "strict",
+  "automerge": true,
+  "automergeType": "branch",
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "vulnerabilityAlerts": {
+    "addLabels": ["security"],
+    "automerge": false
+  },
+  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "pre-commit": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 18-23 * * 6"]
+  },
+  "packageRules": [
+    {
+      "description": "Override Mend-hosted global approval rule",
+      "matchPackageNames": ["*"],
+      "dependencyDashboardApproval": false
+    },
+    {
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"],
+      "enabled": true,
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* 0-18 * * 6"]
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit hooks",
+      "enabled": true,
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* 0-18 * * 6"]
+    },
+    {
+      "groupName": "tools-py",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "pyright",
+        "pytest-cov",
+        "pytest",
+        "python-dotenv",
+        "ruff",
+        "sentry-sdk",
+        "vulture"
+      ],
+      "enabled": true,
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* 0-18 * * 6"]
+    },
+    {
+      "groupName": "tools-js",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@biomejs/biome",
+        "@cypress/**",
+        "@eslint/**",
+        "@playwright/**",
+        "@typescript-eslint/**",
+        "@vitest/**",
+        "cypress",
+        "eslint-plugin-*",
+        "eslint",
+        "knip",
+        "playwright",
+        "typescript-eslint",
+        "vitest",
+        "vue-tsc"
+      ],
+      "enabled": true,
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "schedule": ["* 0-18 * * 6"]
+    }
+  ]
+}

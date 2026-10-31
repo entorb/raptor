@@ -1,0 +1,13 @@
+!.vscode/extensions.json
+!/original_game/shareware/README.md
+*.local
+*.sw?
+.DS_Store
+.vscode/*
+/dist/
+/node_modules/
+/original_game/audio/
+/original_game/shareware/*
+/src/dist/
+/tmp/
+cspell-words-missing.txt

@@ -1,0 +1,32 @@
+---
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+version: '0.2'
+useCache: true
+useGitignore: true
+dictionaryDefinitions:
+  - name: cspell-words
+    path: cspell-words.txt
+    addWords: true
+dictionaries:
+  - cspell-words
+  - javascript
+  - typescript
+language: en-US
+ignorePaths:
+  - /*.json
+  - /.vscode/
+  - /dosraptor/
+  - /original_game/
+  - /public/assets/
+  - /scripts/vendor/
+  - /src/game/data/ep1.ts
+  - biome.json
+  - cspell-words.txt
+  - cspell.config.yaml
+  - LICENSE
+  - package*.json
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - pyproject.toml
+  - requirements.txt
+  - uv.lock
