@@ -68,7 +68,8 @@ export function moveMobj(m: MoveObj): void {
 }
 
 /** MoveSobj: `speed` steps, keeps going past the target; done once maxloop < 1. */
-export function moveSobj(m: MoveObj, speed: number): number {
+export function moveSobj(m: MoveObj, steps: number): number {
+  let speed = steps
   if (speed === 0) return 0
   while (speed) {
     speed--
@@ -80,7 +81,8 @@ export function moveSobj(m: MoveObj, speed: number): number {
 }
 
 /** MoveEobj: like MoveSobj but stops on the target and returns the unused speed. */
-export function moveEobj(m: MoveObj, speed: number): number {
+export function moveEobj(m: MoveObj, steps: number): number {
+  let speed = steps
   if (speed === 0) return 0
   while (speed) {
     speed--

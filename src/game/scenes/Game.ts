@@ -759,7 +759,7 @@ export class Game extends Scene {
   }
 
   private isTouch(): boolean {
-    return this.input2.touchMode || window.matchMedia?.("(pointer: coarse)").matches === true
+    return this.input2.touchMode || globalThis.matchMedia?.("(pointer: coarse)").matches === true
   }
 
   /** Mission briefing: all controls plus the keys of the special weapons on board. */
@@ -1112,7 +1112,7 @@ export class Game extends Scene {
       })
       items.push(fs)
     } else if (fullscreenNeedsInstall(this))
-      items.push(mk(0, tr("game.fullscreenInstall"), () => {}))
+      items.push(mk(0, tr("game.fullscreenInstall"), () => undefined))
     items.push(mk(0, tr("game.abort"), () => this.end("abort")))
     items.forEach((t, i) => {
       t.setY(160 + i * 46)
@@ -1358,8 +1358,8 @@ export class Game extends Scene {
     const failed = outcome === "death"
     const st = pilot.stats?.[levelKey(this.sector, this.wave)]
     const top = st?.top ?? []
-    const txt = (y: number, s: string, size: number, color: string, font = UI.font, x = 0) =>
-      this.add.text(x, y, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
+    const txt = (ty: number, s: string, size: number, color: string, font = UI.font, x = 0) =>
+      this.add.text(x, ty, s, { fontFamily: font, fontSize: `${size}px`, color }).setOrigin(0.5)
     const rankStr = rankSuffix(rank, top.length)
     const bonusStr = bonus ? `  ·  ${tr("game.killBonus", { cr: bonus })}` : ""
     // report table: label column + one value column per ship (2P: colored player header row)

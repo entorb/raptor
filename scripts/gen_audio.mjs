@@ -554,7 +554,7 @@ const INST = {
   },
   glass: (f, dur, vel) =>
     render(Math.max(dur, 0.6) + 1.2, (t) => {
-      const mod = 2.4 * Math.exp(-t * 2.5) * Math.sin(2 * Math.PI * f * 1.414 * t)
+      const mod = 2.4 * Math.exp(-t * 2.5) * Math.sin(2 * Math.PI * f * Math.SQRT2 * t)
       return Math.sin(2 * Math.PI * f * t + mod) * vel * Math.exp(-t * 1.7) * Math.min(1, t / 0.002)
     }),
   thump: (_f, _d, vel, seed) => {
@@ -880,11 +880,11 @@ function compose(spec) {
     spec,
     r,
     mode: MODES[spec.mode],
-    add: (inst, bar, st, len, midi, vel) => {
+    add: (inst, b, st, len, midi, vel) => {
       for (const v of [spec.voices?.[inst] ?? inst].flat())
-        ev.push({ inst: v, t: (bar * 16 + st) * step, dur: len * step, midi, vel })
+        ev.push({ inst: v, t: (b * 16 + st) * step, dur: len * step, midi, vel })
     },
-    chordAt: (bar) => spec.prog[bar % spec.prog.length],
+    chordAt: (b) => spec.prog[b % spec.prog.length],
     motifs: [makeMotif(r), makeMotif(r)],
   }
   let bar = 0
@@ -925,7 +925,8 @@ function wrapTail(L, R, len) {
 }
 
 /** Render one note event into the dry, ducked, reverb and delay buses (`seed` varies per voice). */
-function mixEvent(e, seed, bus) {
+function mixEvent(e, seed0, bus) {
+  let seed = seed0
   const cfg = BUS[e.inst]
   const f = mtof(e.midi)
   const at = secs(e.t)

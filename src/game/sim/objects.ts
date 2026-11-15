@@ -19,7 +19,7 @@ export interface ObjLib {
   fx: Fx | null
 }
 
-function lib(
+function defLib(
   name: string,
   cost: number,
   o: Partial<ObjLib> & Pick<ObjLib, "forever" | "loseit" | "specialw">,
@@ -39,7 +39,7 @@ function lib(
 }
 
 const money = (name: string, cost: number, game1flag = true): ObjLib =>
-  lib(name, cost, {
+  defLib(name, cost, {
     start_cnt: cost,
     max_cnt: cost,
     shoot: false,
@@ -52,36 +52,51 @@ const money = (name: string, cost: number, game1flag = true): ObjLib =>
 
 /** OBJS_Init obj_lib, indexed by Obj. Names are the web shop labels (space re-theme). */
 export const OBJ_LIB: ObjLib[] = [
-  lib("Twin Blasters", 12_000, { forever: true, loseit: false, specialw: false, fx: "GUN" }),
-  lib("Plasma Cannon", 78_800, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
-  lib("Micro Missiles", 175_600, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
-  lib("Dumb-Fire Missiles", 145_200, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Auto-Track Minigun", 250_650, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Laser Turret", 512_850, {
+  defLib("Twin Blasters", 12_000, { forever: true, loseit: false, specialw: false, fx: "GUN" }),
+  defLib("Plasma Cannon", 78_800, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
+  defLib("Micro Missiles", 175_600, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
+  defLib("Dumb-Fire Missiles", 145_200, {
+    forever: true,
+    loseit: true,
+    specialw: true,
+    fx: "MISSLE",
+  }),
+  defLib("Auto-Track Minigun", 250_650, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  defLib("Laser Turret", 512_850, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Missile Pods", 204_950, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Air-to-Air Missiles", 63_500, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Surface Missiles", 110_000, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Hull Buster Bomb", 98_200, {
+  defLib("Missile Pods", 204_950, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  defLib("Air-to-Air Missiles", 63_500, {
+    forever: true,
+    loseit: true,
+    specialw: true,
+    fx: "MISSLE",
+  }),
+  defLib("Surface Missiles", 110_000, {
+    forever: true,
+    loseit: true,
+    specialw: true,
+    fx: "MISSLE",
+  }),
+  defLib("Hull Buster Bomb", 98_200, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "MISSLE",
     game1flag: false,
   }),
-  lib("Energy Siphon", 300_750, {
+  defLib("Energy Siphon", 300_750, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "GUN",
     game1flag: false,
   }),
-  lib("Nova Bomb", 32_250, {
+  defLib("Nova Bomb", 32_250, {
     max_cnt: 5,
     forever: false,
     onlyflag: true,
@@ -89,22 +104,22 @@ export const OBJ_LIB: ObjLib[] = [
     specialw: false,
     fx: "GUN",
   }),
-  lib("Pulse Cannon", 725_000, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Twin Lasers", 1_750_000, {
+  defLib("Pulse Cannon", 725_000, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  defLib("Twin Lasers", 1_750_000, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Death Ray", 950_000, {
+  defLib("Death Ray", 950_000, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Phase Shield", 78_500, {
+  defLib("Phase Shield", 78_500, {
     start_cnt: MAX_SHIELD,
     max_cnt: MAX_SHIELD,
     shoot: false,
@@ -112,7 +127,7 @@ export const OBJ_LIB: ObjLib[] = [
     loseit: false,
     specialw: false,
   }),
-  lib("Shield Energy", 400, {
+  defLib("Shield Energy", 400, {
     start_cnt: MAX_SHIELD / 4,
     max_cnt: MAX_SHIELD,
     shoot: false,
@@ -121,7 +136,7 @@ export const OBJ_LIB: ObjLib[] = [
     loseit: false,
     specialw: false,
   }),
-  lib("Damage Scanner", 10_000, {
+  defLib("Damage Scanner", 10_000, {
     shoot: false,
     forever: false,
     onlyflag: true,
@@ -173,7 +188,7 @@ export class Inventory {
   stored: InvObj[] = []
   p_objs: (InvObj | null)[] = new Array(Obj.LAST_OBJECT).fill(null)
   /** Set to EMPTY by OBJS_Add (RAP.C g_oldsuper/g_oldshield). */
-  onAdd: () => void = () => {}
+  onAdd: () => void = () => undefined
 
   constructor(
     public plr: { score: number; sweapon: number; sweapon2?: number },

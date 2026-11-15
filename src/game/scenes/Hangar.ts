@@ -61,7 +61,7 @@ export class Hangar extends Scene {
   private mode: Mode = "hangar"
   private lo!: Loadout
   private status!: GameObjects.Text
-  private tick: () => void = () => {}
+  private tick: () => void = () => undefined
   private message = ""
   private panel!: GameObjects.Rectangle
   private table: GameObjects.Text[] = []
@@ -80,7 +80,7 @@ export class Hangar extends Scene {
   private intel!: GameObjects.Image
   private messageText!: GameObjects.Text
   private earned = 0
-  private credits: (cr: number) => void = () => {}
+  private credits: (cr: number) => void = () => undefined
 
   constructor() {
     super("Hangar")

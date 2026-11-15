@@ -52,7 +52,7 @@ export class GameInput {
   touchMode = false
   autoFire = loadSettings().autoFire
   buttons: TouchButton[] = []
-  onButton: (id: string) => void = () => {}
+  onButton: (id: string) => void = () => undefined
   private readonly keys: Record<string, Input.Keyboard.Key> = {}
   private pointer: { x: number; y: number } | null = null
   private drag: { id: number; lastX: number; lastY: number } | null = null
@@ -100,18 +100,18 @@ export class GameInput {
         if (!this.drag) this.pointer = null
       })
     }
-    window.addEventListener("pointerdown", this.down)
-    window.addEventListener("pointermove", this.move)
-    window.addEventListener("pointerup", this.up)
-    window.addEventListener("pointercancel", this.up)
+    globalThis.addEventListener("pointerdown", this.down)
+    globalThis.addEventListener("pointermove", this.move)
+    globalThis.addEventListener("pointerup", this.up)
+    globalThis.addEventListener("pointercancel", this.up)
     scene.events.once("shutdown", () => this.destroy())
   }
 
   destroy(): void {
-    window.removeEventListener("pointerdown", this.down)
-    window.removeEventListener("pointermove", this.move)
-    window.removeEventListener("pointerup", this.up)
-    window.removeEventListener("pointercancel", this.up)
+    globalThis.removeEventListener("pointerdown", this.down)
+    globalThis.removeEventListener("pointermove", this.move)
+    globalThis.removeEventListener("pointerup", this.up)
+    globalThis.removeEventListener("pointercancel", this.up)
   }
 
   toggleAutoFire(): void {
@@ -127,8 +127,8 @@ export class GameInput {
     this.selected = t
   }
 
-  onAutoFire: (on: boolean) => void = () => {}
-  onGod: () => void = () => {}
+  onAutoFire: (on: boolean) => void = () => undefined
+  onGod: () => void = () => undefined
 
   /** Ship center (DOS coords) so a new touch drag starts at the ship. */
   setShip(cx: number, cy: number): void {

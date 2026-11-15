@@ -136,9 +136,9 @@ export class Enemies {
     this.seen = 0
     this.killed = 0
     this.spawns = spawns.map(([link, slib, x, y, _game, level]) => {
-      const lib = this.lib[slib ?? 0]
+      const el = this.lib[slib ?? 0]
       let bit = LEVEL_BITS[level ?? -1] ?? EB_NOT_USED
-      if (!(bit & cur_diff && lib?.w)) bit = EB_NOT_USED
+      if (!(bit & cur_diff && el?.w)) bit = EB_NOT_USED
       return { link: link ?? 0, slib: slib ?? 0, x: x ?? 0, y: y ?? 0, level: bit }
     })
   }
@@ -504,6 +504,8 @@ function flyShip(w: World, s: Ship): void {
     case F_GROUNDLEFT:
       flyGround(w, s, -1)
       break
+    default:
+      break
   }
 }
 
@@ -693,6 +695,8 @@ function explodeGround(w: World, s: Ship, cx: number, cy: number): void {
         w.startAnim(w.rng.random(2) === 0 ? Anim.GROUND_FLARE : Anim.GROUND_SPARKLE, x, y)
         w.startAnim(Anim.SMALL_GROUND_EXPLO, x, y)
       }
+      break
+    default:
       break
   }
 }

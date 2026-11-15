@@ -479,6 +479,8 @@ function placeShot(w: World, shot: Shot, lib: ShotLib): void {
       shot.y = shot.move.y
       beamTarget(w, shot, lib)
       break
+    default:
+      break
   }
   if (lib.fplrx) shot.x += shot.owner.cx - shot.startx
   if (lib.fplry) shot.y += shot.owner.cy - shot.starty
@@ -556,6 +558,8 @@ function hitShotGround(w: World, shot: Shot, lib: ShotLib): void {
         shot.doneflag = true
         w.startAnim(Anim.SMALL_GROUND_EXPLO, shot.x, shot.y)
       }
+      break
+    default:
       break
   }
 }

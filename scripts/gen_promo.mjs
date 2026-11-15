@@ -22,13 +22,13 @@ const OUT = "promo"
 
 /** In-page: action score of the current sim frame. */
 function score() {
-  const w = window.__game.scene.getScene("Game").world
+  const w = globalThis.__game.scene.getScene("Game").world
   return w.enemies.onscreen.length * 3 + w.eshots.length + w.shots.length + w.anims.length * 2
 }
 
 /** In-page: freeze the game, hide HUD texts, overlay the title. */
 function stage() {
-  const s = window.__game.scene.getScene("Game")
+  const s = globalThis.__game.scene.getScene("Game")
   s.scene.pause()
   const hide = (o) => {
     if (o.type === "Text") o.setVisible(false)
@@ -68,11 +68,11 @@ await ctx.route("**/web-stats-json.php**", (r) => r.fulfill({ json: { accesscoun
 const page = await ctx.newPage()
 page.on("pageerror", (e) => console.error(e))
 await page.goto(URL, { waitUntil: "load" })
-await page.waitForFunction(() => window.__game?.scene.getScene("Menu")?.sys.isActive())
+await page.waitForFunction(() => globalThis.__game?.scene.getScene("Menu")?.sys.isActive())
 await page.evaluate((demo) => {
-  window.__game.scene.getScenes(true)[0].scene.start("Game", { demo })
+  globalThis.__game.scene.getScenes(true)[0].scene.start("Game", { demo })
 }, DEMO)
-await page.waitForFunction(() => window.__game.scene.getScene("Game")?.world)
+await page.waitForFunction(() => globalThis.__game.scene.getScene("Game")?.world)
 
 // sample once per second; the COUNT best moments (>= 3 s apart) become alternatives
 const samples = AT ? [{ t: AT, s: 0 }] : []
@@ -93,7 +93,7 @@ mkdirSync(OUT, { recursive: true })
 const shoot = async ({ t, s }, i) => {
   await page.evaluate((demo) => {
     document.getElementById("promo")?.remove()
-    window.__game.scene.getScene("Game").scene.restart({ demo })
+    globalThis.__game.scene.getScene("Game").scene.restart({ demo })
   }, DEMO)
   await page.waitForTimeout(t * 1000)
   const clip = await page.evaluate(stage)

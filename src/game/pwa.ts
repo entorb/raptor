@@ -16,7 +16,7 @@ interface InstallPrompt {
 let controller: InstallPrompt | null = null
 
 /** Start listening for `beforeinstallprompt`. Call once at startup. */
-export function captureInstallPrompt(target: EventTarget = window): void {
+export function captureInstallPrompt(target: EventTarget = globalThis): void {
   let deferred: InstallPromptEvent | null = null
   target.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault()
@@ -38,7 +38,7 @@ export function captureInstallPrompt(target: EventTarget = window): void {
 /** Running as the installed app (Home Screen / PWA window), not in a browser tab. */
 export function isInstalled(): boolean {
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
-  return window.matchMedia("(display-mode: standalone)").matches || standalone
+  return globalThis.matchMedia("(display-mode: standalone)").matches || standalone
 }
 
 export function hasInstallPrompt(): boolean {
@@ -59,7 +59,7 @@ export async function checkForUpdate(): Promise<ServiceWorker | null> {
   const reg = await sw?.getRegistration().catch(() => undefined)
   if (!(sw && reg)) return null
   // vite-plugin-pwa periodic-update recipe: no check offline or while one is installing
-  if (navigator.onLine && !reg.installing) await reg.update().catch(() => {})
+  if (navigator.onLine && !reg.installing) await reg.update().catch(() => undefined)
   const installing = reg.installing
   if (installing && !reg.waiting)
     await new Promise<void>((resolve) => {
@@ -73,7 +73,7 @@ export async function checkForUpdate(): Promise<ServiceWorker | null> {
 
 /** Activate the waiting service worker (workbox SKIP_WAITING) and reload once it controls the page. */
 export function applyUpdate(waiting: ServiceWorker): void {
-  navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), {
+  navigator.serviceWorker.addEventListener("controllerchange", () => globalThis.location.reload(), {
     once: true,
   })
   waiting.postMessage({ type: "SKIP_WAITING" })

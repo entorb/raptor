@@ -26,7 +26,7 @@ const DEVICES = {
 
 /** In-page: text + hit targets of all active scenes (recurses containers). */
 function snapshot() {
-  const g = window.__game
+  const g = globalThis.__game
   const k = g.scale.displaySize.width / g.scale.width
   const lines = []
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
@@ -56,9 +56,9 @@ function snapshot() {
 
 const call = (page, key, fn, ...a) =>
   page.evaluate(
-    ([k, f, a]) => {
-      const s = window.__game.scene.getScene(k)
-      s[f](...a)
+    ([k, f, fnArgs]) => {
+      const s = globalThis.__game.scene.getScene(k)
+      s[f](...fnArgs)
     },
     [key, fn, a],
   )
@@ -83,14 +83,14 @@ const SCREENS = [
     "shop-sell",
     async (p) =>
       p.evaluate(() => {
-        window.__game.scene.getScene("Shop").setTab(1)
+        globalThis.__game.scene.getScene("Shop").setTab(1)
       }),
   ],
   [
     "shop-storage",
     async (p) =>
       p.evaluate(() => {
-        window.__game.scene.getScene("Shop").setTab(2)
+        globalThis.__game.scene.getScene("Shop").setTab(2)
       }),
   ],
   [
@@ -130,7 +130,7 @@ const SCREENS = [
     async (p) => {
       await call(p, "Game", "togglePause")
       await p.evaluate(() => {
-        window.__game.scene.getScene("Game").world.startendwave = 45
+        globalThis.__game.scene.getScene("Game").world.startendwave = 45
       })
       await p.waitForTimeout(6000)
     },
@@ -139,7 +139,7 @@ const SCREENS = [
 
 async function start(page, key, data, wait = 800) {
   await page.evaluate(
-    ([k, d]) => window.__game.scene.getScenes(true)[0].scene.start(k, d),
+    ([k, d]) => globalThis.__game.scene.getScenes(true)[0].scene.start(k, d),
     [key, data],
   )
   await page.waitForTimeout(wait)
@@ -164,7 +164,7 @@ await inOrder(devices, async (dev) => {
     console.error(`${dev}: ${e}`)
   })
   await page.goto(URL, { waitUntil: "load" })
-  await page.waitForFunction(() => window.__game?.scene.isActive("Menu"), undefined, {
+  await page.waitForFunction(() => globalThis.__game?.scene.isActive("Menu"), undefined, {
     timeout: 20_000,
   })
   await page.waitForTimeout(800)

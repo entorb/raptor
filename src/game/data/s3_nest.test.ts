@@ -56,7 +56,6 @@ describe("Bugger Nest data (web)", () => {
     }
   })
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
   it("difficulty adds spawns like Bravo: ~45% every level, ground and drops mostly for all", () => {
     const at = (sp: number[][], lv: number) => sp.filter((s) => s[5] === lv)
     const rookieHp = waves.map((m) =>

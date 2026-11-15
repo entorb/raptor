@@ -4,8 +4,9 @@ import { captureInstallPrompt, hasInstallPrompt, promptInstall } from "./pwa.ts"
 class FakeInstallPrompt extends Event {
   prompted = false
   outcome: "accepted" | "dismissed" = "accepted"
-  async prompt(): Promise<void> {
+  prompt(): Promise<void> {
     this.prompted = true
+    return Promise.resolve()
   }
   get userChoice(): Promise<{ outcome: "accepted" | "dismissed" }> {
     return Promise.resolve({ outcome: this.outcome })

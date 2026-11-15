@@ -68,7 +68,7 @@ const GOLD = 0xff_d2_3d
 export class Menu extends Scene {
   private menu!: TextMenu
   private mode: Mode = "main"
-  private tick: () => void = () => {}
+  private tick: () => void = () => undefined
   private info!: GameObjects.Text
   private body!: GameObjects.Text
   private stats!: GameObjects.Text
@@ -260,7 +260,7 @@ export class Menu extends Scene {
   private exit(): void {
     if (this.scale.isFullscreen) this.scale.stopFullscreen()
     window.close()
-    window.setTimeout(() => window.location.assign(HOME_URL), 100)
+    globalThis.setTimeout(() => globalThis.location.assign(HOME_URL), 100)
   }
 
   private pilotsItems(): MenuItem[] {
@@ -601,9 +601,9 @@ export class Menu extends Scene {
   }
 
   private share(tx: GameObjects.Text): void {
-    const url = window.location.href
+    const url = globalThis.location.href
     if (typeof navigator.share === "function") {
-      void navigator.share({ title: "Raptor: Call of the Void", url }).catch(() => {})
+      void navigator.share({ title: "Raptor: Call of the Void", url }).catch(() => undefined)
       return
     }
     void navigator.clipboard
@@ -614,6 +614,6 @@ export class Menu extends Scene {
           if (tx.active) tx.setText(`${ICON.share} ${t("menu.share")}`)
         })
       })
-      .catch(() => {})
+      .catch(() => undefined)
   }
 }

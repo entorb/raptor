@@ -64,7 +64,7 @@ export class Shop extends Scene {
   private items: ObjType[] = []
   /** Storage tab: rows before this index are on board, the rest stored. */
   private boardRows = 0
-  private credits: (cr: number) => void = () => {}
+  private credits: (cr: number) => void = () => undefined
   private tabs: Tab[] = []
   private status!: GameObjects.Text
   private msg!: GameObjects.Text
@@ -114,7 +114,7 @@ export class Shop extends Scene {
     this.menu.tapToSelect = true
     this.menu.onBack = () => this.leave()
     // no wrap from the last item back to the first
-    this.menu.onDownFromEnd = () => {}
+    this.menu.onDownFromEnd = () => undefined
     this.menu.onMove = () => {
       this.msg.setText("")
       if (this.focus !== "list") this.setFocus("list")

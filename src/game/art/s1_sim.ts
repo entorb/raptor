@@ -630,8 +630,8 @@ function simStripe(s: Surface, shade: number, dx: number, dy: number): void {
 }
 
 function simDeck(s: Surface, shade: number, dx: number, dy: number): void {
-  const grid = mod(dx, 32) < 0.8 || dy % 32 < 0.8
-  s.rgb[0] = (grid ? 40 : 20) * shade
-  s.rgb[1] = (grid ? 150 : 30) * shade
-  s.rgb[2] = (grid ? 210 : 44) * shade
+  const onGrid = mod(dx, 32) < 0.8 || dy % 32 < 0.8
+  s.rgb[0] = (onGrid ? 40 : 20) * shade
+  s.rgb[1] = (onGrid ? 150 : 30) * shade
+  s.rgb[2] = (onGrid ? 210 : 44) * shade
 }

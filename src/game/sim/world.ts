@@ -356,7 +356,8 @@ export class World {
   }
 
   /** OBJS_SubEnergy */
-  subEnergy(amt: number): number {
+  subEnergy(amount: number): number {
+    let amt = amount
     if (this.god) return 0
     if (this.startendwave !== EMPTY) return 0
     if (this.curplr_diff === DIFF_TRAIN && amt > 1) amt >>= 1
@@ -406,9 +407,9 @@ export class World {
   }
 
   /** IPT_GetMouse: steer towards the (virtual) pointer. */
-  private mouseAxis(d: number): number {
-    if (d === 0) return 0
-    d >>= 3
+  private mouseAxis(raw: number): number {
+    if (raw === 0) return 0
+    const d = raw >> 3
     if (d === 0) return 1
     return Math.max(-10, Math.min(10, d))
   }

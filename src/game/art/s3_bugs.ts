@@ -994,11 +994,11 @@ function hiveComb(s: Surface, shade: number, dx: number, dy: number): void {
   const edge = (best[1] as number) - (best[0] as number)
   const seam = edge < 1.2 ? 0.35 : 1
   const cell = hash2(id, 3, s.seed + 19)
-  const glow = cell > 0.93 ? Math.max(0, 1 - (best[0] as number) / 6) * 140 : 0
+  const glowAmt = cell > 0.93 ? Math.max(0, 1 - (best[0] as number) / 6) * 140 : 0
   const dome = 1 - ((best[0] as number) / a) * 0.5
-  s.rgb[0] = (70 + cell * 20) * seam * dome * shade + glow
-  s.rgb[1] = (42 + cell * 10) * seam * dome * shade + glow * 0.7
-  s.rgb[2] = 22 * seam * dome * shade + glow * 0.15
+  s.rgb[0] = (70 + cell * 20) * seam * dome * shade + glowAmt
+  s.rgb[1] = (42 + cell * 10) * seam * dome * shade + glowAmt * 0.7
+  s.rgb[2] = 22 * seam * dome * shade + glowAmt * 0.15
 }
 
 /** Wet purple-brown flesh with a resin sheen on the lit slopes. */

@@ -223,7 +223,7 @@ describe("2P co-op (web)", () => {
     expect(w.ships).toHaveLength(2)
     w.step([fire, fire])
     const owners = new Set(w.shots.map((s) => w.ships.indexOf(s.owner)))
-    expect([...owners].sort()).toEqual([p1, p2])
+    expect([...owners].sort((a, b) => a - b)).toEqual([p1, p2])
   })
 
   it("picks specials per player; a used-up weapon moves both slots", () => {
