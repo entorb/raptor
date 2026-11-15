@@ -8,9 +8,9 @@ import {
   PLAYERWIDTH,
   XPOS,
   YPOS,
-} from "./consts"
-import { OBJ_LIB } from "./objects"
-import type { PlayerShip, World } from "./world"
+} from "./consts.ts"
+import { OBJ_LIB } from "./objects.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const MAX_BONUS = 12
 const MAX_MONEY = MAX_BONUS - 3

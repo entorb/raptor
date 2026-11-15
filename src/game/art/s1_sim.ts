@@ -12,8 +12,8 @@ import {
   regularPoly,
   roundRect,
   seeded,
-} from "./draw"
-import type { Surface } from "./terrain"
+} from "./draw.ts"
+import type { Surface } from "./terrain.ts"
 
 /** Translucent hologram fill tinted `line`, scanlines, then a glowing outline (current path). */
 function holo(ctx: Ctx, h: number, line: string): void {

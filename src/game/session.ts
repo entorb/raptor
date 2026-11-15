@@ -1,8 +1,8 @@
 // In-memory campaign state shared by the scenes (the saved copy lives in data/save.ts).
 
-import type { Loadout } from "./campaign"
-import { loadout, withLoadout } from "./campaign"
-import { loadPilots, type PilotSave, savePilot } from "./data/save"
+import type { Loadout } from "./campaign.ts"
+import { loadout, withLoadout } from "./campaign.ts"
+import { loadPilots, type PilotSave, savePilot } from "./data/save.ts"
 
 let pilot: PilotSave | null = null
 

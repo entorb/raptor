@@ -1,17 +1,17 @@
 // Tiny offline synthesizer for scripts/gen_audio.mjs: oscillators, filters, envelopes, effects.
 // Everything works on Float32Array buffers at SR; all randomness is seeded (reproducible output).
 
-export const SR = 44100
+export const SR = 44_100
 
 /** Seeded PRNG (mulberry32), returns 0..1. */
 export function rng(seed) {
   let a = seed >>> 0
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0
+    a = (a + 0x6d_2b_79_f5) >>> 0
     let t = a
     t = Math.imul(t ^ (t >>> 15), t | 1)
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
   }
 }
 
@@ -156,7 +156,7 @@ export function fadeEdges(buf, inS = 0.002, outS = 0.01) {
 // ---- effects -----------------------------------------------------------------------------------
 /** Freeverb-style reverb: mono send -> stereo wet. */
 export function reverb(send, { room = 0.84, damp = 0.3, spread = 23 } = {}) {
-  const k = SR / 44100
+  const k = SR / 44_100
   const combs = [1116, 1188, 1277, 1356, 1422, 1491]
   const aps = [556, 441, 341]
   const chan = (off) => {
@@ -213,7 +213,7 @@ export function wav16(chans) {
   for (let i = 0; i < n; i++)
     for (let c = 0; c < nc; c++) {
       const v = Math.max(-1, Math.min(1, chans[c][i]))
-      pcm.writeInt16LE(Math.round(v * 32767), (i * nc + c) * 2)
+      pcm.writeInt16LE(Math.round(v * 32_767), (i * nc + c) * 2)
     }
   const h = Buffer.alloc(44)
   h.write("RIFF", 0)

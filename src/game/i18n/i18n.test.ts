@@ -1,6 +1,6 @@
 import { expect, it } from "vitest"
-import { getLang, setLang, t } from "./i18n"
-import { STRINGS, type StringKey } from "./strings"
+import { getLang, setLang, t } from "./i18n.ts"
+import { STRINGS, type StringKey } from "./strings.ts"
 
 it("defaults to English, interpolates and switches", () => {
   expect(getLang()).toBe("en")
@@ -11,6 +11,6 @@ it("defaults to English, interpolates and switches", () => {
 })
 
 it("keeps placeholders identical in both languages", () => {
-  const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join()
+  const ph = (s: string) => (s.match(/\{\w+\}/gu) ?? []).sort().join()
   for (const [key, v] of Object.entries(STRINGS)) expect(ph(v.de), key as StringKey).toBe(ph(v.en))
 })

@@ -1,6 +1,6 @@
 // Port of dosraptor/SOURCE/ENEMY.C: spawning from the map, flight paths, firing, damage.
-import { ENEMY_LIB } from "../data/ep1"
-import type { EnemyLib } from "../data/types"
+import { ENEMY_LIB } from "../data/ep1.ts"
+import type { EnemyLib } from "../data/types.ts"
 import {
   Anim,
   DIFF_EASY,
@@ -12,10 +12,10 @@ import {
   Obj,
   type ObjType,
   PLAYERWIDTH,
-} from "./consts"
-import { eshotShoot } from "./eshot"
-import { initMobj, type MoveObj, moveEobj, moveMobj, newMove } from "./move"
-import type { PlayerShip, World } from "./world"
+} from "./consts.ts"
+import { eshotShoot } from "./eshot.ts"
+import { initMobj, type MoveObj, moveEobj, moveMobj, newMove } from "./move.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const NORM_SHOOT = -1
 const START_SHOOT = 0
@@ -138,7 +138,7 @@ export class Enemies {
     this.spawns = spawns.map(([link, slib, x, y, _game, level]) => {
       const lib = this.lib[slib ?? 0]
       let bit = LEVEL_BITS[level ?? -1] ?? EB_NOT_USED
-      if (!(bit & cur_diff) || !lib?.w) bit = EB_NOT_USED
+      if (!(bit & cur_diff && lib?.w)) bit = EB_NOT_USED
       return { link: link ?? 0, slib: slib ?? 0, x: x ?? 0, y: y ?? 0, level: bit }
     })
   }
@@ -422,17 +422,17 @@ function flyRepeat(s: Ship): void {
   const speed = moveEobj(s.move, lib.movespeed)
   if (!s.move.done) return
   pathRetarget(s, speed)
-  if (!s.backward) {
-    s.movepos++
-    if (s.movepos >= lib.numflight) {
-      s.backward = true
-      s.movepos = lib.numflight - 1
-    }
-  } else {
+  if (s.backward) {
     s.movepos--
     if (s.movepos <= lib.repos) {
       s.backward = false
       s.movepos = lib.repos
+    }
+  } else {
+    s.movepos++
+    if (s.movepos >= lib.numflight) {
+      s.backward = true
+      s.movepos = lib.numflight - 1
     }
   }
 }

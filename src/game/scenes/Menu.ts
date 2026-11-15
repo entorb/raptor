@@ -1,6 +1,6 @@
 import { type GameObjects, Scene } from "phaser"
-import { getAudio } from "../audio/audio"
-import { doneWaves, loadout, sectorWaves, withLoadout } from "../campaign"
+import { getAudio } from "../audio/audio.ts"
+import { doneWaves, loadout, sectorWaves, withLoadout } from "../campaign.ts"
 import {
   deletePilot,
   loadPilots,
@@ -9,14 +9,20 @@ import {
   newPilotSave,
   type PilotSave,
   pilotNameTaken,
-} from "../data/save"
-import { readGlobalMissions } from "../data/stats"
-import { getLang, setLang, t } from "../i18n/i18n"
-import type { StringKey } from "../i18n/strings"
-import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen"
-import { applyUpdate, checkForUpdate, hasInstallPrompt, isInstalled, promptInstall } from "../pwa"
-import { setPilot } from "../session"
-import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts"
+} from "../data/save.ts"
+import { readGlobalMissions } from "../data/stats.ts"
+import { getLang, setLang, t } from "../i18n/i18n.ts"
+import type { StringKey } from "../i18n/strings.ts"
+import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen.ts"
+import {
+  applyUpdate,
+  checkForUpdate,
+  hasInstallPrompt,
+  isInstalled,
+  promptInstall,
+} from "../pwa.ts"
+import { setPilot } from "../session.ts"
+import { DIFF_EASY, DIFF_HARD, DIFF_NORMAL } from "../sim/consts.ts"
 import {
   backdrop,
   bindKeys,
@@ -28,7 +34,7 @@ import {
   TextMenu,
   TOUCH,
   UI,
-} from "../ui/textMenu"
+} from "../ui/textMenu.ts"
 
 /** Pilot titles by difficulty, from DIFF_EASY (training is a sector, not a difficulty). */
 const DIFF_NAMES: StringKey[] = ["diff.rookie", "diff.veteran", "diff.elite"]
@@ -57,7 +63,7 @@ const CONTACT_URL = "https://entorb.net/contact.php?origin=raptor"
 const SOURCE_URL = "https://github.com/entorb/raptor"
 const HOME_URL = "https://entorb.net/games/"
 /** UI.gold as a number, for the Rectangle pill behind the focused link. */
-const GOLD = 0xffd23d
+const GOLD = 0xff_d2_3d
 
 export class Menu extends Scene {
   private menu!: TextMenu

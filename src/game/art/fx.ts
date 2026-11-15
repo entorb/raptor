@@ -1,6 +1,6 @@
 // Procedural effect textures: shots, particles, HUD bars (map structures: the sector art files).
-import { PIC_SIZES } from "../data/ep1"
-import { type Ctx, glow, metal, polyPath, roundRect, seeded } from "./draw"
+import { PIC_SIZES } from "../data/ep1.ts"
+import { type Ctx, glow, metal, polyPath, roundRect, seeded } from "./draw.ts"
 
 /**
  * Visible pixels [x, y, w, h] of the original shot pictures inside their PIC_SIZES box (DOS px,

@@ -1,8 +1,8 @@
 import { expect, it } from "vitest"
-import { TRAIN_WAVES } from "../campaign"
-import { MAPS } from "../data/ep1"
-import { NEST_WAVES } from "../data/s3_nest"
-import { briefingUnits } from "./briefing"
+import { TRAIN_WAVES } from "../campaign.ts"
+import { MAPS } from "../data/ep1.ts"
+import { NEST_WAVES } from "../data/s3_nest.ts"
+import { briefingUnits } from "./briefing.ts"
 
 it("briefing shows a boss and 4 intel units, different for every wave of a sector", () => {
   for (const [sector, waves] of [

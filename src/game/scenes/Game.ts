@@ -1,9 +1,9 @@
 // Gameplay: runs the DOS-exact sim at its fixed rate (FRAME_MS) and renders it with the new art,
 // interpolating positions between sim frames.
 import { type GameObjects, Scene, TintModes } from "phaser"
-import { HUD_BAR } from "../art/fx"
-import { buildNestTextures, buildTrainingTextures } from "../art/textures"
-import { getAudio, WAVE_SONGS } from "../audio/audio"
+import { HUD_BAR } from "../art/fx.ts"
+import { buildNestTextures, buildTrainingTextures } from "../art/textures.ts"
+import { getAudio, WAVE_SONGS } from "../audio/audio.ts"
 import {
   afterWave,
   isReplay,
@@ -19,17 +19,17 @@ import {
   type WaveResult,
   waveMap,
   withLoadout,
-} from "../campaign"
-import { DEMOS } from "../data/ep1"
-import { SCALE } from "../data/playfield"
-import { loadPilots, loadSettings, type Sector, savePilot } from "../data/save"
-import { t as tr } from "../i18n/i18n"
-import type { StringKey } from "../i18n/strings"
-import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen"
-import { GameInput, SPECIAL_KEYS } from "../input/gameInput"
-import { Effects } from "../render/effects"
-import { TerrainView } from "../render/terrainView"
-import { currentPilot, godMode, reloadPilot, setGodMode, setPilot } from "../session"
+} from "../campaign.ts"
+import { DEMOS } from "../data/ep1.ts"
+import { SCALE } from "../data/playfield.ts"
+import { loadPilots, loadSettings, type Sector, savePilot } from "../data/save.ts"
+import { t as tr } from "../i18n/i18n.ts"
+import type { StringKey } from "../i18n/strings.ts"
+import { fullscreenNeedsInstall, toggleFullscreen } from "../input/fullscreen.ts"
+import { GameInput, SPECIAL_KEYS } from "../input/gameInput.ts"
+import { Effects } from "../render/effects.ts"
+import { TerrainView } from "../render/terrainView.ts"
+import { currentPilot, godMode, reloadPilot, setGodMode, setPilot } from "../session.ts"
 import {
   DIFF_HARD,
   FRAME_MS,
@@ -38,13 +38,13 @@ import {
   MAX_SHIELD,
   Obj,
   type ObjType,
-} from "../sim/consts"
-import { enemyBaseDamage, type Ship } from "../sim/enemy"
-import { ES_LASER } from "../sim/eshot"
-import { Inventory, OBJ_LIB } from "../sim/objects"
-import { type DemoFrame, type PlayerShip, World } from "../sim/world"
-import { bindKeys, changeVolume, glowText, pctLabel, UI } from "../ui/textMenu"
-import type { HangarData } from "./Hangar"
+} from "../sim/consts.ts"
+import { enemyBaseDamage, type Ship } from "../sim/enemy.ts"
+import { ES_LASER } from "../sim/eshot.ts"
+import { Inventory, OBJ_LIB } from "../sim/objects.ts"
+import { type DemoFrame, type PlayerShip, World } from "../sim/world.ts"
+import { bindKeys, changeVolume, glowText, pctLabel, UI } from "../ui/textMenu.ts"
+import type { HangarData } from "./Hangar.ts"
 
 export interface GameData {
   wave?: number
@@ -73,8 +73,8 @@ const D = {
 
 /** shadow look: violet rim under a dark core, visible on dark space and bright terrain alike */
 const SHADOW_LAYERS = [
-  { id: "r", color: 0x8a5cff, alpha: 0.1, scale: 1, depth: 0 },
-  { id: "c", color: 0x0a0418, alpha: 0.1, scale: 0.86, depth: 1 },
+  { id: "r", color: 0x8a_5c_ff, alpha: 0.1, scale: 1, depth: 0 },
+  { id: "c", color: 0x0a_04_18, alpha: 0.1, scale: 0.86, depth: 1 },
 ]
 /** SHADOWS.C SHADOW_Draw: G3D_DIST / (MAXZ - view z) = 200 / (1280 - 1000), toward (160, 100) */
 const SKY_SHADOW = 200 / 280
@@ -88,7 +88,7 @@ interface ShipView {
 }
 
 /** 2P co-op: player 2's engine glow / weapon strip frame */
-const P2_TINT = 0xffa040
+const P2_TINT = 0xff_a0_40
 /** Mission banner / end text name per sector. */
 const SECTOR_TITLE: Record<Sector, StringKey> = {
   train: "game.trainSim",
@@ -129,7 +129,7 @@ function demoLoadout(): Loadout {
   inv.add(Obj.FORWARD_GUNS)
   for (let i = 0; i < 4; i++) inv.add(Obj.ENERGY)
   inv.add(Obj.DETECT)
-  plr.score = 10000
+  plr.score = 10_000
   for (const t of [
     Obj.MICRO_MISSLE,
     Obj.MEGA_BOMB,
@@ -235,6 +235,7 @@ export class Game extends Scene {
     this.weaponBar = { sig: "", items: [] }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
   create(): void {
     this.novaBtn = null
     this.touchIcons = []
@@ -312,12 +313,14 @@ export class Game extends Scene {
       confirm: () => this.pauseActivate(),
     })
     kb?.on("keydown-SPACE", () => {
-      if (!this.paused && !this.waiting && !this.ended && this.demo < 0)
+      if (!(this.paused || this.waiting || this.ended) && this.demo < 0)
         this.input2.toggleAutoFire()
     })
     // start on keyup: a held Enter/Space would fire a nova bomb or shots in the first frame
     for (const k of ["ENTER", "SPACE"]) {
-      kb?.on(`keydown-${k}`, () => (this.startArmed = this.waiting))
+      kb?.on(`keydown-${k}`, () => {
+        this.startArmed = this.waiting
+      })
       kb?.on(`keyup-${k}`, () => this.startArmed && this.startMission())
     }
   }
@@ -333,20 +336,20 @@ export class Game extends Scene {
       .image(0, 0, "dot")
       .setDepth(D.player - 1)
       .setBlendMode("ADD")
-      .setTint(i ? P2_TINT : 0x39d0ff)
+      .setTint(i ? P2_TINT : 0x39_d0_ff)
     const img = this.add.image(0, 0, i ? "player2" : "player", "3").setDepth(D.player)
     const shield = this.add
       .image(0, 0, "dot")
       .setDepth(D.high)
       .setBlendMode("ADD")
-      .setTint(0x46e0ff)
+      .setTint(0x46_e0_ff)
       .setScale(4)
       .setAlpha(0)
     return { img, glow, shield, prev: { x: s.cx, y: s.cy } }
   }
 
   private autoPause(): void {
-    if (!this.paused && !this.ended && this.demo < 0) this.togglePause()
+    if (!(this.paused || this.ended) && this.demo < 0) this.togglePause()
   }
 
   private sectorTitle(): string {
@@ -408,7 +411,9 @@ export class Game extends Scene {
     for (const a of w.anims) {
       if (this.seenAnims.has(a.id)) continue
       this.seenAnims.add(a.id)
-      this.fx.spawn(a, (n) => (this.shakeAmt = Math.max(this.shakeAmt, n)))
+      this.fx.spawn(a, (n) => {
+        this.shakeAmt = Math.max(this.shakeAmt, n)
+      })
     }
     if (this.seenAnims.size > 4000) this.seenAnims = new Set(w.anims.map((a) => a.id))
     if (!running) this.end()
@@ -549,7 +554,7 @@ export class Game extends Scene {
       s.y + s.height / 2,
       s.groundflag ? D.groundEnemy : D.airEnemy,
     )
-    if (s.hits < s.lib.hits * 0.3 && w.frame % 4 < 2) t.obj.setTint(0xff9090)
+    if (s.hits < s.lib.hits * 0.3 && w.frame % 4 < 2) t.obj.setTint(0xff_90_90)
     else t.obj.clearTint()
     // ENEMY_Think: curlib->shadow -> SHADOW_GAdd (ground) / SHADOW_Add (air)
     if (s.lib.shadow)
@@ -604,18 +609,18 @@ export class Game extends Scene {
       // SHOTS_Display S_BEAM: the picture tiled from move.y2 down to y (laser 4, death ray 8 DOS px
       // wide) plus the muzzle flash (LASERPOW/DETHPOW) at the ship
       const ray = s.lib.type === Obj.DEATH_RAY
-      const color = ray ? 0xffe03d : 0xff3dd2
+      const color = ray ? 0xff_e0_3d : 0xff_3d_d2
       const half = ray ? 12 : 6
       g.fillStyle(color, 0.4).fillRect(x - half, top, half * 2, bottom - top)
-      g.fillStyle(0xffffff, 0.9).fillRect(x - half / 3, top, (half * 2) / 3, bottom - top)
+      g.fillStyle(0xff_ff_ff, 0.9).fillRect(x - half / 3, top, (half * 2) / 3, bottom - top)
       g.fillStyle(color, 0.8).fillCircle(x, top, half)
       g.fillStyle(color, 0.6).fillCircle(x, bottom, half * 1.6)
     }
     for (const e of w.eshots) {
       if (e.type !== 5) continue
       const x = (e.x + 4) * SCALE
-      g.fillStyle(0xff2e2e, 0.4).fillRect(x - 6, e.y * SCALE, 12, (e.move.y2 - e.y) * SCALE)
-      g.fillStyle(0xffe0e0, 0.9).fillRect(x - 2, e.y * SCALE, 4, (e.move.y2 - e.y) * SCALE)
+      g.fillStyle(0xff_2e_2e, 0.4).fillRect(x - 6, e.y * SCALE, 12, (e.move.y2 - e.y) * SCALE)
+      g.fillStyle(0xff_e0_e0, 0.9).fillRect(x - 2, e.y * SCALE, 4, (e.move.y2 - e.y) * SCALE)
     }
     for (const b of w.turretBeams) {
       const i = w.ships.indexOf(b.ship)
@@ -623,8 +628,8 @@ export class Game extends Scene {
       if (!v) continue
       const pcx = lerp(v.prev.x, b.ship.cx) * SCALE
       const pcy = lerp(v.prev.y, b.ship.cy) * SCALE
-      g.lineStyle(9, 0xff3dd2, 0.35).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
-      g.lineStyle(3, 0xffffff, 0.95).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
+      g.lineStyle(9, 0xff_3d_d2, 0.35).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
+      g.lineStyle(3, 0xff_ff_ff, 0.95).lineBetween(pcx, pcy, b.x * SCALE, b.y * SCALE)
     }
   }
 
@@ -808,8 +813,8 @@ export class Game extends Scene {
     btn.setY(btn.y - 30)
     const h = text.height + 92
     const bg = this.add
-      .rectangle(0, 0, text.width + 48, h, 0x05060d, 0.72)
-      .setStrokeStyle(1, 0x39d0ff, 0.6)
+      .rectangle(0, 0, text.width + 48, h, 0x05_06_0d, 0.72)
+      .setStrokeStyle(1, 0x39_d0_ff, 0.6)
     return this.add.container(480, Math.min(top + h / 2, 595 - h / 2), [bg, text, btn])
   }
 
@@ -847,7 +852,7 @@ export class Game extends Scene {
     const w = this.world
     w.god = !w.god
     setGodMode(w.god)
-    if (w.god) w.plr.score += 10000000
+    if (w.god) w.plr.score += 10_000_000
     this.toast(w.god ? "GOD MODE ON  +10000000 CR" : "GOD MODE OFF")
   }
 
@@ -908,7 +913,8 @@ export class Game extends Scene {
     const nova = inv.getAmt(Obj.MEGA_BOMB)
     for (const [i, img] of this.hud.novas.entries()) img.setVisible(i < nova)
     const phase = inv.getTotal(Obj.SUPER_SHIELD)
-    for (let i = 0; i < phase; i++) g.lineStyle(3, 0x46e0ff, 0.95).strokeCircle(64 + i * 22, 22, 7)
+    for (let i = 0; i < phase; i++)
+      g.lineStyle(3, 0x46_e0_ff, 0.95).strokeCircle(64 + i * 22, 22, 7)
     this.drawScanner(g)
     this.hud.warn.setText(this.warning())
     const touch = this.input2.touchMode && this.demo < 0
@@ -935,8 +941,8 @@ export class Game extends Scene {
     if (!this.world.inv.isEquip(Obj.DETECT)) return
     const dmg = enemyBaseDamage(this.world)
     if (dmg <= 0) return
-    g.fillStyle(0x05060d, 0.7).fillRoundedRect(330, 534, 300, 18, 5)
-    g.fillStyle(0xff4050, 0.95).fillRoundedRect(333, 537, (294 * dmg) / 100, 12, 4)
+    g.fillStyle(0x05_06_0d, 0.7).fillRoundedRect(330, 534, 300, 18, 5)
+    g.fillStyle(0xff_40_50, 0.95).fillRoundedRect(333, 537, (294 * dmg) / 100, 12, 4)
   }
 
   private warning(): string {
@@ -946,14 +952,14 @@ export class Game extends Scene {
 
   private drawTouchButtons(g: GameObjects.Graphics): void {
     if (this.world.inv.getAmt(Obj.MEGA_BOMB) > 0)
-      g.lineStyle(2, 0xffe066, 0.5).strokeCircle(890, 270, 44)
-    if (this.specials().length > 1) g.lineStyle(2, 0x39d0ff, 0.5).strokeCircle(890, 400, 44)
+      g.lineStyle(2, 0xff_e0_66, 0.5).strokeCircle(890, 270, 44)
+    if (this.specials().length > 1) g.lineStyle(2, 0x39_d0_ff, 0.5).strokeCircle(890, 400, 44)
     // auto-fire toggle: icon dims when off
     const on = this.input2.autoFire
-    g.lineStyle(2, 0x7dff9a, on ? 0.8 : 0.4).strokeCircle(890, 530, 44)
+    g.lineStyle(2, 0x7d_ff_9a, on ? 0.8 : 0.4).strokeCircle(890, 530, 44)
     this.touchIcons[1]?.setAlpha(on ? 0.95 : 0.4)
-    g.lineStyle(2, 0xffffff, 0.4).strokeRoundedRect(12, 12, 56, 56, 10)
-    g.fillStyle(0xffffff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
+    g.lineStyle(2, 0xff_ff_ff, 0.4).strokeRoundedRect(12, 12, 56, 56, 10)
+    g.fillStyle(0xff_ff_ff, 0.5).fillRect(29, 26, 7, 28).fillRect(44, 26, 7, 28)
   }
 
   /**
@@ -970,7 +976,7 @@ export class Game extends Scene {
       const on = it.t === sw
       const on2 = it.t === sw2
       for (const o of it.objs) (o as GameObjects.Image).setAlpha(on || on2 ? 1 : 0.5)
-      if (on) g.lineStyle(2, 0x39d0ff, 0.9).strokeRoundedRect(it.x - 24, 551, 48, 46, 8)
+      if (on) g.lineStyle(2, 0x39_d0_ff, 0.9).strokeRoundedRect(it.x - 24, 551, 48, 46, 8)
       if (on2) g.lineStyle(2, P2_TINT, 0.9).strokeRoundedRect(it.x - 27, 548, 54, 52, 10)
     }
     this.flashSwitches(sw, sw2)
@@ -1024,7 +1030,7 @@ export class Game extends Scene {
 
   private pauseMove(d: number): void {
     const n = this.pauseItems.length
-    if (!this.paused || !n) return
+    if (!(this.paused && n)) return
     this.pauseCursor = (this.pauseCursor + d + n) % n
     this.pauseHighlight()
   }
@@ -1068,7 +1074,7 @@ export class Game extends Scene {
     }
     this.tweens.killTweensOf(this.hud.banner)
     this.hud.banner.setAlpha(0)
-    const bg = this.add.rectangle(480, 300, 960, 600, 0x000000, 0.6)
+    const bg = this.add.rectangle(480, 300, 960, 600, 0x00_00_00, 0.6)
     const title = this.add
       .text(480, 110, tr("game.paused"), {
         fontFamily: UI.font,
@@ -1166,7 +1172,7 @@ export class Game extends Scene {
     const pick = (t: ObjType) => {
       this.input2.selectWeapon(t)
       cur = t
-      for (const [ft, fr] of frames) fr.setStrokeStyle(3, 0x39d0ff, ft === cur ? 1 : 0)
+      for (const [ft, fr] of frames) fr.setStrokeStyle(3, 0x39_d0_ff, ft === cur ? 1 : 0)
       name.setText(OBJ_LIB[t]?.name ?? "")
     }
     this.pauseWeaponStep = (d) => {
@@ -1177,8 +1183,8 @@ export class Game extends Scene {
     for (const [i, [, key, t]] of list.entries()) {
       const x = 480 + (i - (list.length - 1) / 2) * 76
       const frame = this.add
-        .rectangle(x, y + 46, 68, 68, 0x10182a)
-        .setStrokeStyle(3, 0x39d0ff, t === cur ? 1 : 0)
+        .rectangle(x, y + 46, 68, 68, 0x10_18_2a)
+        .setStrokeStyle(3, 0x39_d0_ff, t === cur ? 1 : 0)
         .setInteractive({ useHandCursor: true })
       frame.on("pointerup", () => pick(t))
       frames.push([t, frame])
@@ -1381,7 +1387,7 @@ export class Game extends Scene {
     }
     y += 16
     const items: GameObjects.GameObject[] = [
-      this.add.rectangle(0, 0, 640, h, 0x05060d, 0.82).setStrokeStyle(1, 0x39d0ff, 0.6),
+      this.add.rectangle(0, 0, 640, h, 0x05_06_0d, 0.82).setStrokeStyle(1, 0x39_d0_ff, 0.6),
       glowText(this, 0, top0 + 50, title, 44, 24, { glow: failed ? UI.warn : UI.accent }),
       txt(top0 + 96, `+${earned} CR${bonusStr}${rankStr}`, 24, UI.gold),
       ...table,
@@ -1404,7 +1410,9 @@ export class Game extends Scene {
     // continue on keyup of a key pressed now: a key still held from the fight must not skip this
     let armed = false
     for (const k of ["ENTER", "SPACE"]) {
-      this.input.keyboard?.on(`keydown-${k}`, () => (armed = true))
+      this.input.keyboard?.on(`keydown-${k}`, () => {
+        armed = true
+      })
       this.input.keyboard?.on(`keyup-${k}`, () => armed && go())
     }
     const panel = this.add.container(480, 300, items).setDepth(D.overlay).setAlpha(0)

@@ -1,16 +1,16 @@
 // Port of dosraptor/SOURCE/SHOTS.C: player weapons.
-import { PIC_SIZES } from "../data/ep1"
-import { Anim, LAST_WEAPON, O_GUN1, O_GUN2, O_GUN3, Obj, type ObjType } from "./consts"
+import { PIC_SIZES } from "../data/ep1.ts"
+import { Anim, LAST_WEAPON, O_GUN1, O_GUN2, O_GUN3, Obj, type ObjType } from "./consts.ts"
 import {
   enemyDamage,
   enemyDamageEnergy,
   enemyGetRandom,
   enemyGetRandomAir,
   type Ship,
-} from "./enemy"
-import { initMobj, type MoveObj, moveSobj, newMove } from "./move"
-import { tileBomb, tileDamageAll, tileIsHit } from "./tile"
-import type { PlayerShip, World } from "./world"
+} from "./enemy.ts"
+import { initMobj, type MoveObj, moveSobj, newMove } from "./move.ts"
+import { tileBomb, tileDamageAll, tileIsHit } from "./tile.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const MAX_SHOTS = 70
 
@@ -364,6 +364,7 @@ function shootForwardLaser(w: World, lib: ShotLib, cx: number, cy: number, pic: 
 }
 
 /** SHOTS_PlayerShoot */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
 export function playerShoot(w: World, type: ObjType): boolean {
   const lib = w.cur.shotLib[type]
   if (!lib || lib.cur_shoot) return false
@@ -609,7 +610,7 @@ function stepShot(w: World, shot: Shot): boolean {
 
   placeShot(w, shot, lib)
   const skipHits = ageShot(shot, lib)
-  if (!skipHits && !lib.meffect) hitShot(w, shot, lib)
+  if (!(skipHits || lib.meffect)) hitShot(w, shot, lib)
 
   if (shot.move.done && finishShot(w, shot, lib)) return true
   if (!lib.move_flag) return false

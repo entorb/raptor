@@ -7,6 +7,7 @@
 // (design x/y, CSS font px, color) and every enabled pointer target (CSS px size, flagged
 // `SMALL` below 44 px on touch). Design coords = the 960x600 game space.
 import { mkdirSync, writeFileSync } from "node:fs"
+import process from "node:process"
 import { chromium } from "playwright-core"
 
 const args = process.argv.slice(2)
@@ -28,6 +29,7 @@ function snapshot() {
   const g = window.__game
   const k = g.scale.displaySize.width / g.scale.width
   const lines = []
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
   const walk = (o, scene) => {
     if (!o.visible || o.alpha === 0) return
     if (o.list) for (const c of o.list) walk(c, scene)
@@ -163,7 +165,7 @@ await inOrder(devices, async (dev) => {
   })
   await page.goto(URL, { waitUntil: "load" })
   await page.waitForFunction(() => window.__game?.scene.isActive("Menu"), undefined, {
-    timeout: 20000,
+    timeout: 20_000,
   })
   await page.waitForTimeout(800)
   await seedPilot(page)

@@ -1,9 +1,17 @@
 // Port of dosraptor/SOURCE/TILE.C: background map scrolling and destructible tiles.
 // Tile "items" are FLATS indices; a tile is destructible while eitems != titems.
-import { FLATS } from "../data/ep1"
-import type { TileSet } from "../data/types"
-import { Anim, MAP_BLOCKSIZE, MAP_COLS, MAP_LEFT, MAP_ONSCREEN, MAP_ROWS, MAP_SIZE } from "./consts"
-import type { PlayerShip, World } from "./world"
+import { FLATS } from "../data/ep1.ts"
+import type { TileSet } from "../data/types.ts"
+import {
+  Anim,
+  MAP_BLOCKSIZE,
+  MAP_COLS,
+  MAP_LEFT,
+  MAP_ONSCREEN,
+  MAP_ROWS,
+  MAP_SIZE,
+} from "./consts.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const MAX_STILES = MAP_ONSCREEN * MAP_COLS
 const MAX_TILEDELAY = (MAP_ONSCREEN + 1) * MAP_COLS
@@ -64,7 +72,7 @@ export class Tiles {
       this.money[i] = set.bounty[f] ?? 0
       this.titems[i] = f
       this.eitems[i] = set.link[f] ?? f
-      this.hits[i] = this.eitems[i] !== this.titems[i] ? (set.hp[f] ?? 1) : 1
+      this.hits[i] = this.eitems[i] === this.titems[i] ? 1 : (set.hp[f] ?? 1)
       if (this.eitems[i] !== this.titems[i]) this.structs++
     }
   }

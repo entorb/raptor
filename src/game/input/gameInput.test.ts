@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { Obj } from "../sim/consts"
-import { SPECIAL_KEYS } from "./gameInput"
+import { Obj } from "../sim/consts.ts"
+import { SPECIAL_KEYS } from "./gameInput.ts"
 
 describe("SPECIAL_KEYS", () => {
   it("follows the shop order (by price)", () => {

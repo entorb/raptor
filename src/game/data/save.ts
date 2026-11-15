@@ -1,6 +1,6 @@
 // Pilot + settings persistence (replaces LOADSAVE.C CHARxxxx.FIL files).
-import { DIFF_NORMAL } from "../sim/consts"
-import { type InvObj, OBJ_LIB } from "../sim/objects"
+import { DIFF_NORMAL } from "../sim/consts.ts"
+import { type InvObj, OBJ_LIB } from "../sim/objects.ts"
 
 export interface PilotSave {
   name: string

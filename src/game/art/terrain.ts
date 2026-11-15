@@ -4,13 +4,13 @@
 // alien lichen. Chunks blur the cell grid, distort it with noise and light it with a relief map.
 // The surface colors are per sector (`LOOK`): Bravo `s2_bravo.ts bravoSurface`, the training
 // simulator deck `s1_sim.ts simSurface`, the hive `s3_bugs.ts hiveSurface`.
-import { TILE_CELLS } from "../data/ep1"
-import type { Sector } from "../data/save"
-import { cellOf, FH, FW, MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts"
-import { fbm, makeCanvas, vnoise } from "./draw"
-import { simSurface } from "./s1_sim"
-import { bravoSurface } from "./s2_bravo"
-import { hiveSurface } from "./s3_bugs"
+import { TILE_CELLS } from "../data/ep1.ts"
+import type { Sector } from "../data/save.ts"
+import { cellOf, FH, FW, MAP_COLS, MAP_LEFT, MAP_ROWS } from "../sim/consts.ts"
+import { fbm, makeCanvas, vnoise } from "./draw.ts"
+import { simSurface } from "./s1_sim.ts"
+import { bravoSurface } from "./s2_bravo.ts"
+import { hiveSurface } from "./s3_bugs.ts"
 
 /** Chunk = 8 map rows (256 DOS px); rendered at RES px per DOS px, drawn scaled to 3x. */
 export const CHUNK_ROWS = 8

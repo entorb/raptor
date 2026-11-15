@@ -14,8 +14,8 @@ export class Rng {
   }
 
   rand(): number {
-    this.seed = (Math.imul(this.seed, 1103515245) + 12345) >>> 0
-    return (this.seed >>> 16) & 0x7fff
+    this.seed = (Math.imul(this.seed, 1_103_515_245) + 12_345) >>> 0
+    return (this.seed >>> 16) & 0x7f_ff
   }
 
   /** `random(x)`; guards x <= 0 (a divide error on DOS). */

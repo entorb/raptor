@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseAccessCounts, runStatsSelfCheck } from "./stats"
+import { parseAccessCounts, runStatsSelfCheck } from "./stats.ts"
 
 describe("parseAccessCounts", () => {
   it("reads the accesscounts field", () => {

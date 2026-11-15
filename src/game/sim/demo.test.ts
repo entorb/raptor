@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { DEMOS } from "../data/ep1"
-import { DIFF_HARD, Obj } from "./consts"
-import { Inventory } from "./objects"
-import { type DemoFrame, NO_INPUT, World } from "./world"
+import { DEMOS } from "../data/ep1.ts"
+import { DIFF_HARD, Obj } from "./consts.ts"
+import { Inventory } from "./objects.ts"
+import { type DemoFrame, NO_INPUT, World } from "./world.ts"
 
 /** DEMO_MakePlayer(game 0): the attract-mode loadout. */
 function demoWorld(n: number): World {
@@ -18,7 +18,7 @@ function demoWorld(n: number): World {
   inv.add(Obj.FORWARD_GUNS)
   for (let i = 0; i < 4; i++) inv.add(Obj.ENERGY)
   inv.add(Obj.DETECT)
-  plr.score = 10000
+  plr.score = 10_000
   for (const t of [
     Obj.MICRO_MISSLE,
     Obj.MEGA_BOMB,

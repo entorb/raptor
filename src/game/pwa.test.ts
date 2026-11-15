@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { captureInstallPrompt, hasInstallPrompt, promptInstall } from "./pwa"
+import { captureInstallPrompt, hasInstallPrompt, promptInstall } from "./pwa.ts"
 
 class FakeInstallPrompt extends Event {
   prompted = false

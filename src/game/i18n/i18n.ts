@@ -1,4 +1,4 @@
-import { type Lang, STRINGS, type StringKey } from "./strings"
+import { type Lang, STRINGS, type StringKey } from "./strings.ts"
 
 const LANG_KEY = "raptor.lang"
 

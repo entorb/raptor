@@ -2,9 +2,9 @@
 // wings that flap over the animation frames, jointed legs, mandibles, glowing eyes), nose down
 // like every enemy. Tints follow the threat convention of `ships.ts` (pale fodder ... violet elite).
 // Also the hive structures / wrecks, the three organic backdrops and the hive terrain colors.
-import { type Ctx, fbm, glow, hash2, polyPath, seeded, softDot, sphere, vnoise } from "./draw"
-import type { Draw, Palette, Spec } from "./ships"
-import type { Surface } from "./terrain"
+import { type Ctx, fbm, glow, hash2, polyPath, seeded, softDot, sphere, vnoise } from "./draw.ts"
+import type { Draw, Palette, Spec } from "./ships.ts"
+import type { Surface } from "./terrain.ts"
 
 const TAU = Math.PI * 2
 

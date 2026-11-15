@@ -39,7 +39,50 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "all",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        },
+        "noExcessiveLinesPerFunction": "off",
+        "noVoid": "off",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noUnresolvedImports": "off",
+        "useQwikValidLexicalScope": "off",
+        "useHookAtTopLevel": "off",
+        "noComponentHookFactories": "off"
+      },
+      "nursery": {
+        "noFloatingPromises": "warn",
+        "noMisusedPromises": "warn"
+      },
+      "performance": {
+        "useTopLevelRegex": "off",
+        "useVueVapor": "off"
+      },
+      "security": {
+        "noGlobalEval": "error",
+        "noSecrets": "off"
+      },
+      "style": {
+        "noDefaultExport": "off",
+        "noHexColors": "off",
+        "noMagicNumbers": "off",
+        "noTernary": "off",
+        "useBlockStatements": "off",
+        "useExportsLast": "off",
+        "useNamingConvention": "off",
+        "useImportsFirst": "error"
+      },
+      "suspicious": {
+        "noEqualsToNull": "off",
+        "noConsole": "off"
+      }
     }
   },
   "assist": {
@@ -49,5 +92,63 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
+          "performance": {
+            "noAwaitInLoops": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.config.ts",
+        "**/*.config.js",
+        "**/*.config.mts",
+        "**/*.config.mjs",
+        "**/e2e/**",
+        "**/playwright/**",
+        "scripts/**",
+        "vite/**"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noNodejsModules": "off"
+          },
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useQwikValidLexicalScope": "off",
+            "noUndeclaredVariables": "off"
+          },
+          "suspicious": {
+            "noEmptySource": "off"
+          },
+          "style": {
+            "useFilenamingConvention": "off",
+            "noRestrictedGlobals": "off"
+          },
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
+    }
+  ]
 }

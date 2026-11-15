@@ -1,6 +1,6 @@
 // Port of dosraptor/SOURCE/OBJECTS.C: player inventory, shop rules, shield energy.
 
-import { EMPTY, type Fx, MAX_SHIELD, Obj, type ObjType } from "./consts"
+import { EMPTY, type Fx, MAX_SHIELD, Obj, type ObjType } from "./consts.ts"
 
 export interface ObjLib {
   name: string
@@ -52,36 +52,36 @@ const money = (name: string, cost: number, game1flag = true): ObjLib =>
 
 /** OBJS_Init obj_lib, indexed by Obj. Names are the web shop labels (space re-theme). */
 export const OBJ_LIB: ObjLib[] = [
-  lib("Twin Blasters", 12000, { forever: true, loseit: false, specialw: false, fx: "GUN" }),
-  lib("Plasma Cannon", 78800, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
-  lib("Micro Missiles", 175600, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
-  lib("Dumb-Fire Missiles", 145200, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Auto-Track Minigun", 250650, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Laser Turret", 512850, {
+  lib("Twin Blasters", 12_000, { forever: true, loseit: false, specialw: false, fx: "GUN" }),
+  lib("Plasma Cannon", 78_800, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
+  lib("Micro Missiles", 175_600, { forever: true, loseit: true, specialw: false, fx: "GUN" }),
+  lib("Dumb-Fire Missiles", 145_200, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
+  lib("Auto-Track Minigun", 250_650, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  lib("Laser Turret", 512_850, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Missile Pods", 204950, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Air-to-Air Missiles", 63500, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Surface Missiles", 110000, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
-  lib("Hull Buster Bomb", 98200, {
+  lib("Missile Pods", 204_950, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  lib("Air-to-Air Missiles", 63_500, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
+  lib("Surface Missiles", 110_000, { forever: true, loseit: true, specialw: true, fx: "MISSLE" }),
+  lib("Hull Buster Bomb", 98_200, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "MISSLE",
     game1flag: false,
   }),
-  lib("Energy Siphon", 300750, {
+  lib("Energy Siphon", 300_750, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "GUN",
     game1flag: false,
   }),
-  lib("Nova Bomb", 32250, {
+  lib("Nova Bomb", 32_250, {
     max_cnt: 5,
     forever: false,
     onlyflag: true,
@@ -89,22 +89,22 @@ export const OBJ_LIB: ObjLib[] = [
     specialw: false,
     fx: "GUN",
   }),
-  lib("Pulse Cannon", 725000, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
-  lib("Twin Lasers", 1750000, {
+  lib("Pulse Cannon", 725_000, { forever: true, loseit: true, specialw: true, fx: "GUN" }),
+  lib("Twin Lasers", 1_750_000, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Death Ray", 950000, {
+  lib("Death Ray", 950_000, {
     forever: true,
     loseit: true,
     specialw: true,
     fx: "LASER",
     game1flag: false,
   }),
-  lib("Phase Shield", 78500, {
+  lib("Phase Shield", 78_500, {
     start_cnt: MAX_SHIELD,
     max_cnt: MAX_SHIELD,
     shoot: false,
@@ -121,18 +121,18 @@ export const OBJ_LIB: ObjLib[] = [
     loseit: false,
     specialw: false,
   }),
-  lib("Damage Scanner", 10000, {
+  lib("Damage Scanner", 10_000, {
     shoot: false,
     forever: false,
     onlyflag: true,
     loseit: false,
     specialw: false,
   }),
-  money("Credit Cache 1", 93800),
-  money("Credit Cache 2", 76000),
-  money("Credit Cache 3", 55700),
-  money("Credit Cache 4", 35200),
-  money("Credit Cache 5", 122500),
+  money("Credit Cache 1", 93_800),
+  money("Credit Cache 2", 76_000),
+  money("Credit Cache 3", 55_700),
+  money("Credit Cache 4", 35_200),
+  money("Credit Cache 5", 122_500),
   money("Energy Crystal", 50),
 ]
 
@@ -225,7 +225,7 @@ export class Inventory {
       this.plr.score += lib.cost
       return Buy.GOTIT
     }
-    if (!this.reg && !lib.game1flag) return Buy.GOTIT
+    if (!(this.reg || lib.game1flag)) return Buy.GOTIT
     const stack = lib.onlyflag ? this.objs.find((o) => o.type === type) : undefined
     if (stack) {
       if (stack.num >= lib.max_cnt) return Buy.SHIPFULL
@@ -275,7 +275,7 @@ export class Inventory {
   /** Equipped copy of a special weapon goes to storage (a spare takes its place). */
   store(type: ObjType): boolean {
     const cur = this.p_objs[type]
-    if (!cur || !OBJ_LIB[type]?.specialw) return false
+    if (!(cur && OBJ_LIB[type]?.specialw)) return false
     this.del(type)
     this.stored.push({ ...cur, inuse: false })
     return true
@@ -320,7 +320,7 @@ export class Inventory {
   use(type: ObjType, shoot: (t: ObjType) => boolean): boolean {
     const cur = this.p_objs[type]
     const lib = OBJ_LIB[type]
-    if (!cur || !lib) return false
+    if (!(cur && lib)) return false
     if (lib.shoot && shoot(type) && !lib.forever) cur.num--
     if (cur.num <= 0 && !lib.forever) {
       this.remove(cur)
@@ -334,7 +334,7 @@ export class Inventory {
   sell(type: ObjType): number {
     const cur = this.p_objs[type]
     const lib = OBJ_LIB[type]
-    if (!cur || !lib) return 0
+    if (!(cur && lib)) return 0
     this.plr.score += this.getResale(type)
     if (type === Obj.DETECT) {
       // DOS only unequips it (and leaks the link); remove it for real
@@ -386,7 +386,7 @@ export class Inventory {
 
   getCost(type: ObjType): number {
     const lib = OBJ_LIB[type]
-    if (!lib) return 99999999
+    if (!lib) return 99_999_999
     return lib.onlyflag ? lib.cost * lib.start_cnt : lib.cost
   }
 
@@ -403,7 +403,7 @@ export class Inventory {
     const lib = OBJ_LIB[type]
     if (type >= Obj.LAST_OBJECT || !lib) return false
     if (type === Obj.FORWARD_GUNS && this.isEquip(type)) return false
-    if (!this.reg && !lib.game1flag) return false
+    if (!(this.reg || lib.game1flag)) return false
     return this.getCost(type) !== 0
   }
 
@@ -443,7 +443,7 @@ export class Inventory {
 
   /** OBJS_MakeSpecial */
   makeSpecial(type: ObjType, slot: SpecialSlot = "sweapon"): boolean {
-    if (!this.p_objs[type] || !OBJ_LIB[type]?.specialw) return false
+    if (!(this.p_objs[type] && OBJ_LIB[type]?.specialw)) return false
     this.plr[slot] = type
     return true
   }
@@ -488,6 +488,6 @@ export function newPilotObjs(inv: Inventory): void {
   inv.add(Obj.ENERGY)
   inv.add(Obj.ENERGY)
   inv.add(Obj.ENERGY)
-  inv.plr.score = 10000
+  inv.plr.score = 10_000
   inv.getNext()
 }

@@ -31,7 +31,7 @@ vi.mock("phaser", () => {
 })
 
 const { Sound } = await import("phaser")
-const { Audio, MAX_VOICES } = await import("./audio")
+const { Audio, MAX_VOICES } = await import("./audio.ts")
 
 describe("Audio.play voice cap", () => {
   it("keeps at most MAX_VOICES of one sample, cutting off the oldest", () => {

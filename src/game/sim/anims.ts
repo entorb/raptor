@@ -1,8 +1,8 @@
 // Port of dosraptor/SOURCE/ANIMS.C: explosions, sparks, smoke. Pure visuals, but kept in the
 // sim so positions/lifetimes match the original; the renderer draws each by its `kind`.
-import { PIC_SIZES } from "../data/ep1"
-import type { Ship } from "./enemy"
-import type { PlayerShip, World } from "./world"
+import { PIC_SIZES } from "../data/ep1.ts"
+import type { Ship } from "./enemy.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const MAX_ANIMS = 100
 

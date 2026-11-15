@@ -1,6 +1,6 @@
 // Hangar bay backdrop: one-point perspective hall whose back wall is an open bay door
 // (transparent, the animated star layers and the dogfight show through it).
-import { glow, type Pt, panelLines, polyPath, seeded } from "./draw"
+import { glow, type Pt, panelLines, polyPath, seeded } from "./draw.ts"
 
 type Ctx = CanvasRenderingContext2D
 

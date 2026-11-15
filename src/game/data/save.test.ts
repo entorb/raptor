@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from "vitest"
-import { deletePilot, loadPilots, newPilotSave, pilotNameTaken, savePilot } from "./save"
+import { deletePilot, loadPilots, newPilotSave, pilotNameTaken, savePilot } from "./save.ts"
 
 const store = new Map<string, string>()
 beforeEach(() => {

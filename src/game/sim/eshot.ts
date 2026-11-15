@@ -1,9 +1,9 @@
 // Port of dosraptor/SOURCE/ESHOT.C: enemy projectiles.
-import { PIC_SIZES } from "../data/ep1"
-import { Anim, type Fx, PLAYERHEIGHT, PLAYERWIDTH, XPOS, YPOS } from "./consts"
-import type { Ship } from "./enemy"
-import { initMobj, type MoveObj, moveSobj, newMove } from "./move"
-import type { PlayerShip, World } from "./world"
+import { PIC_SIZES } from "../data/ep1.ts"
+import { Anim, type Fx, PLAYERHEIGHT, PLAYERWIDTH, XPOS, YPOS } from "./consts.ts"
+import type { Ship } from "./enemy.ts"
+import { initMobj, type MoveObj, moveSobj, newMove } from "./move.ts"
+import type { PlayerShip, World } from "./world.ts"
 
 const MAX_ESHOT = 80
 
@@ -64,6 +64,7 @@ export interface EShot {
 }
 
 /** ESHOT_Shoot */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
 export function eshotShoot(w: World, enemy: Ship, gun: number): void {
   const list = w.eshots
   if (list.length >= MAX_ESHOT) return

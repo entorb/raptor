@@ -8,11 +8,11 @@
 // - Auto-fire (Settings.autoFire, default on) fires continuously; when off, fire = a finger on
 //   the screen (touch only; no single-shot key on desktop).
 import type { Input, Scene } from "phaser"
-import { SCALE } from "../data/playfield"
-import { loadSettings, saveSettings } from "../data/save"
-import type { ObjType } from "../sim/consts"
-import { WEAPON_ORDER } from "../sim/objects"
-import type { FrameInput } from "../sim/world"
+import { SCALE } from "../data/playfield.ts"
+import { loadSettings, saveSettings } from "../data/save.ts"
+import type { ObjType } from "../sim/consts.ts"
+import { WEAPON_ORDER } from "../sim/objects.ts"
+import type { FrameInput } from "../sim/world.ts"
 
 export interface TouchButton {
   id: string
@@ -90,7 +90,10 @@ export class GameInput {
         const key = kb.addKey(n, true)
         this.keys[n] = key
       }
-      for (const [k, , t] of SPECIAL_KEYS) this.keys[k]?.on("down", () => (this.selected = t))
+      for (const [k, , t] of SPECIAL_KEYS)
+        this.keys[k]?.on("down", () => {
+          this.selected = t
+        })
       // hidden cheat (like the DOS godmode): not listed in the briefing
       this.keys.G?.on("down", () => this.onGod())
       kb.on("keydown", () => {

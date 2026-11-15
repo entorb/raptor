@@ -1,8 +1,8 @@
 // Item icons (shop, HUD weapon strip, pickups): one line-art glyph per object type, drawn in a
 // 100x100 design box and scaled. The nova bomb reuses its warhead shot art.
-import { Obj } from "../sim/consts"
-import { type Ctx, glow, metal, polyPath, roundRect } from "./draw"
-import { drawShotArt } from "./fx"
+import { Obj } from "../sim/consts.ts"
+import { type Ctx, glow, metal, polyPath, roundRect } from "./draw.ts"
+import { drawShotArt } from "./fx.ts"
 
 /** Accent color per object type (pickup badge, icon strokes, shop highlight). */
 export const ICON_COLOR: Partial<Record<number, string>> = {

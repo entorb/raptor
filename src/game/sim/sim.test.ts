@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1"
-import { BEGINNER_MAP } from "../data/s1_training"
-import { DIFF_NORMAL, DIFF_TRAIN, END_FLYOFF, MAP_SIZE, Obj, PLAYERWIDTH } from "./consts"
-import type { Ship } from "./enemy"
-import { initMobj, moveEobj, moveSobj, newMove } from "./move"
-import { Buy, Inventory, MAX_OBJS, newPilotObjs } from "./objects"
-import { Rng } from "./rng"
-import { CHARGE_SHIELD, NO_INPUT, type PlayerState, World } from "./world"
+import { ENEMY_LIB, MAPS, TILE_CELLS } from "../data/ep1.ts"
+import { BEGINNER_MAP } from "../data/s1_training.ts"
+import { DIFF_NORMAL, DIFF_TRAIN, END_FLYOFF, MAP_SIZE, Obj, PLAYERWIDTH } from "./consts.ts"
+import type { Ship } from "./enemy.ts"
+import { initMobj, moveEobj, moveSobj, newMove } from "./move.ts"
+import { Buy, Inventory, MAX_OBJS, newPilotObjs } from "./objects.ts"
+import { Rng } from "./rng.ts"
+import { CHARGE_SHIELD, NO_INPUT, type PlayerState, World } from "./world.ts"
 
 describe("MOVEOBJ", () => {
   it("MoveEobj stops exactly on the target and returns leftover speed", () => {
@@ -33,8 +33,8 @@ describe("Rng (Watcom rand)", () => {
     const b = new Rng(2048)
     const seq = Array.from({ length: 8 }, () => a.rand())
     expect(seq).toEqual(Array.from({ length: 8 }, () => b.rand()))
-    expect(seq.every((v) => v >= 0 && v < 32768)).toBe(true)
-    expect(new Rng(1).rand()).toBe(16838) // (1103515245 + 12345) >> 16 & 0x7fff
+    expect(seq.every((v) => v >= 0 && v < 32_768)).toBe(true)
+    expect(new Rng(1).rand()).toBe(16_838) // (1103515245 + 12345) >> 16 & 0x7fff
   })
 })
 
@@ -49,11 +49,11 @@ describe("Inventory (OBJECTS.C)", () => {
     const { plr, inv } = fresh()
     expect(inv.isEquip(Obj.FORWARD_GUNS)).toBe(true)
     expect(inv.getAmt(Obj.ENERGY)).toBe(75)
-    expect(plr.score).toBe(10000)
+    expect(plr.score).toBe(10_000)
   })
   it("full() matches buy SHIPFULL (shop greys out maxed items)", () => {
     const { plr, inv } = fresh()
-    plr.score = 99999999
+    plr.score = 99_999_999
     for (const t of [Obj.ENERGY, Obj.MEGA_BOMB, Obj.SUPER_SHIELD, Obj.DETECT]) {
       while (!inv.full(t)) expect(inv.buy(t)).toBe(Buy.GOTIT)
       expect(inv.buy(t)).toBe(Buy.SHIPFULL)
@@ -65,11 +65,11 @@ describe("Inventory (OBJECTS.C)", () => {
     expect(inv.getAmt(Obj.ENERGY)).toBe(100)
     expect(plr.score).toBe(0)
     expect(inv.buy(Obj.ENERGY)).toBe(Buy.NOMONEY)
-    plr.score = 99999
+    plr.score = 99_999
     expect(inv.buy(Obj.ENERGY)).toBe(Buy.SHIPFULL)
     inv.sell(Obj.ENERGY)
     expect(inv.getAmt(Obj.ENERGY)).toBe(75)
-    expect(plr.score).toBe(99999 + 5000)
+    expect(plr.score).toBe(99_999 + 5000)
     inv.sell(Obj.ENERGY)
     inv.sell(Obj.ENERGY)
     expect(inv.getAmt(Obj.ENERGY)).toBe(25)
@@ -163,7 +163,7 @@ describe("episode 1 data", () => {
     }
   })
   it("every tile has 16 material cells", () => {
-    expect(TILE_CELLS.every((c) => /^[0-3]{16}$/.test(c))).toBe(true)
+    expect(TILE_CELLS.every((c) => /^[0-3]{16}$/u.test(c))).toBe(true)
   })
 })
 
@@ -210,7 +210,7 @@ describe("2P co-op (web)", () => {
     const plr: PlayerState = { score: 0, sweapon: -1 }
     const inv = new Inventory(plr)
     newPilotObjs(inv)
-    plr.score = 99999999
+    plr.score = 99_999_999
     for (const t of [Obj.AIR_MISSLE, Obj.DUMB_MISSLE]) inv.buy(t)
     const w = new World(0, plr, inv, DIFF_NORMAL, MAPS[0], 2)
     return { plr, inv, w }

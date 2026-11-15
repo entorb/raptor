@@ -57,7 +57,7 @@ export function promptInstall(): Promise<boolean> {
 export async function checkForUpdate(): Promise<ServiceWorker | null> {
   const sw = typeof navigator === "undefined" ? undefined : navigator.serviceWorker
   const reg = await sw?.getRegistration().catch(() => undefined)
-  if (!sw || !reg) return null
+  if (!(sw && reg)) return null
   // vite-plugin-pwa periodic-update recipe: no check offline or while one is installing
   if (navigator.onLine && !reg.installing) await reg.update().catch(() => {})
   const installing = reg.installing

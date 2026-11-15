@@ -1,7 +1,7 @@
 // Sector / wave filter at the top of the review pages. Empty = unfiltered.
-import { TRAIN_WAVES } from "../game/campaign"
-import { MAPS } from "../game/data/ep1"
-import type { Sector } from "../game/data/save"
+import { TRAIN_WAVES } from "../game/campaign.ts"
+import { MAPS } from "../game/data/ep1.ts"
+import type { Sector } from "../game/data/save.ts"
 
 export interface Filter {
   sector: "" | Sector

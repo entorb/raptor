@@ -13,10 +13,10 @@ import {
   panelLines,
   polyPath,
   seeded,
-} from "./draw"
-import { drawTrainingUnit } from "./s1_sim"
-import { bravoSpec } from "./s2_bravo"
-import { BUG_SPECS } from "./s3_bugs"
+} from "./draw.ts"
+import { drawTrainingUnit } from "./s1_sim.ts"
+import { bravoSpec } from "./s2_bravo.ts"
+import { BUG_SPECS } from "./s3_bugs.ts"
 
 export interface Palette {
   dark: string

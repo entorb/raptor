@@ -1,12 +1,12 @@
 // Port of the between-waves logic of dosraptor/SOURCE/WINDOWS.C WIN_MainLoop (pure, testable).
-import { ENEMY_LIB, MAPS } from "./data/ep1"
-import { BEGINNER_MAP } from "./data/s1_training"
-import { NEST_WAVES, nestMap } from "./data/s3_nest"
-import type { LevelStats, PilotSave, Sector, TopRun } from "./data/save"
-import type { EnemyLib, WaveMap } from "./data/types"
-import { t } from "./i18n/i18n"
-import { DIFF_TRAIN, DIFF_WRAP, MAX_SHIELD, Obj } from "./sim/consts"
-import { Inventory, newPilotObjs } from "./sim/objects"
+import { ENEMY_LIB, MAPS } from "./data/ep1.ts"
+import { BEGINNER_MAP } from "./data/s1_training.ts"
+import { NEST_WAVES, nestMap } from "./data/s3_nest.ts"
+import type { LevelStats, PilotSave, Sector, TopRun } from "./data/save.ts"
+import type { EnemyLib, WaveMap } from "./data/types.ts"
+import { t } from "./i18n/i18n.ts"
+import { DIFF_TRAIN, DIFF_WRAP, MAX_SHIELD, Obj } from "./sim/consts.ts"
+import { Inventory, newPilotObjs } from "./sim/objects.ts"
 
 export interface Loadout {
   plr: { score: number; sweapon: number; sweapon2?: number }
@@ -208,7 +208,7 @@ export function runCampaignSelfCheck(): void {
     objs: [],
   }
   const l = loadout(base)
-  assert(l.plr.score === 10000 && l.inv.getAmt(Obj.ENERGY) === 75, "new pilot loadout")
+  assert(l.plr.score === 10_000 && l.inv.getAmt(Obj.ENERGY) === 75, "new pilot loadout")
   assert(afterWave(base, "complete").pilot.wave === 1, "wave advances")
   assert(afterWave({ ...base, wave: 3 }, "complete").pilot.done === 4, "done tracks finished waves")
   const replay = afterWave({ ...base, wave: 8, done: 9 }, "complete", "bravo", 2, 500)

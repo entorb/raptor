@@ -1,8 +1,8 @@
 // Sound effects (FX.C SND_Setup table) and music (WINDOWS.C songsg1) on Phaser's Web Audio.
 import { type Scene, Sound } from "phaser"
-import type { Sector } from "../data/save"
-import type { Fx } from "../sim/consts"
-import type { SfxEvent } from "../sim/world"
+import type { Sector } from "../data/save.ts"
+import type { Fx } from "../sim/consts.ts"
+import type { SfxEvent } from "../sim/world.ts"
 
 /** Extracted samples (public/assets/sfx/<key>.ogg). */
 export const SFX_FILES = [

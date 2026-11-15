@@ -7,6 +7,7 @@
 // (enemies on screen + shots + explosions). Writes promo/raptor-promo-<n>.jpg (--count=5 alternatives,
 // 960x600 x scale). --at=<s> skips sampling and writes promo/raptor-promo.jpg at that second.
 import { mkdirSync, writeFileSync } from "node:fs"
+import process from "node:process"
 import { chromium } from "playwright-core"
 
 const args = process.argv.slice(2)

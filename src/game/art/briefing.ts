@@ -2,11 +2,11 @@
 // boss scan table + empty intel cards) and a per-wave overlay (`drawBriefingUnits`) with the wave's
 // boss on the table and four signature enemies on the cards. Bravo = hostile red/orange with the
 // real enemy art, Training = cyan simulator with the hologram target drones, Nest = acid green hive.
-import { libOf, waveMap } from "../campaign"
-import type { Sector } from "../data/save"
-import type { EnemyLib } from "../data/types"
-import { type Ctx, glow, polyPath, roundRect, seeded } from "./draw"
-import { drawUnit } from "./ships"
+import { libOf, waveMap } from "../campaign.ts"
+import type { Sector } from "../data/save.ts"
+import type { EnemyLib } from "../data/types.ts"
+import { type Ctx, glow, polyPath, roundRect, seeded } from "./draw.ts"
+import { drawUnit } from "./ships.ts"
 
 const TABLE: [number, number] = [230, 220]
 const CARD = { x: 26, y: 430, step: 104 }
@@ -66,7 +66,7 @@ export function briefingUnits(sector: Sector, wave: number): { boss?: string; in
   const seen = new Set<string>()
   for (let w = 0; w < wave; w++) for (const n of wavePics(sector, w)) seen.add(n)
   const intel = pics
-    .filter((n) => /^(SHIP|TARG|BUG)/.test(n) && !lib(n)?.bossflag && (lib(n)?.bonus ?? -1) < 0)
+    .filter((n) => /^(SHIP|TARG|BUG)/u.test(n) && !lib(n)?.bossflag && (lib(n)?.bonus ?? -1) < 0)
     .sort(
       (a, b) =>
         Number(seen.has(a)) - Number(seen.has(b)) || (count.get(b) ?? 0) - (count.get(a) ?? 0),

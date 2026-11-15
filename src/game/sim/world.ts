@@ -1,9 +1,9 @@
 // Port of dosraptor/SOURCE/RAP.C Do_Game (one call of `step` = one DOS frame, FRAME_MS) plus
 // the player movement of INPUT.C and the in-game logic of RAP_DisplayStats.
-import { MAPS } from "../data/ep1"
-import type { WaveMap } from "../data/types"
-import { type AnimObj, animsThink, startAAnim, startAnim, startEAnim, startGAnim } from "./anims"
-import { type Bonus, Bonuses, bonusAdd, bonusThink } from "./bonus"
+import { MAPS } from "../data/ep1.ts"
+import type { WaveMap } from "../data/types.ts"
+import { type AnimObj, animsThink, startAAnim, startAnim, startEAnim, startGAnim } from "./anims.ts"
+import { type Bonus, Bonuses, bonusAdd, bonusThink } from "./bonus.ts"
 import {
   Anim,
   DIFF_HARD,
@@ -25,11 +25,18 @@ import {
   PLAYERMINX,
   PLAYERWIDTH,
   SHIELD_LOW,
-} from "./consts"
-import { EB_EASY_LEVEL, EB_HARD_LEVEL, EB_MED_LEVEL, Enemies, enemyThink, type Ship } from "./enemy"
-import { type EShot, eshotThink } from "./eshot"
-import type { Inventory, SpecialSlot } from "./objects"
-import { Rng } from "./rng"
+} from "./consts.ts"
+import {
+  EB_EASY_LEVEL,
+  EB_HARD_LEVEL,
+  EB_MED_LEVEL,
+  Enemies,
+  enemyThink,
+  type Ship,
+} from "./enemy.ts"
+import { type EShot, eshotThink } from "./eshot.ts"
+import type { Inventory, SpecialSlot } from "./objects.ts"
+import { Rng } from "./rng.ts"
 import {
   makeShotLibs,
   playerShoot,
@@ -37,8 +44,8 @@ import {
   type ShotLib,
   shotsAfterDisplay,
   shotsThink,
-} from "./shots"
-import { Tiles, tileScroll, tileThink } from "./tile"
+} from "./shots.ts"
+import { Tiles, tileScroll, tileThink } from "./tile.ts"
 
 const MAX_ADDX = 10
 const MAX_ADDY = 8
@@ -313,7 +320,7 @@ export class World {
   /** web: the ship closest to x/y (enemy aim); P1 on a tie */
   nearestShip(x: number, y: number): PlayerShip {
     let best = this.cur
-    let bestD = Infinity
+    let bestD = Number.POSITIVE_INFINITY
     for (const s of this.ships) {
       const d = (s.cx - x) ** 2 + (s.cy - y) ** 2
       if (d < bestD) {
@@ -638,7 +645,7 @@ export class World {
   /** web: 2P ships fly off in separate lanes, the left one left of center (they never cross). */
   private flyLanes(): void {
     const [left, right] = [...this.ships].sort((a, b) => a.x - b.x)
-    if (!left || !right) return
+    if (!(left && right)) return
     left.exitX = 160 - COOP_START_DX
     right.exitX = 160 + COOP_START_DX
   }

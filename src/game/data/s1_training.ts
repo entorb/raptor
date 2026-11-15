@@ -2,9 +2,9 @@
 // thinned-out subset of its first third (rows 138..97), shield carriers only and an early,
 // weaker boss, so the wave is about 1/3 as long as wave 1.
 
-import { MAP_COLS, MAP_ONSCREEN } from "../sim/consts"
-import { FLATS, MAPS } from "./ep1"
-import type { WaveMap } from "./types"
+import { MAP_COLS, MAP_ONSCREEN } from "../sim/consts.ts"
+import { FLATS, MAPS } from "./ep1.ts"
+import type { WaveMap } from "./types.ts"
 
 const BOSS_ROW = 95 + MAP_ONSCREEN
 

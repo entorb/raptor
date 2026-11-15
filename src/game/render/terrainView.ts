@@ -8,14 +8,14 @@ import {
   RES,
   renderChunk,
   type TerrainField,
-} from "../art/terrain"
-import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../art/textures"
-import { FLATS } from "../data/ep1"
-import { SCALE } from "../data/playfield"
-import type { Sector } from "../data/save"
-import type { TileSet } from "../data/types"
-import { MAP_COLS, MAP_LEFT } from "../sim/consts"
-import type { Tiles } from "../sim/tile"
+} from "../art/terrain.ts"
+import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../art/textures.ts"
+import { FLATS } from "../data/ep1.ts"
+import { SCALE } from "../data/playfield.ts"
+import type { Sector } from "../data/save.ts"
+import type { TileSet } from "../data/types.ts"
+import { MAP_COLS, MAP_LEFT } from "../sim/consts.ts"
+import type { Tiles } from "../sim/tile.ts"
 
 const CHUNK_PX = CHUNK_ROWS * 32 // DOS px
 

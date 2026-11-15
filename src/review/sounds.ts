@@ -1,8 +1,8 @@
 // Dev-only sound review page (/raptor/review/sounds.html): generated sfx and songs next to the
 // archived originals (original_game/audio, if present).
-import { FX, pitchRate, SFX_FILES, SONG_FILES, WAVE_SONGS } from "../game/audio/audio"
-import type { Sector } from "../game/data/save"
-import { initFilter } from "./filter"
+import { FX, pitchRate, SFX_FILES, SONG_FILES, WAVE_SONGS } from "../game/audio/audio.ts"
+import type { Sector } from "../game/data/save.ts"
+import { initFilter } from "./filter.ts"
 
 const ORIG = import.meta.glob("../../original_game/audio/**/*.ogg", {
   eager: true,

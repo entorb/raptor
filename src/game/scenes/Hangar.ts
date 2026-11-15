@@ -1,9 +1,9 @@
 // Hangar: mission briefing (launch) screen and the way to the supply shop (WINDOWS.C WIN_Hangar).
 import { type GameObjects, Scene } from "phaser"
-import { seeded } from "../art/draw"
-import { BAY, PAD, PAD_TILT } from "../art/hangar"
-import { briefingTexture } from "../art/textures"
-import { getAudio } from "../audio/audio"
+import { seeded } from "../art/draw.ts"
+import { BAY, PAD, PAD_TILT } from "../art/hangar.ts"
+import { briefingTexture } from "../art/textures.ts"
+import { getAudio } from "../audio/audio.ts"
 import {
   defaultWave,
   type Loadout,
@@ -15,12 +15,12 @@ import {
   topHeader,
   topRunLine,
   withLoadout,
-} from "../campaign"
-import { ENEMY_LIB } from "../data/ep1"
-import { type PilotSave, SECTORS, type Sector } from "../data/save"
-import { reportMissionStart } from "../data/stats"
-import { t } from "../i18n/i18n"
-import { currentPilot, pilotLoadout, saveLoadout, setPilot } from "../session"
+} from "../campaign.ts"
+import { ENEMY_LIB } from "../data/ep1.ts"
+import { type PilotSave, SECTORS, type Sector } from "../data/save.ts"
+import { reportMissionStart } from "../data/stats.ts"
+import { t } from "../i18n/i18n.ts"
+import { currentPilot, pilotLoadout, saveLoadout, setPilot } from "../session.ts"
 import {
   backButton,
   backdrop,
@@ -33,8 +33,8 @@ import {
   TextMenu,
   TOUCH,
   UI,
-} from "../ui/textMenu"
-import { pilotTitle } from "./Menu"
+} from "../ui/textMenu.ts"
+import { pilotTitle } from "./Menu.ts"
 
 type Mode = "hangar" | "launch"
 
@@ -112,9 +112,9 @@ export class Hangar extends Scene {
     this.intel = this.add.image(480, 300, briefingTexture(this, this.selSector, this.selWave))
     this.intel.setAlpha(0)
     this.panel = this.add
-      .rectangle(640, 158, 360, 100, 0x05060d, 0.72)
+      .rectangle(640, 158, 360, 100, 0x05_06_0d, 0.72)
       .setOrigin(0.5, 0)
-      .setStrokeStyle(1, 0x39d0ff, 0.35)
+      .setStrokeStyle(1, 0x39_d0_ff, 0.35)
     this.title = header(this, "HANGAR")
     this.add
       .text(480, 96, pilotTitle(p), { fontFamily: UI.font, fontSize: "22px", color: UI.text })
@@ -182,7 +182,7 @@ export class Hangar extends Scene {
   private dogfight(): void {
     const fighters = [
       ...new Set(
-        ENEMY_LIB.filter((e) => !e.ground && !e.bossflag && e.w && e.w <= 40).map((e) => e.iname),
+        ENEMY_LIB.filter((e) => !(e.ground || e.bossflag) && e.w && e.w <= 40).map((e) => e.iname),
       ),
     ]
     const r = seeded(Date.now() % 9973)
@@ -223,7 +223,7 @@ export class Hangar extends Scene {
           if (!hero.active) return
           const bolt = this.add
             .image(hero.x, hero.y, "dot")
-            .setTint(0x39d0ff)
+            .setTint(0x39_d0_ff)
             .setScale(0.6, 0.15)
             .setBlendMode("ADD")
           layer.add(bolt)
@@ -302,7 +302,7 @@ export class Hangar extends Scene {
       o.setVisible(launch)
       if (o.input) o.input.enabled = launch
     }
-    this.menu.enabled = !launch && !this.backFocused
+    this.menu.enabled = !(launch || this.backFocused)
     this.title.setText(launch ? "MISSION BRIEFING" : "HANGAR")
     SECTORS.forEach((s, i) => {
       const alpha = launch && s === this.selSector ? 1 : 0
@@ -353,7 +353,9 @@ export class Hangar extends Scene {
     this.waveBoxes = []
     this.table = []
     const box = (x: number, y: number, w: number, h: number, size: number, tap: () => void) => {
-      const bg = this.add.rectangle(x, y, w, h, 0x39d0ff, 0).setInteractive({ useHandCursor: true })
+      const bg = this.add
+        .rectangle(x, y, w, h, 0x39_d0_ff, 0)
+        .setInteractive({ useHandCursor: true })
       const label = this.add
         .text(x, y, "", { fontFamily: UI.font, fontSize: `${size}px`, color: UI.text })
         .setOrigin(0.5)
@@ -436,12 +438,12 @@ export class Hangar extends Scene {
   }
 
   private paint(b: Box, sel: boolean, focus: boolean, dim = false): void {
-    b.bg.setFillStyle(0x39d0ff, sel ? 0.22 : 0.05)
+    b.bg.setFillStyle(0x39_d0_ff, sel ? 0.22 : 0.05)
     let alpha = 0.35
     if (focus) alpha = 0.9
     else if (sel) alpha = 0.8
     else if (dim) alpha = 0.12
-    b.bg.setStrokeStyle(focus ? 2 : 1, focus ? 0xffffff : 0x39d0ff, alpha)
+    b.bg.setStrokeStyle(focus ? 2 : 1, focus ? 0xff_ff_ff : 0x39_d0_ff, alpha)
     let color = UI.text
     if (dim) color = UI.dim
     else if (sel || focus) color = "#ffffff"

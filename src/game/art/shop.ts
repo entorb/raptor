@@ -1,7 +1,7 @@
 // Supply shop backdrop: armory wall with weapon racks, a porthole on space, holo glow and a
 // gridded floor (all procedural).
-import { type Ctx, glow, metal, polyPath, roundRect, seeded } from "./draw"
-import { drawIcon } from "./icons"
+import { type Ctx, glow, metal, polyPath, roundRect, seeded } from "./draw.ts"
+import { drawIcon } from "./icons.ts"
 
 /** Rack of missiles hanging on the wall at (x, y). */
 function rack(ctx: Ctx, x: number, y: number, n: number, len: number, tint: string): void {

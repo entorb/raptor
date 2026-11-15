@@ -1,9 +1,9 @@
 import * as Sentry from "@sentry/browser"
 import type { Game as PhaserGame } from "phaser"
-import { applyDocumentLang } from "./game/i18n/i18n"
-import { initGamepad } from "./game/input/gamepad"
-import StartGame from "./game/main"
-import { captureInstallPrompt } from "./game/pwa"
+import { applyDocumentLang } from "./game/i18n/i18n.ts"
+import { initGamepad } from "./game/input/gamepad.ts"
+import StartGame from "./game/main.ts"
+import { captureInstallPrompt } from "./game/pwa.ts"
 
 // iOS < 15.4 has no svh, so #app stays 100vh (the large viewport) and the FIT
 // canvas runs behind Safari's toolbar after a portrait→landscape rotation. Size

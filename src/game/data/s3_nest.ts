@@ -2,7 +2,7 @@
 // DOS: an own enemy library (ENEMY.H SPRITE records flown by the unchanged sim) and seeded waves
 // expanded from a short spec per wave. Every bug takes the stats of the Bravo unit it stands in
 // for (named in its comment), so the difficulty stays close to the DOS episode.
-import { MAP_COLS, Obj } from "../sim/consts"
+import { MAP_COLS, Obj } from "../sim/consts.ts"
 import {
   EXP_AIRLARGE,
   EXP_AIRMED,
@@ -18,7 +18,7 @@ import {
   F_KAMI,
   F_LINEAR,
   F_REPEAT,
-} from "../sim/enemy"
+} from "../sim/enemy.ts"
 import {
   ES_ANGLELEFT,
   ES_ANGLERIGHT,
@@ -27,10 +27,10 @@ import {
   ES_COCONUTS,
   ES_MISSLE,
   ES_PLASMA,
-} from "../sim/eshot"
-import { Rng } from "../sim/rng"
-import { hiveTerrain } from "./s3_hive"
-import type { EnemyLib, WaveMap } from "./types"
+} from "../sim/eshot.ts"
+import { Rng } from "../sim/rng.ts"
+import { hiveTerrain } from "./s3_hive.ts"
+import type { EnemyLib, WaveMap } from "./types.ts"
 
 type Pt = [number, number]
 /** [ES_* shot type, x, y] in DOS px from the sprite's top-left */
@@ -674,7 +674,7 @@ const BOSSES = {
       [-2, -16],
     ],
     hits: 750,
-    money: 225000,
+    money: 225_000,
     song: 3,
     num_frames: 6,
     rewind: 6,

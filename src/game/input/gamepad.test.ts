@@ -1,5 +1,5 @@
 import { expect, it } from "vitest"
-import { padKeys } from "./gamepad"
+import { padKeys } from "./gamepad.ts"
 
 it("maps standard gamepad buttons and the left stick to keys", () => {
   const buttons = Array.from({ length: 16 }, (_, i) => ({ pressed: i === 0 || i === 3 }))

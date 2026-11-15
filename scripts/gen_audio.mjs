@@ -7,6 +7,7 @@
 // (pitch, volume) still applies. Output is deterministic (seeded).
 import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
+import process from "node:process"
 import { fileURLToPath } from "node:url"
 import { toOgg } from "./lib/ogg.mjs"
 import {

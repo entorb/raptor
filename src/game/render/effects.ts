@@ -1,8 +1,8 @@
 // Particle effects for the original ANIMS (explosions, sparks, smoke) in the modern look.
 import type { GameObjects, Scene } from "phaser"
-import { PLAY, SCALE } from "../data/playfield"
-import type { Sector } from "../data/save"
-import type { AnimObj } from "../sim/anims"
+import { PLAY, SCALE } from "../data/playfield.ts"
+import type { Sector } from "../data/save.ts"
+import type { AnimObj } from "../sim/anims.ts"
 
 type Emitter = GameObjects.Particles.ParticleEmitter
 
@@ -12,22 +12,22 @@ const TINTS: Record<
   { boom: [number, number]; smoke: number[]; fire: number[]; ground: number[] }
 > = {
   bravo: {
-    boom: [0xffe8b0, 0xffd070],
-    smoke: [0x9aa0b0, 0x3a3e48],
-    fire: [0xfff6d0, 0xffc040, 0xff5a20, 0x401010],
-    ground: [0xfff0b0, 0xff8a20, 0x802010],
+    boom: [0xff_e8_b0, 0xff_d0_70],
+    smoke: [0x9a_a0_b0, 0x3a_3e_48],
+    fire: [0xff_f6_d0, 0xff_c0_40, 0xff_5a_20, 0x40_10_10],
+    ground: [0xff_f0_b0, 0xff_8a_20, 0x80_20_10],
   },
   train: {
-    boom: [0xb0ffe8, 0x7fffd0],
-    smoke: [0x2a8a90, 0x0a2030],
-    fire: [0xffffff, 0x9dffe0, 0x2effb4, 0x0a3a40],
-    ground: [0xd0fff0, 0x2effb4, 0x0a4030],
+    boom: [0xb0_ff_e8, 0x7f_ff_d0],
+    smoke: [0x2a_8a_90, 0x0a_20_30],
+    fire: [0xff_ff_ff, 0x9d_ff_e0, 0x2e_ff_b4, 0x0a_3a_40],
+    ground: [0xd0_ff_f0, 0x2e_ff_b4, 0x0a_40_30],
   },
   nest: {
-    boom: [0xf0ffc0, 0xc8ff50],
-    smoke: [0x4a6a28, 0x10200a],
-    fire: [0xf4ffd0, 0xc8ff40, 0x60c020, 0x1a3008],
-    ground: [0xe8ffb0, 0x9ae030, 0x2a5010],
+    boom: [0xf0_ff_c0, 0xc8_ff_50],
+    smoke: [0x4a_6a_28, 0x10_20_0a],
+    fire: [0xf4_ff_d0, 0xc8_ff_40, 0x60_c0_20, 0x1a_30_08],
+    ground: [0xe8_ff_b0, 0x9a_e0_30, 0x2a_50_10],
   },
 }
 
@@ -113,7 +113,7 @@ export class Effects {
         lifespan: { min: 300, max: 800 },
         scale: { start: 1.2, end: 0 },
         alpha: { start: 1, end: 0 },
-        color: [0xffffff, 0x7fe7ff, 0x2070ff],
+        color: [0xff_ff_ff, 0x7f_e7_ff, 0x20_70_ff],
         blendMode: "ADD",
       },
       airDepth,
@@ -161,16 +161,16 @@ export class Effects {
         return
       case "SMFLAK_BLK":
         this.fire.explode(5, x, y)
-        this.spark.setParticleTint(0xffc060)
+        this.spark.setParticleTint(0xff_c0_60)
         this.spark.explode(4, x, y)
         return
       case "NRGBANG_BLK":
-        this.flash.setParticleTint(0x7fe7ff)
+        this.flash.setParticleTint(0x7f_e7_ff)
         this.flash.explode(1, x, y)
         this.energy.explode(24, x, y)
         return
       case "LRBLST_BLK":
-        this.flash.setParticleTint(0xff5ad8)
+        this.flash.setParticleTint(0xff_5a_d8)
         this.flash.explode(1, x, y)
         return
       case "SSMOKE_BLK":
@@ -185,11 +185,11 @@ export class Effects {
         this.energy.explode(6, x, y)
         return
       case "BSPARK_BLK":
-        this.spark.setParticleTint(0x7fd8ff)
+        this.spark.setParticleTint(0x7f_d8_ff)
         this.spark.explode(5, x, y)
         return
       case "OSPARK_BLK":
-        this.spark.setParticleTint(0xffb040)
+        this.spark.setParticleTint(0xff_b0_40)
         this.spark.explode(5, x, y)
         return
       case "FLARE_PIC":
@@ -207,14 +207,14 @@ export class Effects {
     const tween = (obj: GameObjects.Shape, cfg: Record<string, unknown>) =>
       this.scene.tweens.add({ targets: obj, onComplete: () => obj.destroy(), ...cfg })
     const screen = this.scene.add
-      .rectangle(0, 0, PLAY.w, PLAY.h, 0xfff4d0, 0.85)
+      .rectangle(0, 0, PLAY.w, PLAY.h, 0xff_f4_d0, 0.85)
       .setOrigin(0)
       .setDepth(depth)
       .setBlendMode("ADD")
     tween(screen, { alpha: 0, duration: 700, ease: "Quad.easeIn" })
-    const core = this.scene.add.circle(x, y, 40, 0xffe890, 1).setDepth(depth).setBlendMode("ADD")
+    const core = this.scene.add.circle(x, y, 40, 0xff_e8_90, 1).setDepth(depth).setBlendMode("ADD")
     tween(core, { scale: 5, alpha: 0, duration: 900, ease: "Cubic.easeOut" })
-    for (const [i, color] of [0xffffff, 0xffe066, 0xff8a30].entries()) {
+    for (const [i, color] of [0xff_ff_ff, 0xff_e0_66, 0xff_8a_30].entries()) {
       const ring = this.scene.add
         .circle(x, y, 30, color, 0)
         .setStrokeStyle(10 - i * 2, color, 0.9)
@@ -223,10 +223,10 @@ export class Effects {
       tween(ring, { scale: 22, alpha: 0, duration: 900, delay: i * 120, ease: "Cubic.easeOut" })
     }
     this.fire.explode(120, x, y)
-    this.spark.setParticleTint(0xffe066)
+    this.spark.setParticleTint(0xff_e0_66)
     this.spark.explode(90, x, y)
     this.energy.explode(60, x, y)
-    this.flash.setParticleTint(0xffffff)
+    this.flash.setParticleTint(0xff_ff_ff)
     this.flash.explode(4, x, y)
     this.smoke.explode(12, x, y)
   }
@@ -236,8 +236,8 @@ export class Effects {
     const n = Math.min(24, Math.round((w * h) / 120))
     if (n > 0) this.debris.explode(n, x * SCALE, y * SCALE)
     const ring = this.scene.add
-      .circle(x * SCALE, y * SCALE, Math.max(w, h) * 0.8, 0xffc070, 0)
-      .setStrokeStyle(3, 0xffd090, 0.9)
+      .circle(x * SCALE, y * SCALE, Math.max(w, h) * 0.8, 0xff_c0_70, 0)
+      .setStrokeStyle(3, 0xff_d0_90, 0.9)
       .setDepth(this.fire.depth + 1)
       .setBlendMode("ADD")
     this.scene.tweens.add({

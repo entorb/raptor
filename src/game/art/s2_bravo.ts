@@ -17,9 +17,9 @@ import {
   seeded,
   sphere,
   vnoise,
-} from "./draw"
-import type { Draw, Palette, Spec } from "./ships"
-import type { Surface } from "./terrain"
+} from "./draw.ts"
+import type { Draw, Palette, Spec } from "./ships.ts"
+import type { Surface } from "./terrain.ts"
 
 const ENEMY_PAL: Palette = {
   dark: "#161a22",

@@ -1,14 +1,14 @@
 // Supply shop (STORE.C STORE_Enter): BUY/SELL tabs, item list with icons, detail card with the
 // buy/sell button. Rules live in sim/objects.ts (Inventory).
 import { type GameObjects, Scene } from "phaser"
-import { ICON_COLOR } from "../art/icons"
-import { getAudio } from "../audio/audio"
-import { type Loadout, statusLine } from "../campaign"
-import { t } from "../i18n/i18n"
-import type { StringKey } from "../i18n/strings"
-import { currentPilot, pilotLoadout, saveLoadout } from "../session"
-import { Obj, type ObjType } from "../sim/consts"
-import { Buy, MAX_OBJS, MAX_PHASE, OBJ_LIB } from "../sim/objects"
+import { ICON_COLOR } from "../art/icons.ts"
+import { getAudio } from "../audio/audio.ts"
+import { type Loadout, statusLine } from "../campaign.ts"
+import { t } from "../i18n/i18n.ts"
+import type { StringKey } from "../i18n/strings.ts"
+import { currentPilot, pilotLoadout, saveLoadout } from "../session.ts"
+import { Obj, type ObjType } from "../sim/consts.ts"
+import { Buy, MAX_OBJS, MAX_PHASE, OBJ_LIB } from "../sim/objects.ts"
 import {
   backButton,
   bindKeys,
@@ -19,7 +19,7 @@ import {
   TextMenu,
   TOUCH,
   UI,
-} from "../ui/textMenu"
+} from "../ui/textMenu.ts"
 
 /** One-line shop descriptions (space re-theme of the ITEMxx_TXT help). */
 const DESC: Partial<Record<ObjType, StringKey>> = {
@@ -94,7 +94,7 @@ export class Shop extends Scene {
     this.tabs = [t("shop.buy"), t("shop.sell"), t("shop.storage")].map((name, i) => {
       const x = 480 + (i - 1) * 170
       const bg = this.add
-        .rectangle(x, 106, 164, TOUCH ? 64 : 42, 0x10182a, 0.9)
+        .rectangle(x, 106, 164, TOUCH ? 64 : 42, 0x10_18_2a, 0.9)
         .setInteractive({ useHandCursor: true })
       bg.on("pointerup", () => this.setTab(i))
       const label = this.add
@@ -103,9 +103,9 @@ export class Shop extends Scene {
       return { bg, label }
     })
     this.add
-      .rectangle(LIST.x - 10, LIST.y - 12, LIST.w + 20, CARD.h + 8, 0x05060d, 0.78)
+      .rectangle(LIST.x - 10, LIST.y - 12, LIST.w + 20, CARD.h + 8, 0x05_06_0d, 0.78)
       .setOrigin(0)
-      .setStrokeStyle(1, 0x39d0ff, 0.35)
+      .setStrokeStyle(1, 0x39_d0_ff, 0.35)
     this.buildCard()
     this.status = statusText(this, TOUCH ? 22 : 19)
     this.credits = rollCredits(this, this.lo.plr.score, (cr) => this.renderStatus(cr))
@@ -132,7 +132,9 @@ export class Shop extends Scene {
 
   private buildCard(): void {
     const { x, y, w, h } = CARD
-    this.add.rectangle(x, y + h / 2 - 8, w, h + 8, 0x05060d, 0.78).setStrokeStyle(1, 0x39d0ff, 0.35)
+    this.add
+      .rectangle(x, y + h / 2 - 8, w, h + 8, 0x05_06_0d, 0.78)
+      .setStrokeStyle(1, 0x39_d0_ff, 0.35)
     const icon = this.add.image(x, y + 64, "icon-0").setScale(1.15)
     const name = this.add
       .text(x, y + 142, "", { fontFamily: UI.font, fontSize: "26px", fontStyle: "bold" })
@@ -157,7 +159,7 @@ export class Shop extends Scene {
       .text(x, y + 290, "", { fontFamily: UI.font, fontSize: "18px", color: UI.gold })
       .setOrigin(0.5)
     const btn = this.add
-      .rectangle(x, y + 340, w - 60, TOUCH ? 76 : 52, 0x1d5c3a)
+      .rectangle(x, y + 340, w - 60, TOUCH ? 76 : 52, 0x1d_5c_3a)
       .setInteractive({ useHandCursor: true })
     btn.on("pointerup", () => this.tradeSelected())
     const btnLabel = this.add
@@ -232,9 +234,9 @@ export class Shop extends Scene {
     const tabFocus = this.focus === "tabs"
     this.tabs.forEach(({ bg, label }, i) => {
       const on = i === this.mode
-      bg.setFillStyle(on ? 0x1d3a5c : 0x10182a, 0.9)
-      if (on && tabFocus) bg.setStrokeStyle(3, 0xffffff, 1)
-      else bg.setStrokeStyle(2, on ? 0x39d0ff : 0x39465e, on ? 1 : 0.8)
+      bg.setFillStyle(on ? 0x1d_3a_5c : 0x10_18_2a, 0.9)
+      if (on && tabFocus) bg.setStrokeStyle(3, 0xff_ff_ff, 1)
+      else bg.setStrokeStyle(2, on ? 0x39_d0_ff : 0x39_46_5e, on ? 1 : 0.8)
       label.setColor(on ? "#ffffff" : UI.dim)
     })
     this.menu.setItems(this.listItems(), keep)
@@ -330,8 +332,8 @@ export class Shop extends Scene {
     c.desc.setText(dk ? t(dk) : "")
     const cost = inv.getCost(it)
     const poor = this.buying && (inv.full(it) || cost > this.lo.plr.score)
-    const fills = [0x1d5c3a, 0x5c1d2a, 0x1d3a5c]
-    const lines = [0x2effb4, 0xff5a6a, 0x39d0ff]
+    const fills = [0x1d_5c_3a, 0x5c_1d_2a, 0x1d_3a_5c]
+    const lines = [0x2e_ff_b4, 0xff_5a_6a, 0x39_d0_ff]
     c.btn.setFillStyle(fills[this.mode], poor ? 0.4 : 1)
     c.btn.setStrokeStyle(2, lines[this.mode], poor ? 0.3 : 0.9)
     c.btnLabel.setText(this.tradeLabel(it)).setAlpha(poor ? 0.5 : 1)

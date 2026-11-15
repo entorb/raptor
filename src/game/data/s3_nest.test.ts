@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { DIFF_HARD, MAP_COLS, MAP_SIZE, MAX_ONSCREEN } from "../sim/consts"
-import { EXP_ENERGY, F_GROUND, F_KAMI, F_LINEAR, F_REPEAT } from "../sim/enemy"
-import { Inventory, newPilotObjs } from "../sim/objects"
-import { NO_INPUT, World } from "../sim/world"
-import { NEST_LIB, NEST_WAVES, nestMap } from "./s3_nest"
+import { DIFF_HARD, MAP_COLS, MAP_SIZE, MAX_ONSCREEN } from "../sim/consts.ts"
+import { EXP_ENERGY, F_GROUND, F_KAMI, F_LINEAR, F_REPEAT } from "../sim/enemy.ts"
+import { Inventory, newPilotObjs } from "../sim/objects.ts"
+import { NO_INPUT, World } from "../sim/world.ts"
+import { NEST_LIB, NEST_WAVES, nestMap } from "./s3_nest.ts"
 
 const waves = Array.from({ length: NEST_WAVES }, (_, w) => nestMap(w))
 
@@ -12,7 +12,7 @@ describe("Bugger Nest data (web)", () => {
     expect(waves).toHaveLength(9)
     for (const m of waves) {
       expect(m?.flats).toHaveLength(MAP_SIZE)
-      expect(m?.tiles?.cells.every((c) => /^[0-3]{16}$/.test(c))).toBe(true)
+      expect(m?.tiles?.cells.every((c) => /^[0-3]{16}$/u.test(c))).toBe(true)
       expect(m?.tiles?.link.every((l) => l >= 0 && l < (m?.tiles?.cells.length ?? 0))).toBe(true)
       const structs = m?.tiles?.link.filter((l, i) => l !== i).length ?? 0
       expect(structs).toBeGreaterThanOrEqual(50)
@@ -56,6 +56,7 @@ describe("Bugger Nest data (web)", () => {
     }
   })
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
   it("difficulty adds spawns like Bravo: ~45% every level, ground and drops mostly for all", () => {
     const at = (sp: number[][], lv: number) => sp.filter((s) => s[5] === lv)
     const rookieHp = waves.map((m) =>

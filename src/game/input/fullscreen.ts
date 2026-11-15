@@ -1,5 +1,5 @@
 import type { Scene } from "phaser"
-import { isInstalled } from "../pwa"
+import { isInstalled } from "../pwa.ts"
 
 // iOS Safari (iPhone) has no Fullscreen API for canvas/div, so the button would
 // be a dead no-op there. Hide it wherever the browser can't fulfil the request.
@@ -9,7 +9,7 @@ function fullscreenAvailable(scene: Scene): boolean {
 
 /** No Fullscreen API (iPhone) and not installed: the Home Screen app is the way to fullscreen. */
 export function fullscreenNeedsInstall(scene: Scene): boolean {
-  return !fullscreenAvailable(scene) && !isInstalled()
+  return !(fullscreenAvailable(scene) || isInstalled())
 }
 
 export function toggleFullscreen(scene: Scene): void {

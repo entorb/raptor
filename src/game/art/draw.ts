@@ -7,17 +7,17 @@ export type Pt = [number, number]
 export function seeded(seed: number): () => number {
   let a = seed >>> 0
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0
+    a = (a + 0x6d_2b_79_f5) >>> 0
     let t = a
     t = Math.imul(t ^ (t >>> 15), t | 1)
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
   }
 }
 
 export function hashString(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ (s.codePointAt(i) as number), 16777619)
+  let h = 2_166_136_261
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ (s.codePointAt(i) as number), 16_777_619)
   return h >>> 0
 }
 
@@ -207,9 +207,9 @@ export function mod(a: number, n: number): number {
 }
 
 export function hash2(x: number, y: number, seed: number): number {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 144269)
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+  let h = Math.imul(x, 374_761_393) + Math.imul(y, 668_265_263) + Math.imul(seed, 144_269)
+  h = Math.imul(h ^ (h >>> 13), 1_274_126_177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4_294_967_296
 }
 
 export function vnoise(x: number, y: number, seed: number): number {

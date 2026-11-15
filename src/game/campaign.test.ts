@@ -1,6 +1,6 @@
 import { expect, it } from "vitest"
-import { runCampaignSelfCheck } from "./campaign"
-import { isPilotSave, newPilotSave } from "./data/save"
+import { runCampaignSelfCheck } from "./campaign.ts"
+import { isPilotSave, newPilotSave } from "./data/save.ts"
 
 it("campaign self-check", () => {
   expect(() => runCampaignSelfCheck()).not.toThrow()

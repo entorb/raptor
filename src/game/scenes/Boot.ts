@@ -1,8 +1,8 @@
 import { Scene } from "phaser"
-import { buildTextures } from "../art/textures"
-import { initAudio, SFX_FILES } from "../audio/audio"
-import { runCampaignSelfCheck } from "../campaign"
-import { loadSettings } from "../data/save"
+import { buildTextures } from "../art/textures.ts"
+import { initAudio, SFX_FILES } from "../audio/audio.ts"
+import { runCampaignSelfCheck } from "../campaign.ts"
+import { loadSettings } from "../data/save.ts"
 
 export class Boot extends Scene {
   constructor() {
@@ -10,7 +10,7 @@ export class Boot extends Scene {
   }
 
   preload(): void {
-    const bar = this.add.rectangle(480, 300, 4, 6, 0x39d0ff).setOrigin(0, 0.5)
+    const bar = this.add.rectangle(480, 300, 4, 6, 0x39_d0_ff).setOrigin(0, 0.5)
     bar.x = 280
     this.load.on("progress", (v: number) => {
       bar.width = 400 * v

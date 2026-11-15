@@ -1,24 +1,24 @@
 // Dev-only art review page (/raptor/review/art.html): every procedural sprite next to the original
 // picture from tmp/ref (if dumped), enemies grouped by the mission (wave) that spawns them.
 
-import { makeCanvas } from "../game/art/draw"
-import { drawDot, drawShard, drawShot, drawSmoke } from "../game/art/fx"
-import { drawPickup } from "../game/art/icons"
-import { hiveDeep, hiveSpores, hiveVeins } from "../game/art/s3_bugs"
-import { drawPlayer, drawUnit } from "../game/art/ships"
-import { buildField, CHUNK_ROWS, CHUNK_W, CHUNKS, RES, renderChunk } from "../game/art/terrain"
-import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures"
-import { libOf, TRAIN_WAVES, waveMap } from "../game/campaign"
-import { ENEMY_LIB, MAPS, PIC_SIZES } from "../game/data/ep1"
-import { SCALE } from "../game/data/playfield"
-import { NEST_LIB, NEST_WAVES } from "../game/data/s3_nest"
-import type { Sector } from "../game/data/save"
-import type { EnemyLib, WaveMap } from "../game/data/types"
-import { SPECIAL_KEYS } from "../game/input/gameInput"
-import { LAST_WEAPON, Obj } from "../game/sim/consts"
-import { OBJ_LIB } from "../game/sim/objects"
-import { makeShotLibs } from "../game/sim/shots"
-import { initFilter, waveVisible } from "./filter"
+import { makeCanvas } from "../game/art/draw.ts"
+import { drawDot, drawShard, drawShot, drawSmoke } from "../game/art/fx.ts"
+import { drawPickup } from "../game/art/icons.ts"
+import { hiveDeep, hiveSpores, hiveVeins } from "../game/art/s3_bugs.ts"
+import { drawPlayer, drawUnit } from "../game/art/ships.ts"
+import { buildField, CHUNK_ROWS, CHUNK_W, CHUNKS, RES, renderChunk } from "../game/art/terrain.ts"
+import { MODULES, STRUCT_KINDS, WRECK_KINDS } from "../game/art/textures.ts"
+import { libOf, TRAIN_WAVES, waveMap } from "../game/campaign.ts"
+import { ENEMY_LIB, MAPS, PIC_SIZES } from "../game/data/ep1.ts"
+import { SCALE } from "../game/data/playfield.ts"
+import { NEST_LIB, NEST_WAVES } from "../game/data/s3_nest.ts"
+import type { Sector } from "../game/data/save.ts"
+import type { EnemyLib, WaveMap } from "../game/data/types.ts"
+import { SPECIAL_KEYS } from "../game/input/gameInput.ts"
+import { LAST_WEAPON, Obj } from "../game/sim/consts.ts"
+import { OBJ_LIB } from "../game/sim/objects.ts"
+import { makeShotLibs } from "../game/sim/shots.ts"
+import { initFilter, waveVisible } from "./filter.ts"
 
 const REF = import.meta.glob("../../tmp/ref/*.png", {
   eager: true,
@@ -282,7 +282,7 @@ function enemyCard(
   })
   const tags = [e.bossflag ? "boss" : "", e.ground ? "ground" : "air"].filter(Boolean)
   const meta = `lib #${slib} · ${e.w}x${e.h} · hits ${e.hits} · $${e.money} · ${count}x in the map`
-  return card(e.iname.replace(/_PIC$/, ""), meta, tags, [...rows, ...refPic(`enemy_${e.iname}`)])
+  return card(e.iname.replace(/_PIC$/u, ""), meta, tags, [...rows, ...refPic(`enemy_${e.iname}`)])
 }
 
 /** Terrain of DOS map `index` (terrain seed) as `sec` renders it, tagged with the sector wave. */

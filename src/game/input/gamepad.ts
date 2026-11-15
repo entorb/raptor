@@ -42,6 +42,7 @@ export function initGamepad(): void {
   if (typeof navigator.getGamepads !== "function") return
   let held = new Set<number>()
   let running = false
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shortcut: existing complex logic, refactor when touched next
   const poll = () => {
     const now = new Set<number>()
     for (const pad of navigator.getGamepads()) if (pad) for (const k of padKeys(pad)) now.add(k)

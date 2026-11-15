@@ -3,9 +3,9 @@
 // widen into chambers with resin pillars, carry a chitin comb core (2) and glowing veins (3) at
 // their edges. Ground units get solid pads, crawlers a resin bridge; egg-cluster structures go on
 // fully solid tiles. Every map spot is its own tile, so the tile table is generated with it.
-import { cellOf, FH, FINE, FW, MAP_COLS, MAP_ROWS, MAP_SIZE } from "../sim/consts"
-import { Rng } from "../sim/rng"
-import type { TileSet } from "./types"
+import { cellOf, FH, FINE, FW, MAP_COLS, MAP_ROWS, MAP_SIZE } from "../sim/consts.ts"
+import { Rng } from "../sim/rng.ts"
+import type { TileSet } from "./types.ts"
 
 // Bravo structure mix (hit points / bounty per destroyed module)
 const HP = [5, 10, 15, 15, 20, 20, 25, 26]
