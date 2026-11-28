@@ -17,15 +17,15 @@
     "phaser": "4.2.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.7",
+    "@biomejs/biome": "^2.6.8",
     "ffmpeg-static": "^5.3.0",
-    "knip": "^6.45.1",
+    "knip": "^6.47.0",
     "playwright-core": "1.65.0",
     "terser": "^5.51.2",
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "engines": {
     "node": ">=26.13.1",
